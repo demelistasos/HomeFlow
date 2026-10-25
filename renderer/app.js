@@ -99,6 +99,7 @@ function defaultData() {
     transactions: [],
     recurring: [],
     tenants: [],
+    accounts: [],
     history: {}
   };
 }
@@ -108,6 +109,8 @@ function normalize(d) {
   d.transactions = (d.transactions || []).filter(t => t && t.date && t.categoryId).map(t => Object.assign({ note: '', person: '', method: '', planned: false, dayKnown: true, tenantId: '', recurringId: '' }, t, { amount: +t.amount || 0 }));
   d.recurring = (d.recurring || []).map(r => Object.assign({ every: 1, day: 1, note: '', person: '', method: '', active: true, skip: [], until: '' }, r));
   d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true, share: 100 }, t));
+  d.accounts = (d.accounts || []).map((a, i) => Object.assign({ bank: '', name: '', owner: '', currency: 'EUR', kind: 'current', archived: false, order: i, history: [] }, a));
+  d.settings.usdPerEur = +d.settings.usdPerEur || 1.16;
   d.history = d.history || {};
   return d;
 }
@@ -283,7 +286,7 @@ function render() {
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.page === ui.page));
   const page = $('#page');
   if (!DB) { page.innerHTML = welcomePage(); return; }
-  const fn = { home: homePage, list: listPage, rent: rentPage, recurring: recurringPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
+  const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
   page.innerHTML = fn();
   if (ui.page === 'list') { const q = $('#f-q'); if (q && ui._focusSearch) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); ui._focusSearch = false; } }
 }
@@ -542,6 +545,99 @@ function tenantPage(t) {
   ${led.later.length ? `<p class="muted">Υπάρχουν και ${led.later.length} πληρωμές με μελλοντική ημερομηνία, που έχουν αφαιρεθεί ήδη από την οφειλή.</p>` : ''}`;
 }
 
+// ---------- Χρήματα (λογαριασμοί) ----------
+const KINDS = [
+  ['current', 'Τρεχούμενοι λογαριασμοί', '🏦'], ['deposit', 'Προθεσμιακές', '🔒'], ['abroad', 'Λογαριασμοί στο εξωτερικό', '🌍'],
+  ['funds', 'Αμοιβαία κεφάλαια', '📊'], ['stocks', 'Μετοχές', '📈'], ['cash', 'Μετρητά', '💵'], ['other', 'Άλλα', '📦']
+];
+const kindLabel = k => (KINDS.find(x => x[0] === k) || KINDS[KINDS.length - 1]);
+const curSym = c => (c === 'USD' ? '$' : '€');
+const usdFmt = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n, c) => (c === 'USD' ? usdFmt.format(n || 0) : eur(n));
+const usd0Fmt = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+const lastBal = a => (a.history.length ? a.history[a.history.length - 1] : null);
+function balAt(a, date) { let b = null; for (const h of a.history) if (h.date <= date) b = h.balance; return b; }
+const toEur = (n, c) => (c === 'USD' ? n / (DB.settings.usdPerEur || 1.16) : n);
+function shortDate(d) { const x = new Date(d + 'T12:00'); return `${x.getDate()} ${MONTHS_SHORT[x.getMonth()]} ${x.getFullYear()}`; }
+function moneyTotals(date) {
+  const t = { EUR: 0, USD: 0 };
+  for (const a of DB.accounts) { if (a.archived) continue; const b = date ? balAt(a, date) : (lastBal(a) || {}).balance; if (b != null) t[a.currency] += b; }
+  t.all = t.EUR + toEur(t.USD, 'USD');
+  return t;
+}
+function moneyChart() {
+  // σύνολο σε € στο τέλος κάθε μήνα (τελευταίοι 12 μήνες με στοιχεία)
+  const dates = DB.accounts.flatMap(a => a.history.map(h => h.date)).sort();
+  if (!dates.length) return '';
+  const pts = [];
+  let s = dates[0].slice(0, 7);
+  const end = curYM();
+  for (let g = 0; s <= end && g < 240; s = addMonths(s, 1), g++) pts.push({ s, v: moneyTotals(`${s}-${pad(lastDay(s))}`).all });
+  const show = pts.slice(-12);
+  const W = 1000, H = 260, L = 70, B = 34, T = 14;
+  const max = Math.max(1, ...show.map(p => p.v));
+  const step = niceStep(max / 4), top = Math.ceil(max / step) * step;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const gw = (W - L - 10) / show.length;
+  let svg = '';
+  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" stroke="#e7e3da"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" fill="#6f7a75">${kfmt(v)}</text>`;
+  show.forEach((p, k) => {
+    const x = L + k * gw + gw * 0.18, bw = gw * 0.64;
+    svg += `<rect x="${x}" y="${y(p.v)}" width="${bw}" height="${y(0) - y(p.v)}" rx="4" fill="#0f4c47"><title>${ymLabel(p.s)}: ${eur0(p.v)}</title></rect>`;
+    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="14" fill="#4a5550">${MONTHS_SHORT[+p.s.slice(5) - 1]}${p.s.slice(5) === '01' ? " '" + p.s.slice(2, 4) : ''}</text>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>`;
+}
+function moneyPage() {
+  const t = moneyTotals();
+  const rate = DB.settings.usdPerEur || 1.16;
+  const accs = DB.accounts.filter(a => !a.archived);
+  const closed = DB.accounts.filter(a => a.archived);
+  const lastUpd = accs.map(a => (lastBal(a) || {}).date).filter(Boolean).sort().pop();
+  const yearStart = `${now.getFullYear()}-01-01`;
+  const t0 = moneyTotals(yearStart);
+  const byBank = {};
+  for (const a of accs) { const b = (lastBal(a) || {}).balance || 0; const k = a.bank || kindLabel(a.kind)[1]; byBank[k] = (byBank[k] || 0) + toEur(b, a.currency); }
+  const row = a => {
+    const lb = lastBal(a);
+    const prev = a.history.length > 1 ? a.history[a.history.length - 2] : null;
+    const diff = lb && prev ? lb.balance - prev.balance : 0;
+    return `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto auto">
+      <span class="ic">${kindLabel(a.kind)[2]}</span>
+      <span><div class="t1">${a.bank ? esc(a.bank) + ' · ' : ''}${esc(a.name)}</div>
+        <div class="t2">${esc(a.owner || '')}${lb ? `${a.owner ? ' · ' : ''}ενημ. ${shortDate(lb.date)}` : ''}${prev && Math.abs(diff) > 0.005 ? ` · <span class="${diff < 0 ? 'exp' : 'inc'}">${diff > 0 ? '+' : '−'}${money(Math.abs(diff), a.currency)}</span> από πριν` : ''}</div></span>
+      <span class="amt num">${lb ? money(lb.balance, a.currency) : '—'}</span>
+      <span style="display:flex;gap:.4rem"><button class="btn small primary" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button><button class="btn small ghost" data-action="acc-edit" data-id="${a.id}" title="Στοιχεία λογαριασμού">⚙</button></span>
+    </div>`;
+  };
+  const groups = KINDS.map(([k, label, icon]) => {
+    const list = accs.filter(a => a.kind === k).sort((x, y) => (x.bank || '').localeCompare(y.bank || '', 'el') || x.order - y.order);
+    if (!list.length) return '';
+    const sub = { EUR: 0, USD: 0 };
+    for (const a of list) sub[a.currency] += (lastBal(a) || {}).balance || 0;
+    return `<div class="panel"><h2>${icon} ${label} <span class="muted">${[sub.EUR ? eur(sub.EUR) : '', sub.USD ? usdFmt.format(sub.USD) : ''].filter(Boolean).join(' + ')}</span></h2><div class="tx-list">${list.map(row).join('')}</div></div>`;
+  }).join('');
+  const diffYear = t.all - t0.all;
+  return `
+  <div class="page-head"><h1>Χρήματα</h1><div class="spacer"></div>
+    <button class="btn primary no-print" data-action="acc-new">+ Νέος λογαριασμός</button>
+    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+  ${accs.length ? `
+  <div class="cards">
+    <div class="card bal"><div class="label">Όλα μαζί σε ευρώ</div><div class="value num">${eur0(t.all)}</div><div class="sub">${t0.all ? `Από 1 Ιανουαρίου: <b class="${diffYear < 0 ? 'exp' : 'inc'}">${diffYear >= 0 ? '+' : '−'}${eur0(Math.abs(diffYear))}</b>` : ''}</div></div>
+    <div class="card"><div class="label">Σε ευρώ</div><div class="value num">${eur0(t.EUR)}</div></div>
+    <div class="card"><div class="label">Σε δολάρια</div><div class="value num">${usd0Fmt.format(t.USD)}</div>
+      <div class="sub">Ισοτιμία: 1 € = ${String(rate).replace('.', ',')} $ <button class="btn small ghost no-print" data-action="rate-edit">✎ αλλαγή</button></div></div>
+  </div>
+  ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Όταν δείτε κίνηση στην τράπεζα, πατήστε «✎ Νέο υπόλοιπο» στον λογαριασμό.</div>` : ''}
+  <div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
+  <div class="panel"><h2>Ανά τράπεζα (σε €)</h2>
+      <div class="bars">${Object.entries(byBank).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar-row" style="cursor:default"><span class="ic">🏦</span><span><span class="nm">${esc(k)}</span><div class="track"><div class="fill" style="width:${Math.max(2, v / Math.max(...Object.values(byBank)) * 100)}%;background:var(--brand)"></div></div></span><span class="amt num">${eur0(v)}</span></div>`).join('')}</div></div>
+  ${groups}
+  ${closed.length ? `<div class="panel"><h2>🗄 Κλειστοί λογαριασμοί</h2><div class="tx-list">${closed.map(a => `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto"><span class="ic">🗄</span><span><div class="t1">${esc(a.bank)} · ${esc(a.name)}</div></span><button class="btn small" data-action="acc-edit" data-id="${a.id}">⚙</button></div>`).join('')}</div></div>` : ''}`
+    : `<div class="panel" style="max-width:46rem"><p style="font-size:1.1rem;margin-top:0">Εδώ βλέπετε όλα τα χρήματα μαζί: λογαριασμούς, προθεσμιακές, μετρητά.</p><button class="btn big primary" style="width:auto;padding:0 2rem" data-action="acc-new">+ Νέος λογαριασμός</button></div>`}`;
+}
+
 // ---------- Πάγια ----------
 function recurringPage() {
   const row = r => {
@@ -612,6 +708,53 @@ function syncDlg() {
     if (v('d-end') !== undefined) dlg.end = v('d-end');
   }
 }
+function balDiffHint(a, amt) {
+  const lb = lastBal(a);
+  if (!lb || amt === null || isNaN(amt)) return '';
+  const d = amt - lb.balance;
+  if (Math.abs(d) < 0.005) return 'Ίδιο με πριν.';
+  return `${d > 0 ? 'Αύξηση' : 'Μείωση'} <b class="${d > 0 ? 'inc' : 'exp'}">${money(Math.abs(d), a.currency)}</b> από την προηγούμενη φορά.`;
+}
+function syncMoney() {
+  if (!dlg) return;
+  const v = id => { const el = $('#' + id); return el ? el.value : undefined; };
+  if (v('d-amount') !== undefined) dlg.amountStr = v('d-amount');
+  if (v('d-date')) dlg.date = v('d-date');
+  if (v('d-bank') !== undefined) dlg.bank = v('d-bank').trim();
+  if (v('d-accname') !== undefined) dlg.name = v('d-accname').trim();
+  if (v('d-owner') !== undefined) dlg.owner = v('d-owner').trim();
+  const ar = $('#d-archived'); if (ar) dlg.archived = ar.checked;
+}
+function saveMoneyDlg() {
+  syncMoney();
+  const d = dlg;
+  const fail = msg => { d.error = msg; renderDlg(); };
+  if (d.kind === 'bal') {
+    const a = DB.accounts.find(x => x.id === d.id);
+    const amt = parseAmount(d.amountStr);
+    if (amt === null || isNaN(amt)) return fail('Γράψτε το υπόλοιπο.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return fail('Η ημερομηνία δεν είναι σωστή.');
+    const before = a.history.slice();
+    a.history = a.history.filter(h => h.date !== d.date);
+    a.history.push({ date: d.date, balance: amt });
+    a.history.sort((x, y) => x.date.localeCompare(y.date));
+    dlg = null; renderDlg(); persist(); render();
+    toast(`${a.bank ? a.bank + ' · ' : ''}${a.name}: ${money(amt, a.currency)}`, () => { a.history = before; persist(); render(); });
+    return;
+  }
+  if (!d.name && !d.bank) return fail('Γράψτε τράπεζα ή όνομα λογαριασμού.');
+  if (d.id) {
+    const a = DB.accounts.find(x => x.id === d.id);
+    Object.assign(a, { bank: d.bank, name: d.name, owner: d.owner, currency: d.currency, kind: d.kind2, archived: !!d.archived });
+  } else {
+    const amt = d.amountStr ? parseAmount(d.amountStr) : 0;
+    if (isNaN(amt)) return fail('Το υπόλοιπο δεν είναι σωστό ποσό.');
+    DB.accounts.push({ id: 'a' + uid(), bank: d.bank, name: d.name, owner: d.owner, currency: d.currency, kind: d.kind2, archived: false,
+      order: DB.accounts.length, history: [{ date: todayStr(), balance: amt || 0 }] });
+  }
+  dlg = null; renderDlg(); persist(); render();
+  toast(d.id ? 'Ο λογαριασμός αποθηκεύτηκε.' : 'Νέος λογαριασμός.');
+}
 function syncLeave() { const el = $('#d-end'); if (dlg && dlg.kind === 'leave' && el && el.value) dlg.end = el.value; }
 function renderDlg() {
   const root = $('#modal-root');
@@ -640,6 +783,40 @@ function renderDlg() {
         ${(DB.settings.persons || []).length ? `<div class="field"><div class="flabel">Ποιος;</div>${chipsHtml(['', ...DB.settings.persons], d.person, 'dlg-person', 'Όλοι / —')}</div>` : ''}
         <div class="field"><div class="flabel">Πώς;</div>${chipsHtml(['', ...(DB.settings.methods || [])], d.method, 'dlg-method', '—')}</div>
       </div>`;
+  } else if (d.kind === 'bal') {
+    const a = DB.accounts.find(x => x.id === d.id);
+    const lb = lastBal(a);
+    const amt = parseAmount(d.amountStr);
+    head = 'neutral';
+    title = `Νέο υπόλοιπο: ${esc(a.bank ? a.bank + ' · ' : '')}${esc(a.name)}`;
+    body = `
+      ${lb ? `<div style="font-size:1.1rem">Τελευταίο υπόλοιπο: <b>${money(lb.balance, a.currency)}</b> στις ${shortDate(lb.date)}</div>` : ''}
+      <div class="field"><label for="d-amount">Πόσα έχει τώρα ο λογαριασμός;</label>
+        <div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" autocomplete="off" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">${curSym(a.currency)}</span></div>
+        <div id="d-baldiff" class="amount-calc" style="margin-top:.4rem">${balDiffHint(a, amt)}</div></div>
+      <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>`;
+  } else if (d.kind === 'acc') {
+    head = 'neutral';
+    title = d.id ? 'Στοιχεία λογαριασμού' : 'Νέος λογαριασμός';
+    const banks = [...new Set(DB.accounts.map(a => a.bank).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'el'));
+    const owners = [...new Set([...DB.accounts.map(a => a.owner), ...(DB.settings.persons || [])].filter(Boolean))];
+    const a = d.id ? DB.accounts.find(x => x.id === d.id) : null;
+    body = `
+      <div class="row">
+        <div class="field"><label for="d-bank">Τράπεζα</label><input id="d-bank" type="text" style="width:100%" value="${esc(d.bank)}" placeholder="π.χ. ΕΤΕ">
+          ${banks.length ? `<div class="chips" style="margin-top:.4rem">${banks.map(b => `<button class="chip ${d.bank === b ? 'sel' : ''}" data-action="dlg-bank" data-v="${esc(b)}">${esc(b)}</button>`).join('')}</div>` : ''}</div>
+        <div class="field"><label for="d-accname">Όνομα ή αριθμός λογαριασμού</label><input id="d-accname" type="text" style="width:100%" value="${esc(d.name)}" placeholder="π.χ. 795 ή Μισθοδοσία"></div>
+      </div>
+      <div class="field"><label for="d-owner">Ποιανού;</label><input id="d-owner" type="text" style="width:100%" value="${esc(d.owner)}">
+        ${owners.length ? `<div class="chips" style="margin-top:.4rem">${owners.map(o => `<button class="chip ${d.owner === o ? 'sel' : ''}" data-action="dlg-owner" data-v="${esc(o)}">${esc(o)}</button>`).join('')}</div>` : ''}</div>
+      <div class="row">
+        <div class="field"><div class="flabel">Νόμισμα</div><div class="chips"><button class="chip ${d.currency === 'EUR' ? 'sel' : ''}" data-action="dlg-cur" data-v="EUR">€ Ευρώ</button><button class="chip ${d.currency === 'USD' ? 'sel' : ''}" data-action="dlg-cur" data-v="USD">$ Δολάρια</button></div></div>
+        ${d.id ? '' : `<div class="field"><label for="d-amount">Υπόλοιπο σήμερα</label><div class="amount-wrap"><input id="d-amount" class="num" style="width:12rem" inputmode="decimal" value="${esc(d.amountStr)}" placeholder="0,00"><span style="font-weight:700">${curSym(d.currency)}</span></div></div>`}
+      </div>
+      <div class="field"><div class="flabel">Είδος</div><div class="chips">${KINDS.map(([k, l, i]) => `<button class="chip ${d.kind2 === k ? 'sel' : ''}" data-action="dlg-kind" data-v="${k}">${i} ${l}</button>`).join('')}</div></div>
+      ${a ? `<div class="field"><div class="flabel">Ιστορικό υπολοίπων</div>
+        <table class="data" style="max-width:32rem"><tbody>${a.history.slice().reverse().map((h, i) => `<tr style="cursor:default"><td>${shortDate(h.date)}</td><td class="r num"><b>${money(h.balance, a.currency)}</b></td><td style="width:3rem">${a.history.length > 1 ? `<button class="btn small ghost" data-action="acc-hist-del" data-i="${a.history.length - 1 - i}" title="Σβήσιμο">🗑</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
+      <label class="check"><input type="checkbox" id="d-archived" ${d.archived ? 'checked' : ''}> Ο λογαριασμός έκλεισε (να μη μετράει στα σύνολα)</label>` : ''}`;
   } else if (d.kind === 'leave') {
     const t = tenantById(d.id);
     head = 'neutral';
@@ -695,6 +872,7 @@ function renderDlg() {
   </div>`;
 }
 function saveDlg() {
+  if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
     syncLeave();
     const t = tenantById(dlg.id);
@@ -1271,6 +1449,25 @@ const actions = {
   'dlg-clear-end': () => { syncDlg(); dlg.end = ''; renderDlg(); },
   'dlg-share': el => { syncDlg(); dlg.shareStr = el.dataset.v; renderDlg(); },
   'dlg-end': el => { dlg.end = el.dataset.v; dlg.error = ''; renderDlg(); },
+  'acc-update': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); const lb = lastBal(a); dlg = { kind: 'bal', id: a.id, amountStr: lb ? numFmt.format(lb.balance).replace(/\./g, '') : '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) { i.focus(); i.select(); } }, 30); },
+  'acc-new': () => { dlg = { kind: 'acc', id: null, bank: '', name: '', owner: '', currency: 'EUR', kind2: 'current', amountStr: '', archived: false, error: '' }; renderDlg(); },
+  'acc-edit': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); dlg = { kind: 'acc', id: a.id, bank: a.bank, name: a.name, owner: a.owner, currency: a.currency, kind2: a.kind, archived: a.archived, error: '' }; renderDlg(); },
+  'acc-hist-del': el => {
+    const a = DB.accounts.find(x => x.id === dlg.id); const i = +el.dataset.i; const h = a.history[i];
+    if (!h || !confirm(`Να σβηστεί το υπόλοιπο ${money(h.balance, a.currency)} της ${shortDate(h.date)};`)) return;
+    syncMoney(); a.history.splice(i, 1); persist(); renderDlg();
+  },
+  'dlg-bank': el => { syncMoney(); dlg.bank = el.dataset.v; renderDlg(); },
+  'dlg-owner': el => { syncMoney(); dlg.owner = el.dataset.v; renderDlg(); },
+  'dlg-cur': el => { syncMoney(); dlg.currency = el.dataset.v; renderDlg(); },
+  'dlg-kind': el => { syncMoney(); dlg.kind2 = el.dataset.v; renderDlg(); },
+  'rate-edit': () => {
+    const r = prompt('Ισοτιμία: 1 ευρώ = πόσα δολάρια; (π.χ. 1,16)', String(DB.settings.usdPerEur || 1.16).replace('.', ','));
+    if (r === null) return;
+    const v = parseFloat(r.replace(',', '.'));
+    if (!(v > 0.3 && v < 3)) { alert('Η ισοτιμία δεν φαίνεται σωστή.'); return; }
+    DB.settings.usdPerEur = v; persist(); render();
+  },
   'tenant-leave': el => { dlg = { kind: 'leave', id: el.dataset.id, end: curYM(), error: '' }; renderDlg(); },
   'tenant-unleave': el => {
     const t = tenantById(el.dataset.id); if (!t) return;
@@ -1383,7 +1580,11 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('input', ev => {
   const t = ev.target;
-  if (t.id === 'd-amount' && dlg) { dlg.amountStr = t.value; const c = $('#d-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value)); return; }
+  if (t.id === 'd-amount' && dlg) {
+    dlg.amountStr = t.value; const c = $('#d-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value));
+    const bd = $('#d-baldiff'); if (bd && dlg.kind === 'bal') bd.innerHTML = balDiffHint(DB.accounts.find(x => x.id === dlg.id), parseAmount(t.value));
+    return;
+  }
   if (t.id === 'fm-amount' && form) {
     form.amountStr = t.value; const c = $('#fm-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value));
     const sh = $('#fm-share'); if (sh) sh.innerHTML = shareHint(form, parseAmount(t.value));
