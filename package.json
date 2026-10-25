@@ -8,12 +8,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win --publish never",
-    "release": "electron-builder --win --publish always"
+    "dist": "electron-builder --publish never"
   },
-  "dependencies": {
-    "electron-updater": "^6.3.9"
-  },
+  "dependencies": {},
   "devDependencies": {
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8"
@@ -34,35 +31,25 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "zip",
           "arch": [
             "x64"
           ]
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "HomeFlow-Setup-${version}.${ext}"
+      "artifactName": "HomeFlow-Windows-${version}.${ext}",
+      "extraFiles": [
+        {
+          "from": "build/ΔΙΑΒΑΣΕ ΜΕ.txt",
+          "to": "ΔΙΑΒΑΣΕ ΜΕ.txt"
+        }
+      ]
     },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "HomeFlow",
-      "runAfterFinish": true
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "demelistasos",
-        "repo": "HomeFlow",
-        "releaseType": "release"
-      }
-    ],
     "mac": {
       "target": [
         {
-          "target": "dmg",
+          "target": "zip",
           "arch": [
             "universal"
           ]
@@ -71,10 +58,7 @@
       "icon": "build/icon.png",
       "category": "public.app-category.finance",
       "identity": "-",
-      "artifactName": "HomeFlow-${version}-mac.${ext}"
-    },
-    "dmg": {
-      "title": "HomeFlow"
+      "artifactName": "HomeFlow-Mac-${version}.${ext}"
     }
   }
 }

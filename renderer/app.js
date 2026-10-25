@@ -931,7 +931,7 @@ function settingsPage() {
 
   <div class="panel set-section">
     <h2>🔄 Έκδοση</h2>
-    <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Οι νέες εκδόσεις κατεβαίνουν μόνες τους.</p>
+    <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω με κουμπί «Κατέβασμα».</p>
     <button class="btn" data-action="check-updates">Έλεγχος για νέα έκδοση</button>
     <span id="upd-msg" class="muted" style="margin-left:.8rem"></span>
   </div>`;
@@ -1277,7 +1277,6 @@ const actions = {
     if (r.status === 'dev') m.textContent = 'Δοκιμαστική λειτουργία – δεν ελέγχεται.';
     else if (r.status === 'error') m.textContent = 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).';
   },
-  'install-update': () => window.homeflow.installUpdate(),
   'open-url': el => window.open(el.dataset.url, '_blank'),
   'welcome-fresh': () => { DB = defaultData(); persist(); render(); },
   'welcome-import': () => importFlow(false)
@@ -1371,12 +1370,11 @@ if (window.homeflow) {
   window.homeflow.onUpdate(s => {
     const b = $('#update-banner');
     const m = $('#upd-msg');
-    if (s.status === 'ready') {
-      b.innerHTML = `🎉 Νέα έκδοση ${esc(s.version)} είναι έτοιμη. <button class="btn small" data-action="install-update">Επανεκκίνηση τώρα</button> <span style="font-weight:500">(ή θα μπει μόνη της στο επόμενο κλείσιμο)</span>`;
-      b.classList.remove('hidden');
-    }
     if (s.status === 'manual') {
-      b.innerHTML = `🎉 Υπάρχει νέα έκδοση ${esc(s.version)}. <button class="btn small" data-action="open-url" data-url="${esc(s.url)}">Κατέβασμα</button> <span style="font-weight:500">(ανοίξτε το .dmg και σύρετε το HomeFlow στις Εφαρμογές)</span>`;
+      const how = s.platform === 'darwin'
+        ? 'Κατεβάστε το zip, ανοίξτε το και βάλτε το νέο HomeFlow στις Εφαρμογές στη θέση του παλιού.'
+        : 'Κλείστε το HomeFlow, κατεβάστε το zip και βάλτε τον νέο φάκελο στη θέση του παλιού.';
+      b.innerHTML = `🎉 Υπάρχει νέα έκδοση ${esc(s.version)}. <button class="btn small" data-action="open-url" data-url="${esc(s.url)}">Κατέβασμα</button> <span style="font-weight:500">${how} Τα στοιχεία σας δεν χάνονται.</span>`;
       b.classList.remove('hidden');
     }
     if (m) m.textContent = { manual: `Υπάρχει νέα έκδοση ${s.version}.`, checking: 'Έλεγχος…', latest: 'Έχετε την πιο νέα έκδοση ✓', downloading: 'Κατεβαίνει νέα έκδοση…', progress: `Κατέβασμα ${s.percent || 0}%…`, ready: `Η έκδοση ${s.version} είναι έτοιμη.`, error: 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).' }[s.status] || '';

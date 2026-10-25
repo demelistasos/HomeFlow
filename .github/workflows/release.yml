@@ -2,8 +2,8 @@ name: Build HomeFlow (Windows και Mac)
 
 # Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>).
 # Ανεβαίνουν ΔΥΟ χωριστές εκδόσεις στα Releases:
-#   v0.1.N      -> Windows (η «Latest», από εκεί ενημερώνεται αυτόματα)
-#   mac-v0.1.N  -> Mac
+#   v0.1.N      -> Windows (HomeFlow-Windows-0.1.N.zip)
+#   mac-v0.1.N  -> Mac     (HomeFlow-Mac-0.1.N.zip)
 on:
   push:
     branches: [main]
@@ -52,11 +52,7 @@ jobs:
         with:
           name: dist-${{ matrix.os }}
           if-no-files-found: error
-          path: |
-            dist/*.exe
-            dist/*.exe.blockmap
-            dist/latest.yml
-            dist/*.dmg
+          path: dist/HomeFlow-*.zip
 
   release:
     needs: build
@@ -73,21 +69,21 @@ jobs:
         run: |
           ls -la out
           V="0.1.${{ github.run_number }}"
-          gh release create "mac-v$V" out/*.dmg \
+          gh release create "mac-v$V" "out/HomeFlow-Mac-$V.zip" \
             --repo "${{ github.repository }}" \
             --title "HomeFlow $V για Mac" \
             --target "${{ github.sha }}" \
             --latest=false \
-            --notes "Κατεβάστε το HomeFlow-$V-mac.dmg, ανοίξτε το και σύρετε το HomeFlow στις Εφαρμογές. Δουλεύει σε Apple Silicon και Intel."
+            --notes "Κατεβάστε το HomeFlow-Mac-$V.zip, ανοίξτε το και σύρετε το HomeFlow στις Εφαρμογές (στη θέση του παλιού). Δουλεύει σε Apple Silicon και Intel. Τα στοιχεία σας δεν χάνονται."
 
       - name: Έκδοση για Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           V="0.1.${{ github.run_number }}"
-          gh release create "v$V" out/*.exe out/*.exe.blockmap out/latest.yml \
+          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" \
             --repo "${{ github.repository }}" \
             --title "HomeFlow $V για Windows" \
             --target "${{ github.sha }}" \
             --latest \
-            --notes "Κατεβάστε το HomeFlow-Setup-$V.exe. Αν είναι ήδη εγκατεστημένο, ενημερώνεται μόνο του."
+            --notes "Κατεβάστε το HomeFlow-Windows-$V.zip, αποσυμπιέστε το και ανοίξτε το HomeFlow.exe. Αν έχετε παλιά έκδοση, βάλτε τον νέο φάκελο στη θέση του παλιού. Τα στοιχεία σας δεν χάνονται. Οδηγίες στο «ΔΙΑΒΑΣΕ ΜΕ.txt»."

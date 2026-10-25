@@ -11,6 +11,5 @@ contextBridge.exposeInMainWorld('homeflow', {
   saveAs: (text, defaultName, kind) => ipcRenderer.invoke('data:saveAs', { text, defaultName, kind }),
   print: () => ipcRenderer.invoke('app:print'),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
-  installUpdate: () => ipcRenderer.invoke('update:install'),
   onUpdate: cb => ipcRenderer.on('update:status', (_e, s) => cb(s))
 });

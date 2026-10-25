@@ -164,14 +164,13 @@ ipcMain.handle('app:print', () => {
 });
 
 // ---------- ενημερώσεις ----------
-// Windows: εκδόσεις με tag "v0.1.N" -> αυτόματο κατέβασμα και εγκατάσταση.
-// Mac:     εκδόσεις με tag "mac-v0.1.N" -> ειδοποίηση με κουμπί «Κατέβασμα»
-//          (η αυτόματη εγκατάσταση στο Mac θέλει πληρωμένη υπογραφή Apple).
+// Δεν εγκαθίσταται τίποτα αυτόματα. Η εφαρμογή απλώς κοιτάει στο GitHub
+// αν υπάρχει νεότερη έκδοση και δείχνει ειδοποίηση με κουμπί «Κατέβασμα».
+//   Windows: tag "v0.1.N"     Mac: tag "mac-v0.1.N"
 const REPO = 'demelistasos/HomeFlow';
-const IS_MAC = process.platform === 'darwin';
-let updater = null;
+const TAG = process.platform === 'darwin' ? /^mac-v(\d[\d.]*)$/ : /^v(\d[\d.]*)$/;
 function send(status, extra = {}) {
-  if (win && !win.isDestroyed()) win.webContents.send('update:status', { status, ...extra });
+  if (win && !win.isDestroyed()) win.webContents.send('update:status', { status, platform: process.platform, ...extra });
 }
 function newer(a, b) {
   const x = a.split('.').map(Number), y = b.split('.').map(Number);
@@ -180,19 +179,18 @@ function newer(a, b) {
   }
   return false;
 }
-async function checkMac() {
+async function checkUpdates() {
   send('checking');
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, {
       headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'HomeFlow' }
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const list = await r.json();
     let best = null;
-    for (const rel of list) {
-      if (rel.draft || !/^mac-v\d/.test(rel.tag_name)) continue;
-      const v = rel.tag_name.slice(5);
-      if (!best || newer(v, best.version)) best = { version: v, url: rel.html_url };
+    for (const rel of await r.json()) {
+      const m = !rel.draft && TAG.exec(rel.tag_name);
+      if (!m) continue;
+      if (!best || newer(m[1], best.version)) best = { version: m[1], url: rel.html_url };
     }
     if (best && newer(best.version, app.getVersion())) send('manual', best);
     else send('latest');
@@ -200,33 +198,16 @@ async function checkMac() {
     send('error', { message: e.message });
   }
 }
-function checkNow() {
-  if (IS_MAC) return checkMac();
-  if (updater) return updater.checkForUpdates().catch(() => {});
-}
 function setupUpdates() {
   if (!app.isPackaged) return;
-  if (!IS_MAC) {
-    try { updater = require('electron-updater').autoUpdater; } catch { return; }
-    updater.autoDownload = true;
-    updater.autoInstallOnAppQuit = true;
-    updater.on('checking-for-update', () => send('checking'));
-    updater.on('update-available', info => send('downloading', { version: info.version }));
-    updater.on('update-not-available', () => send('latest'));
-    updater.on('download-progress', p => send('progress', { percent: Math.round(p.percent || 0) }));
-    updater.on('update-downloaded', info => send('ready', { version: info.version }));
-    updater.on('error', err => send('error', { message: String(err && err.message || err) }));
-  }
-  setTimeout(checkNow, 4000);
-  // Έλεγχος και κάθε 4 ώρες αν μένει ανοιχτό
-  setInterval(checkNow, 4 * 60 * 60 * 1000);
+  setTimeout(checkUpdates, 4000);
+  setInterval(checkUpdates, 4 * 60 * 60 * 1000);
 }
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { status: 'dev' };
-  checkNow();
+  checkUpdates();
   return { status: 'checking' };
 });
-ipcMain.handle('update:install', () => { if (updater) updater.quitAndInstall(false, true); });
 
 // ---------- εκκίνηση ----------
 if (!app.requestSingleInstanceLock()) {
