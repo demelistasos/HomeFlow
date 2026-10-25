@@ -4,12 +4,12 @@
 
 ## Ποιο αρχείο κατεβάζω
 
-Στα [Releases](https://github.com/demelistasos/HomeFlow/releases), κάθε έκδοση βγαίνει δύο φορές:
+Ανοίξτε την [τελευταία έκδοση](https://github.com/demelistasos/HomeFlow/releases/latest). Έχει δύο αρχεία:
 
-| Τίτλος έκδοσης | Αρχείο |
+| Υπολογιστής | Αρχείο |
 |---|---|
-| **HomeFlow 0.1.N για Windows** | `HomeFlow-Windows-0.1.N.zip` |
-| **HomeFlow 0.1.N για Mac** | `HomeFlow-Mac-0.1.N.zip` |
+| **Windows** | `HomeFlow-Windows-0.1.N.zip` |
+| **Mac** | `HomeFlow-Mac-0.1.N.zip` |
 
 ## Windows
 
@@ -41,7 +41,7 @@
 
 ## Για προγραμματιστές
 
-Κάθε αλλαγή στο `main` φτιάχνει αυτόματα (GitHub Actions) δύο εκδόσεις: `v0.1.N` για Windows και `mac-v0.1.N` για Mac.
+Κάθε αλλαγή στο `main` φτιάχνει αυτόματα (GitHub Actions) μία έκδοση `v0.1.N` με ένα zip για Windows και ένα για Mac.
 
 ```
 npm install

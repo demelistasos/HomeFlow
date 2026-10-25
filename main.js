@@ -166,9 +166,9 @@ ipcMain.handle('app:print', () => {
 // ---------- ενημερώσεις ----------
 // Δεν εγκαθίσταται τίποτα αυτόματα. Η εφαρμογή απλώς κοιτάει στο GitHub
 // αν υπάρχει νεότερη έκδοση και δείχνει ειδοποίηση με κουμπί «Κατέβασμα».
-//   Windows: tag "v0.1.N"     Mac: tag "mac-v0.1.N"
+// Κάθε έκδοση (tag "v0.1.N") έχει ένα zip για Windows και ένα για Mac.
 const REPO = 'demelistasos/HomeFlow';
-const TAG = process.platform === 'darwin' ? /^mac-v(\d[\d.]*)$/ : /^v(\d[\d.]*)$/;
+const TAG = /^v(\d[\d.]*)$/;
 function send(status, extra = {}) {
   if (win && !win.isDestroyed()) win.webContents.send('update:status', { status, platform: process.platform, ...extra });
 }

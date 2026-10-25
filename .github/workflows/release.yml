@@ -1,9 +1,8 @@
 name: Build HomeFlow (Windows και Mac)
 
 # Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>).
-# Ανεβαίνουν ΔΥΟ χωριστές εκδόσεις στα Releases:
-#   v0.1.N      -> Windows (HomeFlow-Windows-0.1.N.zip)
-#   mac-v0.1.N  -> Mac     (HomeFlow-Mac-0.1.N.zip)
+# Ανεβαίνει ΜΙΑ έκδοση (v0.1.N) με δύο αρχεία:
+#   HomeFlow-Windows-0.1.N.zip  και  HomeFlow-Mac-0.1.N.zip
 on:
   push:
     branches: [main]
@@ -63,27 +62,15 @@ jobs:
           path: out
           merge-multiple: true
 
-      - name: Έκδοση για Mac
+      - name: Δημοσίευση στα Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ls -la out
           V="0.1.${{ github.run_number }}"
-          gh release create "mac-v$V" "out/HomeFlow-Mac-$V.zip" \
+          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" "out/HomeFlow-Mac-$V.zip" \
             --repo "${{ github.repository }}" \
-            --title "HomeFlow $V για Mac" \
-            --target "${{ github.sha }}" \
-            --latest=false \
-            --notes "Κατεβάστε το HomeFlow-Mac-$V.zip, ανοίξτε το και σύρετε το HomeFlow στις Εφαρμογές (στη θέση του παλιού). Δουλεύει σε Apple Silicon και Intel. Τα στοιχεία σας δεν χάνονται."
-
-      - name: Έκδοση για Windows
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          V="0.1.${{ github.run_number }}"
-          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" \
-            --repo "${{ github.repository }}" \
-            --title "HomeFlow $V για Windows" \
+            --title "HomeFlow $V" \
             --target "${{ github.sha }}" \
             --latest \
-            --notes "Κατεβάστε το HomeFlow-Windows-$V.zip, αποσυμπιέστε το και ανοίξτε το HomeFlow.exe. Αν έχετε παλιά έκδοση, βάλτε τον νέο φάκελο στη θέση του παλιού. Τα στοιχεία σας δεν χάνονται. Οδηγίες στο «ΔΙΑΒΑΣΕ ΜΕ.txt»."
+            --notes "Windows: κατεβάστε το HomeFlow-Windows-$V.zip, αποσυμπιέστε το και ανοίξτε το HomeFlow.exe (οδηγίες στο «ΔΙΑΒΑΣΕ ΜΕ.txt»). Mac: κατεβάστε το HomeFlow-Mac-$V.zip και βάλτε το HomeFlow στις Εφαρμογές. Αν έχετε παλιά έκδοση, βάλτε τη νέα στη θέση της. Τα στοιχεία σας δεν χάνονται."
