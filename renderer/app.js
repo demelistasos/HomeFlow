@@ -487,9 +487,11 @@ function rentPage() {
       <div class="tenant-bal">${balanceText(led.balance)}</div>
       <div class="muted" style="font-size:.95rem">${last ? `Τελευταία πληρωμή: <b>${eur(paidOf(last))}</b> ${last.dayKnown === false ? 'τον' : 'στις'} ${esc(dateLabel(last))}` : 'Δεν έχει καταγραφεί πληρωμή.'}</div>
       ${shareOf(t) !== 100 ? `<div class="muted" style="font-size:.95rem">Δικό μας το ${shareOf(t)}%: ${eur(currentRent(t) * shareOf(t) / 100)} τον μήνα</div>` : ''}
+      ${t.end && t.end < s ? `<div class="muted" style="font-size:.95rem">🚪 Έφυγε· τελευταίος μήνας ${ymLabel(t.end)}. Ξενοίκιαστο από ${ymLabel(addMonths(t.end, 1))}.</div>` : ''}
       <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
-        <button class="btn income" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>
+        ${t.end && t.end < s && led.balance <= 0.005 ? '' : `<button class="btn income" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>`}
         <button class="btn" data-action="tenant-open" data-id="${t.id}">📒 Καρτέλα</button>
+        ${t.end && t.end < s ? `<button class="btn ghost" data-action="tenant-unleave" data-id="${t.id}">↩ Δεν έφυγε</button>` : `<button class="btn ghost" data-action="tenant-leave" data-id="${t.id}">🚪 Ξενοικιάστηκε</button>`}
       </div>
     </div>`;
   };
@@ -504,7 +506,7 @@ function rentPage() {
     <div class="card exp"><div class="label">Χρωστάνε συνολικά</div><div class="value exp num">${eur(owed)}</div><div class="sub">μαζί με παλιές οφειλές</div></div>
   </div>
   <div class="tenant-grid">${active.map(card).join('')}</div>
-  ${gone.length ? `<h2 style="margin-top:1.6rem">Παλιοί ενοικιαστές</h2><div class="tenant-grid">${gone.map(card).join('')}</div>` : ''}`
+  ${gone.length ? `<h2 style="margin-top:1.6rem">🚪 Έφυγαν <span class="muted" style="font-size:1rem;font-weight:500">(ξενοίκιαστα)</span></h2><div class="tenant-grid">${gone.map(card).join('')}</div>` : ''}`
     : `<div class="panel" style="max-width:46rem"><p style="font-size:1.1rem;margin-top:0">Δεν έχετε βάλει ενοικιαστές ακόμα.</p><p class="muted">Για κάθε ενοικιαστή γράφετε το όνομα και το ενοίκιο. Μετά, κάθε φορά που πληρώνει, πατάτε «Πλήρωσε». Η εφαρμογή βρίσκει μόνη της ποιος χρωστάει και πόσα, και η πληρωμή μπαίνει αυτόματα στα έσοδα.</p><button class="btn big primary" style="width:auto;padding:0 2rem" data-action="tenant-new">+ Νέος ενοικιαστής</button></div>`}`;
 }
 function tenantPage(t) {
@@ -517,6 +519,7 @@ function tenantPage(t) {
     <div class="spacer"></div>
     <button class="btn income no-print" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>
     <button class="btn no-print" data-action="tenant-edit" data-id="${t.id}">✎ Στοιχεία</button>
+    ${t.end && t.end < curYM() ? `<button class="btn no-print" data-action="tenant-unleave" data-id="${t.id}">↩ Δεν έφυγε</button>` : `<button class="btn no-print" data-action="tenant-leave" data-id="${t.id}">🚪 Ξενοικιάστηκε</button>`}
     <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
   </div>
   <div class="cards">
@@ -609,6 +612,7 @@ function syncDlg() {
     if (v('d-end') !== undefined) dlg.end = v('d-end');
   }
 }
+function syncLeave() { const el = $('#d-end'); if (dlg && dlg.kind === 'leave' && el && el.value) dlg.end = el.value; }
 function renderDlg() {
   const root = $('#modal-root');
   if (!dlg) { root.innerHTML = ''; return; }
@@ -636,6 +640,18 @@ function renderDlg() {
         ${(DB.settings.persons || []).length ? `<div class="field"><div class="flabel">Ποιος;</div>${chipsHtml(['', ...DB.settings.persons], d.person, 'dlg-person', 'Όλοι / —')}</div>` : ''}
         <div class="field"><div class="flabel">Πώς;</div>${chipsHtml(['', ...(DB.settings.methods || [])], d.method, 'dlg-method', '—')}</div>
       </div>`;
+  } else if (d.kind === 'leave') {
+    const t = tenantById(d.id);
+    head = 'neutral';
+    title = `🚪 Ξενοικιάστηκε: ${esc(t.name)}`;
+    body = `
+      <p style="margin:0;font-size:1.1rem">Ποιος είναι ο <b>τελευταίος μήνας</b> που χρεώνεται ενοίκιο; Από τον επόμενο μήνα το ακίνητο${t.property ? ` (${esc(t.property)})` : ''} φαίνεται ξενοίκιαστο και δεν γράφεται άλλη οφειλή.</p>
+      <div class="chips">
+        <button class="chip ${d.end === addMonths(curYM(), -1) ? 'sel' : ''}" data-action="dlg-end" data-v="${addMonths(curYM(), -1)}">Ο προηγούμενος μήνας (${ymLabel(addMonths(curYM(), -1))})</button>
+        <button class="chip ${d.end === curYM() ? 'sel' : ''}" data-action="dlg-end" data-v="${curYM()}">Αυτός ο μήνας (${ymLabel(curYM())})</button>
+      </div>
+      <div class="field"><label for="d-end">ή διαλέξτε μήνα</label><input id="d-end" type="month" value="${esc(d.end)}"></div>
+      ${(() => { const b = tenantLedger({ ...t, end: d.end || t.end }).balance; return b > 0.005 ? `<div class="notice" style="margin:0">Με αυτόν τον μήνα, ο ${esc(t.name)} θα χρωστάει <b>${eur(b)}</b>. Η οφειλή μένει στην καρτέλα του, ώσπου να εξοφληθεί.</div>` : ''; })()}`;
   } else {
     head = 'neutral';
     title = d.id ? 'Στοιχεία ενοικιαστή' : 'Νέος ενοικιαστής';
@@ -679,6 +695,16 @@ function renderDlg() {
   </div>`;
 }
 function saveDlg() {
+  if (dlg.kind === 'leave') {
+    syncLeave();
+    const t = tenantById(dlg.id);
+    if (!/^\d{4}-\d{2}$/.test(dlg.end)) { dlg.error = 'Διαλέξτε μήνα.'; renderDlg(); return; }
+    if (dlg.end < t.start) { dlg.error = `Ο μήνας είναι πριν από την αρχή (${ymLabel(t.start)}).`; renderDlg(); return; }
+    t.end = dlg.end;
+    dlg = null; renderDlg(); persist(); render();
+    toast(`${t.name}: ξενοικιάστηκε (τελευταίος μήνας ${ymLabel(t.end)}).`);
+    return;
+  }
   syncDlg();
   const d = dlg;
   const fail = msg => { d.error = msg; renderDlg(); };
@@ -1244,6 +1270,13 @@ const actions = {
   'dlg-method': el => { syncDlg(); dlg.method = el.dataset.v; renderDlg(); },
   'dlg-clear-end': () => { syncDlg(); dlg.end = ''; renderDlg(); },
   'dlg-share': el => { syncDlg(); dlg.shareStr = el.dataset.v; renderDlg(); },
+  'dlg-end': el => { dlg.end = el.dataset.v; dlg.error = ''; renderDlg(); },
+  'tenant-leave': el => { dlg = { kind: 'leave', id: el.dataset.id, end: curYM(), error: '' }; renderDlg(); },
+  'tenant-unleave': el => {
+    const t = tenantById(el.dataset.id); if (!t) return;
+    if (!confirm(`Ο/Η ${t.name} συνεχίζει να νοικιάζει; Θα ξαναμετράει ενοίκιο κάθε μήνα.`)) return;
+    t.end = ''; persist(); render(); toast(`${t.name}: συνεχίζει.`);
+  },
   // ενοίκια
   'tenant-new': () => openTenantDialog(null),
   'tenant-edit': el => openTenantDialog(tenantById(el.dataset.id)),
@@ -1364,6 +1397,7 @@ document.addEventListener('change', ev => {
   else if (t.id === 'f-cat') { ui.list.cat = t.value; render(); }
   else if (t.id === 'year-pick') { ui.yearView = +t.value; render(); }
   else if (t.id === 'fm-date' && form) { syncFormInputs(); renderForm(); }
+  else if (t.id === 'd-end' && dlg && dlg.kind === 'leave') { syncLeave(); renderDlg(); }
   else if (t.id === 'persons') { DB.settings.persons = t.value.split(',').map(s => s.trim()).filter(Boolean); persist(); toast('Τα πρόσωπα αποθηκεύτηκαν.'); }
   else if (t.dataset.catField) {
     const c = catById(t.dataset.id); if (!c) return;
