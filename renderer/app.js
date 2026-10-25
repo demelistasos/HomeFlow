@@ -229,8 +229,15 @@ const ui = {
   month: now.getMonth() + 1,
   list: { year: now.getFullYear(), month: now.getMonth() + 1, type: 'all', cat: '', q: '', limit: 200 },
   yearView: now.getFullYear(),
-  info: null
+  info: null,
+  tabs: {}
 };
+// Καρτέλες (tabs): η μπάρα μένει πάντα ορατή πάνω πάνω
+function tabBar(page, items, def) {
+  const cur = items.some(i => i.k === ui.tabs[page]) ? ui.tabs[page] : (def || items[0].k);
+  const html = `<div class="tabs no-print" role="tablist">${items.map(i => `<button class="tab ${i.k === cur ? 'sel' : ''}" role="tab" data-action="tab" data-page="${page}" data-k="${esc(i.k)}">${i.icon ? `<span class="tab-ic">${i.icon}</span>` : ''}${esc(i.label)}${i.count ? ` <span class="tab-count ${i.alert ? 'alert' : ''}">${i.count}</span>` : ''}</button>`).join('')}</div>`;
+  return [cur, html];
+}
 let form = null;      // ανοιχτή φόρμα καταχώρησης
 let toastTimer = null;
 
@@ -354,33 +361,39 @@ function homePage() {
     <div class="card bal"><div class="label">Έμειναν (έσοδα − έξοδα)</div><div class="value num" style="color:${bal < 0 ? 'var(--exp)' : 'var(--brand)'}">${eur(bal)}</div><div class="sub">Από αρχή χρονιάς: <b class="num">${eur(ytdI - ytdE)}</b></div></div>
   </div>
 
-  <div class="grid2">
-    <div>
-      <div class="panel">
-        <h2>Πού πήγαν τα χρήματα</h2>${bars ? '<div class="h-hint">Πατήστε μια κατηγορία για να δείτε τι περιέχει.</div>' : ''}
-        ${bars || '<div class="empty">Δεν υπάρχουν έξοδα αυτόν τον μήνα ακόμα.</div>'}
-      </div>
-    </div>
-    <div>
-      ${isCurrent ? remindersPanel() : ''}
-      ${homeRentPanel(ymOf(year, month))}
-      ${plannedTx.length ? `<div class="panel">
-        <h2>📌 Προγραμματισμένα <span class="muted">${plannedTx.length}</span></h2>
+  ${homeTabs()}`;
+
+  function homeTabs() {
+    const rem = isCurrent ? reminders() : [];
+    const s = ymOf(year, month);
+    const rentTs = DB.tenants.filter(t => tenantActiveIn(t, s));
+    const rentOpen = rentTs.filter(t => tenantMonthStatus(t, s).cls !== 'ok').length;
+    const items = [
+      { k: 'spent', icon: '📊', label: 'Πού πήγαν' },
+      ...(isCurrent ? [{ k: 'remind', icon: '🔔', label: 'Να θυμηθώ', count: rem.length, alert: rem.some(r => r.cls === 'late') }] : []),
+      ...(rentTs.length ? [{ k: 'rent', icon: '🔑', label: 'Ενοίκια', count: rentOpen, alert: rentOpen > 0 }] : []),
+      { k: 'planned', icon: '📌', label: 'Προγραμματισμένα', count: plannedTx.length },
+      { k: 'recent', icon: '🕘', label: 'Τελευταίες' }
+    ];
+    const [tab, bar] = tabBar('home', items, 'spent');
+    let body = '';
+    if (tab === 'spent') body = `<div class="panel"><h2>Πού πήγαν τα χρήματα</h2>${bars ? '<div class="h-hint">Πατήστε μια κατηγορία για να δείτε τι περιέχει.</div>' : ''}${bars || '<div class="empty">Δεν υπάρχουν έξοδα αυτόν τον μήνα ακόμα.</div>'}</div>`;
+    else if (tab === 'remind') body = remindersPanel() || '<div class="panel empty">Τίποτα να θυμηθείτε αυτή τη στιγμή ✓</div>';
+    else if (tab === 'rent') body = homeRentPanel(s);
+    else if (tab === 'planned') body = plannedTx.length ? `<div class="panel">
+        <h2>📌 Προγραμματισμένα</h2>
         <div class="h-hint">Πληρωμές που περιμένουμε. Πατήστε «Έγινε» όταν γίνουν.</div>
         ${plannedTx.map(t => `<div class="planned-row">
           <span class="p-ic">${esc(catIcon(t.categoryId))}</span>
           <span class="p-nm"><b>${esc(catName(t.categoryId))}</b>${t.recurringId ? ' <span class="tag">🔁 πάγιο</span>' : ''}${t.note ? `<div class="muted" style="font-size:.9rem">${esc(t.note)}</div>` : ''}</span>
           <span class="p-amt num ${t.type === 'income' ? 'inc' : 'exp'}">${t.type === 'income' ? '+' : '−'} ${eur(t.amount)}</span>
           <span class="p-act"><button class="btn small" data-action="edit" data-id="${t.id}">✎ Αλλαγή</button><button class="btn small primary" data-action="confirm-planned" data-id="${t.id}">✓ Έγινε</button></span>
-        </div>`).join('')}
-      </div>` : ''}
-      <div class="panel">
-        <h2>Τελευταίες καταχωρήσεις</h2>
+        </div>`).join('')}</div>` : '<div class="panel empty">Δεν υπάρχουν προγραμματισμένα αυτόν τον μήνα.</div>';
+    else body = `<div class="panel"><h2>Τελευταίες καταχωρήσεις</h2>
         ${recent.length ? `<div class="tx-list">${recent.map(txRow).join('')}</div>
-          <button class="btn" style="margin-top:.6rem;width:100%" data-action="goto-list">Όλες οι κινήσεις του μήνα →</button>` : '<div class="empty">Τίποτα ακόμα. Πατήστε «Νέο έξοδο» αριστερά.</div>'}
-      </div>
-    </div>
-  </div>`;
+          <button class="btn" style="margin-top:.6rem;width:100%" data-action="goto-list">Όλες οι κινήσεις του μήνα →</button>` : '<div class="empty">Τίποτα ακόμα. Πατήστε «Νέο έξοδο» αριστερά.</div>'}</div>`;
+    return bar + body;
+  }
 }
 
 function txRow(t) {
@@ -421,10 +434,10 @@ function listPage() {
   <div class="page-head"><h1>Κινήσεις</h1><div class="spacer"></div>
     <button class="btn no-print" data-action="export-csv">📊 Αποθήκευση για Excel</button>
     <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+  ${(() => { ui.tabs.list = f.type; return tabBar('list', [{ k: 'all', icon: '📋', label: 'Όλες' }, { k: 'expense', icon: '−', label: 'Έξοδα' }, { k: 'income', icon: '+', label: 'Έσοδα' }], 'all')[1]; })()}
   <div class="filters no-print">
     <select id="f-year" title="Χρονιά">${years.map(y => `<option value="${y}" ${y === f.year ? 'selected' : ''}>${y}</option>`).join('')}<option value="0" ${!f.year ? 'selected' : ''}>Όλες οι χρονιές</option></select>
     <select id="f-month" title="Μήνας"><option value="0">Όλοι οι μήνες</option>${MONTHS.map((m, i) => `<option value="${i + 1}" ${f.month === i + 1 ? 'selected' : ''}>${m}</option>`).join('')}</select>
-    <select id="f-type"><option value="all" ${f.type === 'all' ? 'selected' : ''}>Έσοδα και έξοδα</option><option value="expense" ${f.type === 'expense' ? 'selected' : ''}>Μόνο έξοδα</option><option value="income" ${f.type === 'income' ? 'selected' : ''}>Μόνο έσοδα</option></select>
     <select id="f-cat"><option value="">Όλες οι κατηγορίες</option>${cats.map(c => `<option value="${esc(c.id)}" ${f.cat === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
     <input type="search" id="f-q" placeholder="🔍 Αναζήτηση (π.χ. λαϊκή, 50)" value="${esc(f.q)}">
     ${(f.cat || f.q || f.type !== 'all' || f.month) ? '<button class="btn ghost" data-action="clear-filters">✕ Καθαρισμός</button>' : ''}
@@ -515,8 +528,18 @@ function rentPage() {
     <div class="card inc"><div class="label">Πληρώθηκαν ως τώρα</div><div class="value inc num">${eur(got)}</div><div class="sub">μέσα σε αυτόν τον μήνα</div></div>
     <div class="card exp"><div class="label">Χρωστάνε συνολικά</div><div class="value exp num">${eur(owed)}</div><div class="sub">μαζί με παλιές οφειλές</div></div>
   </div>
-  <div class="tenant-grid">${active.map(card).join('')}</div>
-  ${gone.length ? `<h2 style="margin-top:1.6rem">🚪 Έφυγαν <span class="muted" style="font-size:1rem;font-weight:500">(ξενοίκιαστα)</span></h2><div class="tenant-grid">${gone.map(card).join('')}</div>` : ''}`
+  ${(() => {
+    const unpaid = active.filter(t => tenantActiveIn(t, s) && tenantMonthStatus(t, s).cls !== 'ok');
+    const owing = DB.tenants.filter(t => tenantLedger(t).balance > 0.005);
+    const [tab, bar] = tabBar('rent', [
+      { k: 'all', icon: '🏠', label: 'Όλοι', count: active.length },
+      { k: 'unpaid', icon: '⏳', label: 'Δεν πλήρωσαν τον μήνα', count: unpaid.length, alert: unpaid.length > 0 },
+      { k: 'owing', icon: '💶', label: 'Χρωστάνε', count: owing.length, alert: owing.length > 0 },
+      ...(gone.length ? [{ k: 'gone', icon: '🚪', label: 'Έφυγαν', count: gone.length }] : [])
+    ], 'all');
+    const list = tab === 'unpaid' ? unpaid : tab === 'owing' ? owing : tab === 'gone' ? gone : active;
+    return bar + (list.length ? `<div class="tenant-grid">${list.map(card).join('')}</div>` : '<div class="panel empty">Κανείς εδώ ✓</div>');
+  })()}`
     : `<div class="panel" style="max-width:46rem"><p style="font-size:1.1rem;margin-top:0">Δεν έχετε βάλει ενοικιαστές ακόμα.</p><p class="muted">Για κάθε ενοικιαστή γράφετε το όνομα και το ενοίκιο. Μετά, κάθε φορά που πληρώνει, πατάτε «Πλήρωσε». Η εφαρμογή βρίσκει μόνη της ποιος χρωστάει και πόσα, και η πληρωμή μπαίνει αυτόματα στα έσοδα.</p><button class="btn big primary" style="width:auto;padding:0 2rem" data-action="tenant-new">+ Νέος ενοικιαστής</button></div>`}`;
 }
 function tenantPage(t) {
@@ -617,13 +640,17 @@ function moneyPage() {
       <span style="display:flex;gap:.4rem"><button class="btn small primary" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button><button class="btn small ghost" data-action="acc-edit" data-id="${a.id}" title="Στοιχεία λογαριασμού">⚙</button></span>
     </div>`;
   };
-  const groups = KINDS.map(([k, label, icon]) => {
+  const groupTabs = [];
+  const groupHtml = {};
+  KINDS.forEach(([k, label, icon]) => {
     const list = accs.filter(a => a.kind === k).sort((x, y) => (x.bank || '').localeCompare(y.bank || '', 'el') || x.order - y.order);
-    if (!list.length) return '';
+    if (!list.length) return;
+    groupTabs.push({ k, icon, label: label.replace('Τρεχούμενοι λογαριασμοί', 'Τρεχούμενοι').replace('Λογαριασμοί στο εξωτερικό', 'Εξωτερικό').replace('Αμοιβαία κεφάλαια', 'Αμοιβαία'), count: list.length });
     const sub = { EUR: 0, USD: 0 };
     for (const a of list) sub[a.currency] += (lastBal(a) || {}).balance || 0;
-    return `<div class="panel"><h2>${icon} ${label} <span class="muted">${[sub.EUR ? eur(sub.EUR) : '', sub.USD ? usdFmt.format(sub.USD) : ''].filter(Boolean).join(' + ')}</span></h2><div class="tx-list">${list.map(row).join('')}</div></div>`;
-  }).join('');
+    groupHtml[k] = `<div class="panel"><h2>${icon} ${label} <span class="muted">${[sub.EUR ? eur(sub.EUR) : '', sub.USD ? usdFmt.format(sub.USD) : ''].filter(Boolean).join(' + ')}</span></h2><div class="tx-list">${list.map(row).join('')}</div></div>`;
+  });
+  const [mtab, mbar] = tabBar('money', [{ k: 'summary', icon: '📊', label: 'Σύνοψη' }, ...groupTabs, ...(closed.length ? [{ k: 'closed', icon: '🗄', label: 'Κλειστοί', count: closed.length }] : [])], 'summary');
   const diffYear = t.all - t0.all;
   return `
   <div class="page-head"><h1>Χρήματα</h1><div class="spacer"></div>
@@ -636,12 +663,13 @@ function moneyPage() {
     <div class="card"><div class="label">Σε δολάρια</div><div class="value num">${usd0Fmt.format(t.USD)}</div>
       <div class="sub">Ισοτιμία: 1 € = ${String(rate).replace('.', ',')} $ <button class="btn small ghost no-print" data-action="rate-edit">✎ αλλαγή</button></div></div>
   </div>
-  ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Όταν δείτε κίνηση στην τράπεζα, πατήστε «✎ Νέο υπόλοιπο» στον λογαριασμό.</div>` : ''}
-  <div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
+  ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Για να γράψετε νέο υπόλοιπο, ανοίξτε την καρτέλα του λογαριασμού (π.χ. «Τρεχούμενοι») και πατήστε «✎ Νέο υπόλοιπο».</div>` : ''}
+  ${mbar}
+  ${mtab === 'summary' ? `<div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
   <div class="panel"><h2>Ανά τράπεζα (σε €)</h2>
-      <div class="bars">${Object.entries(byBank).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar-row" style="cursor:default"><span class="ic">🏦</span><span><span class="nm">${esc(k)}</span><div class="track"><div class="fill" style="width:${Math.max(2, v / Math.max(...Object.values(byBank)) * 100)}%;background:var(--brand)"></div></div></span><span class="amt num">${eur0(v)}</span></div>`).join('')}</div></div>
-  ${groups}
-  ${closed.length ? `<div class="panel"><h2>🗄 Κλειστοί λογαριασμοί</h2><div class="tx-list">${closed.map(a => `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto"><span class="ic">🗄</span><span><div class="t1">${esc(a.bank)} · ${esc(a.name)}</div></span><button class="btn small" data-action="acc-edit" data-id="${a.id}">⚙</button></div>`).join('')}</div></div>` : ''}`
+      <div class="bars">${Object.entries(byBank).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar-row" style="cursor:default"><span class="ic">🏦</span><span><span class="nm">${esc(k)}</span><div class="track"><div class="fill" style="width:${Math.max(2, v / Math.max(...Object.values(byBank)) * 100)}%;background:var(--brand)"></div></div></span><span class="amt num">${eur0(v)}</span></div>`).join('')}</div></div>` : ''}
+  ${groupHtml[mtab] || ''}
+  ${mtab === 'closed' && closed.length ? `<div class="panel"><h2>🗄 Κλειστοί λογαριασμοί</h2><div class="tx-list">${closed.map(a => `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto"><span class="ic">🗄</span><span><div class="t1">${esc(a.bank)} · ${esc(a.name)}</div></span><button class="btn small" data-action="acc-edit" data-id="${a.id}">⚙</button></div>`).join('')}</div></div>` : ''}`
     : `<div class="panel" style="max-width:46rem"><p style="font-size:1.1rem;margin-top:0">Εδώ βλέπετε όλα τα χρήματα μαζί: λογαριασμούς, προθεσμιακές, μετρητά.</p><button class="btn big primary" style="width:auto;padding:0 2rem" data-action="acc-new">+ Νέος λογαριασμός</button></div>`}`;
 }
 
@@ -723,17 +751,26 @@ function taxPage() {
     <div class="card ${overdue.length ? 'exp' : 'bal'}"><div class="label">Ληξιπρόθεσμες</div><div class="value num" style="color:${overdue.length ? 'var(--exp)' : 'var(--inc)'}">${overdue.length ? overdue.length : '0 ✓'}</div>
       ${overdue.length ? '<div class="sub"><button class="btn small no-print" data-action="tax-pay-overdue">✓ Πλήρωσα όλες τις ληξιπρόθεσμες</button></div>' : ''}</div>
   </div>
-  ${next.length ? `<div class="panel"><h2>📅 Επόμενες δόσεις</h2>${next.map(({ t, i, k }) => `<div class="planned-row">
+  ${(() => {
+    const short = n => n.replace('Φόρος εισοδήματος', 'Φόρος εισοδ.').replace(/\s*\(.*?\)\s*/g, ' ').replace(/\s+\d{4}$/, '').trim();
+    const items = [{ k: 'next', icon: '📅', label: 'Επόμενες δόσεις', count: list.filter(x => !x.i.paid).length, alert: overdue.length > 0 },
+      ...obligations.map(t => ({ k: t.id, icon: '🏛️', label: `${short(t.name)} – ${t.person}`, count: t.installments.filter(i => !i.paid && +i.due.slice(0, 4) === year).length, alert: t.installments.some(i => !i.paid && i.due < todayStr()) }))];
+    const [tab, bar] = tabBar('tax', items, 'next');
+    const showNext = tab === 'next';
+    const showOb = obligations.filter(t => t.id === tab);
+    return bar + (showNext ? (next.length ? `<div class="panel"><h2>📅 Επόμενες δόσεις</h2>${next.map(({ t, i, k }) => `<div class="planned-row">
     <span class="p-ic">🏛️</span><span class="p-nm"><b>${esc(t.name)}</b> – ${esc(t.person)}<div class="muted" style="font-size:.9rem">δόση ${k + 1} από ${t.installments.length} · λήγει ${shortDate(i.due)}</div></span>
-    <span class="p-amt num exp">${eur(i.amount)}</span><span class="p-act"><button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button></span></div>`).join('')}</div>` : ''}
-  ${obligations.map(t => {
+    <span class="p-amt num exp">${eur(i.amount)}</span><span class="p-act"><button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button></span></div>`).join('')}</div>` : (obligations.length ? '<div class="panel empty">Όλες οι δόσεις της χρονιάς πληρώθηκαν ✓</div>' : '')) : '') +
+    (showNext && !obligations.length ? `<div class="panel empty">Δεν υπάρχουν δόσεις για το ${year}. Πατήστε «+ Νέα οφειλή» για να προσθέσετε π.χ. ΕΝΦΙΑ ή φόρο εισοδήματος.</div>` : '') +
+    showOb.map(t => {
     const pd = t.installments.filter(i => i.paid).length;
     const rest = round2(t.installments.filter(i => !i.paid).reduce((a, i) => a + i.amount, 0));
     return `<div class="panel"><h2>🏛️ ${esc(t.name)} – ${esc(t.person)} <span class="muted">${pd} από ${t.installments.length} δόσεις πληρωμένες${rest ? ` · μένουν ${eur(rest)}` : ' · εξοφλήθηκε ✓'}</span>
       <span style="flex:1"></span><button class="btn small ghost no-print" data-action="tax-edit" data-id="${t.id}">✎</button></h2>
       <div class="track" style="height:.6rem;background:#efece5;border-radius:99px;overflow:hidden;margin-bottom:.8rem"><div style="height:100%;width:${pd / Math.max(1, t.installments.length) * 100}%;background:var(--inc)"></div></div>
       <table class="data"><thead><tr><th style="width:3rem">#</th><th>Λήξη</th><th class="r">Ποσό</th><th>Κατάσταση</th><th></th></tr></thead><tbody>${t.installments.map((i, k) => instRow(t, i, k)).join('')}</tbody></table></div>`;
-  }).join('') || `<div class="panel empty">Δεν υπάρχουν δόσεις για το ${year}. Πατήστε «+ Νέα οφειλή» για να προσθέσετε π.χ. ΕΝΦΙΑ ή φόρο εισοδήματος.</div>`}`;
+  }).join('');
+  })()}`;
 }
 
 // ---------- Οφειλές με άλλους ----------
@@ -801,11 +838,12 @@ function carsPage() {
       <button class="btn no-print" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
       <button class="btn no-print" data-action="car-edit" data-id="${c.id}">✎</button>
       <button class="btn no-print" data-action="print">🖨️</button></div>
-    <div class="grid2">
-      <div class="panel"><h2>🔧 Σέρβις και επισκευές</h2>
-        ${sv.length ? `<table class="data"><thead><tr><th>Ημερομηνία</th><th class="r">Χλμ</th><th>Τι έγινε</th><th class="r">Επόμενο</th></tr></thead><tbody>${sv.map(s => `<tr data-action="service-edit" data-id="${c.id}" data-s="${s.id}"><td>${shortDate(s.date)}</td><td class="r num">${s.km ? int0.format(s.km) : ''}</td><td>${esc(s.work)}${s.cost ? ` <span class="muted">(${eur(s.cost)})</span>` : ''}</td><td class="r num">${s.nextKm ? int0.format(s.nextKm) : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Κανένα σέρβις ακόμα.</div>'}</div>
-      <div class="panel"><h2>📍 Χιλιόμετρα</h2>
-        ${log.length ? `<table class="data"><tbody>${log.map((k, i) => `<tr style="cursor:default"><td>${shortDate(k.date)}</td><td class="r num"><b>${int0.format(k.km)}</b></td><td class="r muted num">${log[i + 1] ? '+' + int0.format(k.km - log[i + 1].km) : ''}</td><td style="width:3rem"><button class="btn small ghost" data-action="km-del" data-id="${c.id}" data-d="${k.date}" title="Σβήσιμο">🗑</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Δεν έχουν γραφτεί χιλιόμετρα.</div>'}</div>
+    ${(() => { const [t, b] = tabBar('car', [{ k: 'service', icon: '🔧', label: 'Σέρβις και επισκευές', count: sv.length }, { k: 'km', icon: '📍', label: 'Χιλιόμετρα', count: log.length }], 'service'); ui._carTab = t; return b; })()}
+    <div>
+      ${ui._carTab !== 'service' ? '' : `<div class="panel"><h2>🔧 Σέρβις και επισκευές</h2>
+        ${sv.length ? `<table class="data"><thead><tr><th>Ημερομηνία</th><th class="r">Χλμ</th><th>Τι έγινε</th><th class="r">Επόμενο</th></tr></thead><tbody>${sv.map(s => `<tr data-action="service-edit" data-id="${c.id}" data-s="${s.id}"><td>${shortDate(s.date)}</td><td class="r num">${s.km ? int0.format(s.km) : ''}</td><td>${esc(s.work)}${s.cost ? ` <span class="muted">(${eur(s.cost)})</span>` : ''}</td><td class="r num">${s.nextKm ? int0.format(s.nextKm) : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Κανένα σέρβις ακόμα.</div>'}</div>`}
+      ${ui._carTab !== 'km' ? '' : `<div class="panel"><h2>📍 Χιλιόμετρα</h2>
+        ${log.length ? `<table class="data"><tbody>${log.map((k, i) => `<tr style="cursor:default"><td>${shortDate(k.date)}</td><td class="r num"><b>${int0.format(k.km)}</b></td><td class="r muted num">${log[i + 1] ? '+' + int0.format(k.km - log[i + 1].km) : ''}</td><td style="width:3rem"><button class="btn small ghost" data-action="km-del" data-id="${c.id}" data-d="${k.date}" title="Σβήσιμο">🗑</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Δεν έχουν γραφτεί χιλιόμετρα.</div>'}</div>`}
     </div>`;
   }
   const card = c => {
@@ -1014,8 +1052,11 @@ function recurringPage() {
     <div class="card exp"><div class="label">Πάγια έξοδα τον μήνα (περίπου)</div><div class="value exp num">${eur(monthlyOut)}</div></div>
     <div class="card inc"><div class="label">Πάγια έσοδα τον μήνα (περίπου)</div><div class="value inc num">${eur(monthlyIn)}</div></div>
   </div>
-  <div class="panel"><h2>Πάγια έξοδα</h2>${exp.length ? `<div class="tx-list">${exp.map(row).join('')}</div>` : '<div class="empty">Κανένα ακόμα.</div>'}</div>
-  <div class="panel"><h2>Πάγια έσοδα</h2>${inc.length ? `<div class="tx-list">${inc.map(row).join('')}</div>` : '<div class="empty">Κανένα ακόμα.</div>'}</div>`;
+  ${(() => {
+    const [tab, bar] = tabBar('recurring', [{ k: 'expense', icon: '−', label: 'Πάγια έξοδα', count: exp.length }, { k: 'income', icon: '+', label: 'Πάγια έσοδα', count: inc.length }], 'expense');
+    const list = tab === 'income' ? inc : exp;
+    return bar + `<div class="panel">${list.length ? `<div class="tx-list">${list.map(row).join('')}</div>` : '<div class="empty">Κανένα ακόμα.</div>'}</div>`;
+  })()}`;
 }
 
 // ---------- παράθυρα για πάγια και ενοικιαστές ----------
@@ -1352,24 +1393,27 @@ function yearPage() {
     <div class="card bal"><div class="label">Διαφορά</div><div class="value num" style="color:${totI - totE < 0 ? 'var(--exp)' : 'var(--brand)'}">${eur0(totI - totE)}</div></div>
     <div class="card extra"><div class="label">Έξοδα χωρίς έκτακτα</div><div class="value num">${eur0(totNoExtra)}</div><div class="sub">Έκτακτα: ${eur0(totE - totNoExtra)}</div></div>
   </div>
-  <div class="panel">
+  ${(() => { const [t, b] = tabBar('year', [{ k: 'exp', icon: '−', label: 'Έξοδα ανά κατηγορία' }, { k: 'inc', icon: '+', label: 'Έσοδα ανά κατηγορία' }, { k: 'chart', icon: '📊', label: 'Γράφημα μηνών' }, { k: 'bal', icon: '⚖️', label: 'Υπόλοιπο ανά μήνα' }], 'exp'); ui._yearTab = t; return b; })()}
+  ${ui._yearTab !== 'chart' ? '' : `<div class="panel">
     <h2>Έσοδα και έξοδα ανά μήνα</h2>
     ${monthChart(a.mInc, a.mExp, lastY, year)}
-  </div>
-  <div class="panel" style="padding:0;border:0;box-shadow:none;background:transparent">
+  </div>`}
+  ${ui._yearTab !== 'exp' ? '' : `<div class="panel" style="padding:0;border:0;box-shadow:none;background:transparent">
     <h2 style="padding:0 .2rem;margin-bottom:.3rem">Έξοδα ανά κατηγορία</h2><div class="h-hint" style="margin:0 .2rem .7rem">Όπως στο Excel. Πατήστε ένα ποσό για να δείτε από τι αποτελείται.</div>
     ${sheet('expense')}
-  </div>
-  <div class="panel" style="padding:0;border:0;box-shadow:none;background:transparent">
+  </div>`}
+  ${ui._yearTab !== 'inc' ? '' : `<div class="panel" style="padding:0;border:0;box-shadow:none;background:transparent">
     <h2 style="padding:0 .2rem">Έσοδα ανά κατηγορία</h2>
-    ${sheet('income')}
-    <div class="sheet-wrap" style="margin-top:1rem"><table class="sheet">
+    ${sheet('income')}</div>`}
+  ${ui._yearTab !== 'bal' ? '' : `<div class="panel" style="padding:0;border:0;box-shadow:none;background:transparent">
+    <h2 style="padding:0 .2rem">Υπόλοιπο ανά μήνα</h2>
+    <div class="sheet-wrap"><table class="sheet">
       <thead><tr><th class="cat">Υπόλοιπο</th>${MONTHS_SHORT.map(m => `<th>${m}</th>`).join('')}</tr></thead>
       <tbody>
         <tr><td class="cat">Διαφορά μήνα</td>${a.mInc.map((v, m) => { const d = v - a.mExp[m]; return `<td class="num ${d < 0 ? 'over' : 'ok'}">${numFmt.format(d)}</td>`; }).join('')}</tr>
         <tr class="total"><td class="cat">Από αρχή χρονιάς</td>${balRow.map(v => `<td class="num ${v < 0 ? 'over' : ''}">${numFmt.format(v)}</td>`).join('')}</tr>
       </tbody></table></div>
-  </div>`;
+  </div>`}`;
 }
 
 function monthChart(inc, exp, lastExp, year) {
@@ -1428,12 +1472,13 @@ function historyPage() {
   });
   return `
   <div class="page-head"><h1>Ιστορικό χρόνων</h1><div class="spacer"></div><button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
-  <div class="panel">
+  ${(() => { const [t, b] = tabBar('history', [{ k: 'table', icon: '📋', label: 'Πίνακας' }, { k: 'chart', icon: '📊', label: 'Γράφημα' }], 'table'); ui._histTab = t; return b; })()}
+  <div class="panel ${ui._histTab === 'chart' ? '' : 'hidden'}">
     <h2>Έσοδα και έξοδα ανά χρονιά</h2>
     <svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>
     <div class="legend"><span><i style="background:#17703a"></i>Έσοδα</span><span><i style="background:#b3361f"></i>Έξοδα</span></div>
   </div>
-  <div class="sheet-wrap"><table class="data">
+  <div class="sheet-wrap ${ui._histTab === 'table' ? '' : 'hidden'}"><table class="data">
     <thead><tr><th>Χρονιά</th><th class="r">Έσοδα</th><th class="r">Έξοδα</th><th class="r">Διαφορά</th><th>Πηγή</th></tr></thead>
     <tbody>${rows.slice().reverse().map(r => `<tr data-action="goto-year" data-year="${r.y}">
       <td><b>${r.y}</b></td>
@@ -1467,29 +1512,30 @@ function settingsPage() {
   };
   return `
   <div class="page-head"><h1>Ρυθμίσεις</h1></div>
+  ${(() => { const [t, b] = tabBar('settings', [{ k: 'general', icon: '🔠', label: 'Γράμματα & πρόσωπα' }, { k: 'exp', icon: '📂', label: 'Κατηγορίες εξόδων' }, { k: 'inc', icon: '💶', label: 'Κατηγορίες εσόδων' }, { k: 'data', icon: '💾', label: 'Τα δεδομένα μου' }, { k: 'version', icon: '🔄', label: 'Έκδοση' }], 'general'); ui._setTab = t; return b; })()}
 
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🔠 Μέγεθος γραμμάτων</h2>
     <div class="chips">${FONT_SCALES.map(f => `<button class="chip ${s.fontScale === f.v ? 'sel' : ''}" data-action="font" data-v="${f.v}" style="font-size:${f.v}rem">${f.l}</button>`).join('')}</div>
   </div>
 
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'exp' ? '' : 'hidden'}">
     <h2>📂 Κατηγορίες εξόδων</h2>
     <p class="muted" style="margin-top:-.4rem">«Πρόβλεψη» είναι πόσα υπολογίζουμε να ξοδέψουμε τη χρονιά (φαίνεται στη σελίδα «Η χρονιά»). «Έκτακτο» σημαίνει ότι δεν μετράει στα «έξοδα χωρίς έκτακτα». Οι κρυφές κατηγορίες δεν εμφανίζονται στη νέα καταχώρηση.</p>
     ${catTable('expense')}
   </div>
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'inc' ? '' : 'hidden'}">
     <h2>💶 Κατηγορίες εσόδων</h2>
     ${catTable('income')}
   </div>
 
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>👪 Πρόσωπα</h2>
     <p class="muted" style="margin-top:-.4rem">Ποιοι εμφανίζονται στο «Ποιος;» της καταχώρησης. Χωρίστε με κόμμα.</p>
     <input type="text" id="persons" value="${esc(s.persons.join(', '))}" style="width:100%;border:2px solid var(--line-2);border-radius:10px;padding:.6rem .8rem">
   </div>
 
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'data' ? '' : 'hidden'}">
     <h2>💾 Τα δεδομένα μου</h2>
     ${store.native ? `<p style="margin-top:0">Όλα αποθηκεύονται αυτόματα σε αυτό το αρχείο. Κάθε μέρα κρατιέται και ένα αντίγραφο ασφαλείας στον ίδιο φάκελο.</p>
     <div class="path">${esc(info.path || '')}</div>
@@ -1503,7 +1549,7 @@ function settingsPage() {
     ${s.importNote ? `<p class="muted" style="margin-bottom:0">Εισαγωγή από ${esc(s.importedFrom || 'Excel')}. ${esc(s.importNote)}</p>` : ''}
   </div>
 
-  <div class="panel set-section">
+  <div class="panel set-section ${ui._setTab === 'version' ? '' : 'hidden'}">
     <h2>🔄 Έκδοση</h2>
     <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω με κουμπί «Κατέβασμα».</p>
     <button class="btn" data-action="check-updates">Έλεγχος για νέα έκδοση</button>
@@ -1807,6 +1853,11 @@ const actions = {
   'dlg-share': el => { syncDlg(); dlg.shareStr = el.dataset.v; renderDlg(); },
   'dlg-end': el => { dlg.end = el.dataset.v; dlg.error = ''; renderDlg(); },
   // εφορία
+  tab: el => {
+    ui.tabs[el.dataset.page] = el.dataset.k;
+    if (el.dataset.page === 'list') { ui.list.type = el.dataset.k; ui.list.cat = ''; ui.list.limit = 200; }
+    render(); $('.main').scrollTop = 0;
+  },
   'goto-page': el => { ui.page = el.dataset.page; render(); $('.main').scrollTop = 0; },
   'taxyear-prev': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) - 1; render(); },
   'taxyear-next': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) + 1; render(); },

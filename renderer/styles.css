@@ -122,6 +122,25 @@ button { cursor: pointer; }
 .h-hint { color: var(--ink-3); margin: -.5rem 0 .7rem; font-size: .95rem; }
 .empty { color: var(--ink-3); padding: 1rem 0; font-size: 1.05rem; }
 
+/* καρτέλες (tabs) */
+.tabs {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; flex-wrap: wrap; gap: .45rem;
+  background: var(--bg); padding: .7rem 0 .8rem; margin: -.4rem 0 1rem;
+  border-bottom: 2px solid var(--line);
+}
+.tab {
+  border: 2px solid var(--line-2); background: var(--paper); border-radius: 12px;
+  padding: .5rem 1rem; font-weight: 700; font-size: 1.02rem; min-height: 2.9rem;
+  display: inline-flex; align-items: center; gap: .45rem; color: var(--ink-2);
+}
+.tab:hover { border-color: var(--brand-2); color: var(--ink); }
+.tab.sel { background: var(--brand); border-color: var(--brand); color: #fff; }
+.tab-ic { font-size: 1.15rem; }
+.tab-count { background: var(--line); color: var(--ink); border-radius: 99px; padding: 0 .5rem; font-size: .85rem; min-width: 1.5rem; text-align: center; }
+.tab.sel .tab-count { background: rgba(255, 255, 255, .25); color: #fff; }
+.tab-count.alert { background: var(--exp); color: #fff; }
+
 /* μπάρες κατηγοριών */
 .bars { display: flex; flex-direction: column; gap: .35rem; }
 .bar-row {
