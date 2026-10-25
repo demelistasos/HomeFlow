@@ -110,13 +110,15 @@ function normalize(d) {
   d.settings = Object.assign({ persons: [], methods: ['Μετρητά', 'Τράπεζα', 'Κάρτα'], fontScale: 1.15 }, d.settings || {});
   d.categories = (d.categories || []).map((c, i) => Object.assign({ color: PALETTE[i % PALETTE.length], budget: null, extra: false, archived: false, order: i }, c));
   d.transactions = (d.transactions || []).filter(t => t && t.date && t.categoryId).map(t => Object.assign({ note: '', person: '', method: '', planned: false, dayKnown: true, tenantId: '', recurringId: '' }, t, { amount: +t.amount || 0 }));
-  d.recurring = (d.recurring || []).map(r => Object.assign({ every: 1, day: 1, note: '', person: '', method: '', active: true, skip: [], until: '' }, r));
+  d.recurring = (d.recurring || []).map(r => Object.assign({ every: 1, day: 1, note: '', person: '', method: '', active: true, skip: [], until: '', total: null }, r));
   d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true, share: 100 }, t));
   d.accounts = (d.accounts || []).map((a, i) => Object.assign({ bank: '', name: '', owner: '', currency: 'EUR', kind: 'current', archived: false, order: i, history: [] }, a));
   d.settings.usdPerEur = +d.settings.usdPerEur || 1.16;
   d.taxes = (d.taxes || []).map(t => Object.assign({ name: '', person: '', kind: 'other', installments: [] }, t));
   d.people = (d.people || []).map(p => Object.assign({ name: '', note: '', entries: [] }, p));
   d.cars = (d.cars || []).map(c => Object.assign({ name: '', since: '', fuelCategoryId: '', sold: '', kteo: '', km: [], services: [] }, c));
+  d.field = Object.assign({ waterings: [], payments: [], categoryId: '' }, d.field || {});
+  if (d.power) d.power.bills = d.power.bills || [];
   d.history = d.history || {};
   return d;
 }
@@ -146,6 +148,13 @@ function freqText(r) {
   const f = e === 1 ? 'Κάθε μήνα' : e === 12 ? 'Μία φορά τον χρόνο' : `Κάθε ${e} μήνες`;
   return `${f}, στις ${r.day || 1} του μήνα`;
 }
+// Δόσεις με τέλος: «δόση 80 από 100». Η τελευταία δόση είναι ο μήνας «until».
+function instNo(r, s) {
+  if (!r.total || !r.until) return null;
+  const n = r.total - Math.round(monthsBetween(s, r.until) / (r.every || 1));
+  return n >= 1 && n <= r.total ? n : null;
+}
+const recEnded = r => !!(r.until && r.until < curYM());
 // Φτιάχνει τις «προγραμματισμένες» κινήσεις των παγίων ως τον επόμενο μήνα
 function generateRecurring() {
   const horizon = addMonths(curYM(), 1);
@@ -157,7 +166,7 @@ function generateRecurring() {
       if (!recurringDue(r, s) || (r.skip || []).includes(s) || have.has(r.id + '|' + s)) continue;
       DB.transactions.push({
         id: uid(), date: `${s}-${pad(Math.min(r.day || 1, lastDay(s)))}`, dayKnown: true, type: r.type, amount: r.amount,
-        categoryId: r.categoryId, note: r.note || '', person: r.person || '', method: r.method || '', planned: true,
+        categoryId: r.categoryId, note: (r.note || '') + (instNo(r, s) ? `${r.note ? ' ' : ''}(δόση ${instNo(r, s)}/${r.total})` : ''), person: r.person || '', method: r.method || '', planned: true,
         recurringId: r.id, tenantId: '', source: 'recurring', created: new Date().toISOString()
       });
       have.add(r.id + '|' + s); added++;
@@ -299,7 +308,7 @@ function render() {
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.page === ui.page));
   const page = $('#page');
   if (!DB) { page.innerHTML = welcomePage(); return; }
-  const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, tax: taxPage, people: peoplePage, cars: carsPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
+  const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, tax: taxPage, people: peoplePage, cars: carsPage, field: fieldPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
   page.innerHTML = fn();
   if (ui.page === 'list') { const q = $('#f-q'); if (q && ui._focusSearch) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); ui._focusSearch = false; } }
 }
@@ -535,8 +544,12 @@ function rentPage() {
       { k: 'all', icon: '🏠', label: 'Όλοι', count: active.length },
       { k: 'unpaid', icon: '⏳', label: 'Δεν πλήρωσαν τον μήνα', count: unpaid.length, alert: unpaid.length > 0 },
       { k: 'owing', icon: '💶', label: 'Χρωστάνε', count: owing.length, alert: owing.length > 0 },
-      ...(gone.length ? [{ k: 'gone', icon: '🚪', label: 'Έφυγαν', count: gone.length }] : [])
+      ...(gone.length ? [{ k: 'gone', icon: '🚪', label: 'Έφυγαν', count: gone.length }] : []),
+      { k: 'decl', icon: '🧾', label: 'Για τη δήλωση' },
+      (() => { const pc = DB.power ? DB.power.bills.filter(b => (b.metered.who && !b.metered.paid) || (b.rest.tenant && !b.rest.paid)).length : 0; return { k: 'power', icon: '⚡', label: DB.power ? DB.power.name : 'ΔΕΗ ισογείου', count: pc, alert: pc > 0 }; })()
     ], 'all');
+    if (tab === 'decl') return bar + declPanel();
+    if (tab === 'power') return bar + powerPanel();
     const list = tab === 'unpaid' ? unpaid : tab === 'owing' ? owing : tab === 'gone' ? gone : active;
     return bar + (list.length ? `<div class="tenant-grid">${list.map(card).join('')}</div>` : '<div class="panel empty">Κανείς εδώ ✓</div>');
   })()}`
@@ -702,6 +715,20 @@ function reminders() {
       sub: st.left < 0 ? `έχει περάσει κατά ${int0.format(-st.left)} km` : `σε ${int0.format(st.left)} km`,
       btn: `<button class="btn small" data-action="car-service" data-id="${c.id}">🔧 Έγινε</button>` });
     if (c.kteo) { const dd = daysUntil(c.kteo); if (dd <= 30) out.push({ sort: dd, cls: dd < 0 ? 'late' : 'wait', icon: '🚗', text: `${esc(c.name)}: ΚΤΕΟ`, sub: dd < 0 ? `έληξε ${shortDate(c.kteo)}` : `σε ${dd} μέρες (${shortDate(c.kteo)})`, btn: `<button class="btn small" data-action="car-edit" data-id="${c.id}">✎</button>` }); }
+  }
+  if (DB.field) {
+    const y0 = now.getFullYear();
+    for (const y of [y0 - 1, y0]) {
+      const r = fieldYear(y);
+      if (r.hours && !r.paid && (y < y0 || now.getMonth() >= 9)) out.push({ sort: 15, cls: 'wait', icon: '🌱', text: `Χωράφι: πότισμα ${y}, <b>${hrs(r.hours)} ώρες</b>`,
+        sub: `απλήρωτο${fieldRate() ? ` · περίπου ${eur(r.hours * fieldRate())}` : ''}`, btn: `<button class="btn small" data-action="field-pay">💶 Πλήρωσα</button>` });
+    }
+  }
+  for (const r of DB.recurring) {
+    if (!r.active || !r.until || recEnded(r)) continue;
+    const m = monthsBetween(curYM(), r.until);
+    if (m <= 2) out.push({ sort: 10 + m, cls: 'wait', icon: '🏁', text: `${esc(catName(r.categoryId))}${r.note ? ' – ' + esc(r.note) : ''}: ${r.total ? 'τελευταία δόση' : 'τελευταία φορά'}`,
+      sub: m === 0 ? `αυτόν τον μήνα (${ymLabel(r.until)})` : `τον ${ymLabel(r.until)}`, btn: `<button class="btn small" data-action="goto-page" data-page="recurring">🔁 Πάγια</button>` });
   }
   return out.sort((a, b) => a.sort - b.sort);
 }
@@ -870,6 +897,142 @@ function carsPage() {
   ${sold.length ? `<h2 style="margin-top:1.6rem">Παλιά</h2><div class="tenant-grid">${sold.map(card).join('')}</div>` : ''}`;
 }
 
+// ---------- Ενοίκια: για τη φορολογική δήλωση ----------
+function declRows(year) {
+  const out = [];
+  for (const t of DB.tenants) {
+    let months = 0, contract = 0; const rents = new Set();
+    for (let m = 1; m <= 12; m++) { const s = ymOf(year, m); if (tenantActiveIn(t, s)) { const r = tenantRent(t, s); if (r) { months++; contract += r; rents.add(r); } } }
+    const received = sumPaid(tenantPayments(t).filter(p => yOf(p) === year));
+    if (!months && !received) continue;
+    const sh = shareOf(t);
+    out.push({ t, months, rents: [...rents], contract: round2(contract), received, share: sh, ours: round2(contract * sh / 100), oursRec: round2(received * sh / 100) });
+  }
+  return out;
+}
+function declPanel() {
+  const year = ui.declYear || now.getFullYear();
+  const rows = declRows(year);
+  const tot = k => round2(rows.reduce((a, r) => a + r[k], 0));
+  return `<div class="panel">
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem">
+      <h2 style="margin:0">🧾 Ενοίκια για τη δήλωση</h2><div class="spacer"></div>
+      <div class="month-nav"><button class="btn no-print" data-action="decl-prev">◀</button><div class="month-title" style="min-width:6rem">${year}</div><button class="btn no-print" data-action="decl-next">▶</button></div>
+    </div>
+    ${rows.length ? `<div class="sheet-wrap"><table class="data">
+      <thead><tr><th>Ενοικιαστής</th><th class="r">Ενοίκιο × μήνες</th><th class="r">Ενοίκια χρονιάς</th><th class="r">Δικό μας</th><th class="r">Εισπράχθηκαν</th></tr></thead>
+      <tbody>${rows.map(r => `<tr style="cursor:default">
+        <td><b>${esc(r.t.name)}</b><div class="muted" style="font-size:.9rem">${esc(r.t.property || '')}</div></td>
+        <td class="r num">${r.months ? `${r.rents.map(x => eur(x)).join(' → <br>')} × ${r.months}` : '<span class="muted">δεν ήταν νοικιασμένο</span>'}</td>
+        <td class="r num">${eur(r.contract)}</td>
+        <td class="r num"><b>${eur(r.ours)}</b>${r.share !== 100 ? `<div class="muted" style="font-size:.9rem">το ${r.share}%</div>` : ''}</td>
+        <td class="r num ${r.received + 0.005 < r.contract ? 'exp' : 'inc'}">${eur(r.received)}</td></tr>`).join('')}
+        <tr style="cursor:default;border-top:3px solid var(--line)"><td><b>Σύνολο</b></td><td></td><td class="r num"><b>${eur(tot('contract'))}</b></td><td class="r num" style="font-size:1.2rem"><b>${eur(tot('ours'))}</b></td><td class="r num"><b>${eur(tot('received'))}</b></td></tr>
+      </tbody></table></div>
+      <p class="muted" style="margin-bottom:0">«Ενοίκια χρονιάς» = ενοίκιο × μήνες που ήταν νοικιασμένο, όπως το υπολογίζατε στο Excel. «Δικό μας ποσό» είναι αυτό που αναλογεί σε εμάς με το ποσοστό. Η τελευταία στήλη δείχνει τι πληρώθηκε πραγματικά μέσα στη χρονιά (κόκκινο αν πληρώθηκαν λιγότερα).</p>`
+    : `<div class="empty">Δεν υπάρχουν ενοίκια για το ${year}.</div>`}
+  </div>`;
+}
+
+// ---------- ΔΕΗ ισογείου: μοίρασμα λογαριασμού με υπομετρητή ----------
+function powerCfg() {
+  if (!DB.power) DB.power = { name: 'ΔΕΗ ισογείου', totalM2: 180, meteredM2: 65.36, meteredTenantId: '', meteredName: 'Πίσω (με υπομετρητή)', restTenantId: '', restName: 'Διαμέρισμα', georgeShare: 50, lastReading: null, bills: [] };
+  return DB.power;
+}
+const pwWho = (tid, fallback) => { const t = tid && tenantById(tid); return t ? t.name : fallback; };
+function powerCalc(c, x) {
+  const kwh = +x.kwh || 0, energy = +x.energy || 0, fees = +x.fees || 0;
+  const sub = x.r1 != null && x.r0 != null ? round2(x.r1 - x.r0) : 0;
+  const total = round2(energy + fees);
+  const perKwh = kwh ? energy / kwh : 0;
+  const mEnergy = round2(sub * perKwh), mFees = round2(c.totalM2 ? fees * c.meteredM2 / c.totalM2 : 0);
+  const metered = round2(mEnergy + mFees);
+  return { kwh, energy, fees, total, sub, perKwh, mEnergy, mFees, metered, rest: round2(total - metered) };
+}
+function powerPanel() {
+  const c = powerCfg();
+  const bills = c.bills.slice().sort((a, b) => b.to.localeCompare(a.to));
+  const owed = bills.reduce((a, b) => a + (b.metered.who && !b.metered.paid ? b.metered.amount : 0) + (b.rest.tenant && !b.rest.paid ? b.rest.amount : 0), 0);
+  const row = b => `<tr style="cursor:default">
+    <td><b>${shortDate(b.from)} – ${shortDate(b.to)}</b><div class="muted" style="font-size:.9rem">${int0.format(b.kwh)} kWh · υπομετρητής ${int0.format(b.sub)} kWh</div></td>
+    <td class="r num"><b>${eur(b.total)}</b></td>
+    <td>${b.metered.who ? `${esc(b.metered.who)}: <b class="num">${eur(b.metered.amount)}</b> ${b.metered.paid ? `<span class="status" style="${STATUS_STYLE.ok}">✓ Τα έδωσε</span> <button class="btn small ghost no-print" data-action="pb-unpaid" data-id="${b.id}" data-p="metered">↩</button>` : `<button class="btn small income no-print" data-action="pb-paid" data-id="${b.id}" data-p="metered">✓ Τα έδωσε</button>`}` : ''}</td>
+    <td>${esc(b.rest.who)}: <b class="num">${eur(b.rest.amount)}</b> ${b.rest.tenant ? (b.rest.paid ? `<span class="status" style="${STATUS_STYLE.ok}">✓ Τα έδωσε</span> <button class="btn small ghost no-print" data-action="pb-unpaid" data-id="${b.id}" data-p="rest">↩</button>` : `<button class="btn small income no-print" data-action="pb-paid" data-id="${b.id}" data-p="rest">✓ Τα έδωσε</button>`) : `<div class="muted" style="font-size:.9rem">ξενοίκιαστο: εμείς${c.georgeShare ? ` · Γιώργος ${c.georgeShare}%: ${eur(b.rest.amount * c.georgeShare / 100)}` : ''}</div>`}</td>
+    <td style="width:3rem"><button class="btn small ghost no-print" data-action="pb-edit" data-id="${b.id}" title="Αλλαγή">✎</button></td></tr>`;
+  return `<div class="panel">
+    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.6rem">
+      <h2 style="margin:0">⚡ ${esc(c.name)}</h2><div class="spacer"></div>
+      <button class="btn primary no-print" data-action="pb-new">+ Νέος λογαριασμός ΔΕΗ</button>
+      <button class="btn no-print" data-action="pw-set">⚙️ Ρυθμίσεις</button>
+    </div>
+    <div class="muted" style="margin-bottom:.8rem">Ο λογαριασμός μοιράζεται έτσι:
+      <b>${esc(pwWho(c.meteredTenantId, c.meteredName))}</b> πληρώνει όσες kWh δείχνει ο υπομετρητής × την τιμή της kWh, και δημοτικά τέλη για ${numFmt.format(c.meteredM2)} τ.μ. από τα ${numFmt.format(c.totalM2)}.
+      Τα υπόλοιπα πάνε στο <b>${esc(c.restName)}</b>: ${c.restTenantId ? `τα πληρώνει ο/η <b>${esc(pwWho(c.restTenantId, ''))}</b>` : `είναι <b>ξενοίκιαστο</b>, τα πληρώνουμε εμείς${c.georgeShare ? ` (μισά με τον Γιώργο)` : ''}`}.</div>
+    ${owed > 0.005 ? `<div class="notice" style="margin:0 0 .8rem">Χρωστάνε για ρεύμα: <b>${eur(owed)}</b></div>` : ''}
+    ${bills.length ? `<div class="sheet-wrap"><table class="data"><thead><tr><th>Περίοδος</th><th class="r">Λογαριασμός</th><th>Υπομετρητής</th><th>Υπόλοιπο</th><th></th></tr></thead><tbody>${bills.map(row).join('')}</tbody></table></div>`
+      : `<div class="empty">Δεν έχει γραφτεί λογαριασμός ακόμα. Όταν έρθει ο λογαριασμός της ΔΕΗ, πατήστε «+ Νέος λογαριασμός ΔΕΗ» και γράψτε τις kWh, την αξία ρεύματος, τα δημοτικά τέλη και την ένδειξη του υπομετρητή. Η εφαρμογή βγάζει μόνη της ποιος πληρώνει τι.</div>`}
+  </div>`;
+}
+function powerPreview(d) {
+  const c = powerCfg();
+  const x = { kwh: parseAmount(d.kwhStr), energy: parseAmount(d.energyStr), fees: parseAmount(d.feesStr), r0: parseAmount(d.r0Str), r1: parseAmount(d.r1Str) };
+  if ([x.kwh, x.energy, x.fees, x.r0, x.r1].some(v => v === null || isNaN(v))) return '<span class="muted">Συμπληρώστε όλα τα νούμερα για να δείτε το μοίρασμα.</span>';
+  const k = powerCalc(c, x);
+  return `Σύνολο λογαριασμού <b>${eur(k.total)}</b> · τιμή kWh ${numFmt.format(k.perKwh)} €<br>
+    <b>${esc(pwWho(c.meteredTenantId, c.meteredName))}</b>: ${int0.format(k.sub)} kWh = ${eur(k.mEnergy)} + τέλη ${eur(k.mFees)} = <b class="exp">${eur(k.metered)}</b><br>
+    <b>${esc(c.restTenantId ? pwWho(c.restTenantId, '') : c.restName + ' (εμείς)')}</b>: <b>${eur(k.rest)}</b>`;
+}
+
+// ---------- Χωράφι: ποτίσματα ----------
+const hrsFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 2 });
+const hrs = n => hrsFmt.format(n || 0);
+function fieldCfg() {
+  if (!DB.field) DB.field = { waterings: [], payments: [], categoryId: '' };
+  return DB.field;
+}
+function fieldCatId() {
+  const f = fieldCfg();
+  if (f.categoryId && catById(f.categoryId)) return f.categoryId;
+  let c = DB.categories.find(x => x.type === 'expense' && /χωράφ/i.test(x.name));
+  if (!c) { c = { id: 'c' + uid(), name: 'Χωράφι – πότισμα', icon: '🌳', type: 'expense', color: '#65a30d', budget: null, extra: false, archived: false, order: 97 }; DB.categories.push(c); }
+  f.categoryId = c.id; return c.id;
+}
+function fieldYear(y) {
+  const f = fieldCfg();
+  const ws = f.waterings.filter(w => +w.date.slice(0, 4) === y).sort((a, b) => a.date.localeCompare(b.date));
+  const hours = round2(ws.reduce((a, w) => a + w.hours, 0));
+  const pays = f.payments.filter(p => p.year === y);
+  const paid = round2(pays.reduce((a, p) => a + p.amount, 0));
+  return { y, ws, hours, pays, paid };
+}
+function fieldRate() {
+  const f = fieldCfg();
+  const p = f.payments.filter(p => p.amount && p.hours).sort((a, b) => a.year - b.year).pop();
+  return p ? p.amount / p.hours : 0;
+}
+function fieldPage() {
+  const f = fieldCfg();
+  const y = now.getFullYear();
+  const cur = fieldYear(y), rate = fieldRate();
+  const est = round2(cur.hours * rate);
+  const years = [...new Set([...f.waterings.map(w => +w.date.slice(0, 4)), ...f.payments.map(p => p.year)])].sort((a, b) => b - a);
+  const [tab, bar] = tabBar('field', [{ k: 'now', icon: '💧', label: `Ποτίσματα ${y}`, count: cur.ws.length }, { k: 'years', icon: '📅', label: 'Όλες οι χρονιές', count: years.length }], 'now');
+  return `
+  <div class="page-head"><h1>🌱 Χωράφι</h1><div class="spacer"></div>
+    <button class="btn primary no-print" data-action="water-new">💧 Πότισα</button>
+    <button class="btn expense no-print" data-action="field-pay">💶 Πλήρωσα το πότισμα</button>
+    <button class="btn no-print" data-action="print">🖨️</button></div>
+  <div class="h-hint" style="margin:-.6rem 0 1rem">Κάθε φορά που ποτίζετε, πατάτε «Πότισα» και γράφετε τις ώρες. Στο τέλος της σεζόν πατάτε «Πλήρωσα» και το ποσό μπαίνει στα έξοδα.</div>
+  <div class="cards">
+    <div class="card bal"><div class="label">Ώρες πότισμα ${y}</div><div class="value num">${hrs(cur.hours)}</div><div class="sub">${cur.ws.length} ποτίσματα</div></div>
+    <div class="card exp"><div class="label">Θα κοστίσει περίπου</div><div class="value exp num">${eur(est)}</div><div class="sub">${rate ? `με ${numFmt.format(rate)} € την ώρα (όσο πέρσι)` : 'Δεν υπάρχει προηγούμενη πληρωμή'}</div></div>
+    <div class="card ${cur.paid ? 'inc' : cur.hours ? 'exp' : 'bal'}"><div class="label">Πληρωμή ${y}</div><div class="value num" style="font-size:1.5rem;color:${cur.paid ? 'var(--inc)' : 'var(--exp)'}">${cur.paid ? `✓ ${eur(cur.paid)}` : cur.hours ? 'Δεν πληρώθηκε ακόμα' : '—'}</div></div>
+  </div>
+  ${bar}
+  ${tab === 'now' ? `<div class="panel">${cur.ws.length ? `<table class="data"><thead><tr><th>Ημερομηνία</th><th class="r">Ώρες</th><th class="r">Σύνολο ως τότε</th><th></th></tr></thead><tbody>${(() => { let run = 0; return cur.ws.map(w => { run += w.hours; return { w, run }; }).reverse().map(({ w, run }) => `<tr style="cursor:default"><td>${shortDate(w.date)}</td><td class="r num"><b>${hrs(w.hours)}</b></td><td class="r num muted">${hrs(run)}</td><td style="width:3rem"><button class="btn small ghost no-print" data-action="water-del" data-id="${w.id}" title="Σβήσιμο">🗑</button></td></tr>`).join(''); })()}</tbody></table>` : '<div class="empty">Κανένα πότισμα φέτος ακόμα.</div>'}</div>`
+  : `<div class="panel"><table class="data"><thead><tr><th>Χρονιά</th><th class="r">Ποτίσματα</th><th class="r">Ώρες</th><th class="r">Πληρώσαμε</th><th class="r">€ την ώρα</th></tr></thead><tbody>${years.map(yy => { const r = fieldYear(yy); return `<tr style="cursor:default"><td><b>${yy}</b></td><td class="r num">${r.ws.length}</td><td class="r num">${hrs(r.hours)}</td><td class="r num">${r.paid ? eur(r.paid) : '<span class="exp">απλήρωτο</span>'}</td><td class="r num muted">${r.paid && r.hours ? numFmt.format(r.paid / r.hours) : ''}</td></tr>`; }).join('')}</tbody></table></div>`}`;
+}
+
 // ---------- παράθυρα: εφορία, οφειλές, αυτοκίνητα ----------
 function renderDlg2(d) {
   // επιστρέφει { title, head, body } ή null
@@ -927,6 +1090,56 @@ function renderDlg2(d) {
       ${d.sid ? '' : `<div class="row"><div class="field"><label for="d-amount">Κόστος <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><div class="amount-wrap"><input id="d-amount" class="num" style="width:10rem" inputmode="decimal" value="${esc(d.amountStr)}"><span style="font-weight:700">€</span></div>
         <label class="check" style="margin-top:.5rem"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα</label></div></div>`}` };
   }
+  if (d.kind === 'water') {
+    return { head: 'neutral', title: '💧 Πότισμα χωραφιού', body: `
+      <div class="field"><label for="d-hours">Πόσες ώρες;</label><div class="amount-wrap"><input id="d-hours" class="amount-input num" inputmode="decimal" value="${esc(d.hoursStr)}"><span class="amount-eur">ώρες</span></div>
+        <div class="chips" style="margin-top:.5rem">${['1', '1,5', '2', '2,5', '3'].map(h => `<button class="chip ${d.hoursStr === h ? 'sel' : ''}" data-action="dlg-hours" data-v="${h}">${h} ${h === '1' ? 'ώρα' : 'ώρες'}</button>`).join('')}</div></div>
+      <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>` };
+  }
+  if (d.kind === 'fieldpay') {
+    const r = fieldYear(d.year);
+    return { head: 'expense', title: `💶 Πληρωμή ποτίσματος ${d.year}`, body: `
+      <div style="font-size:1.15rem">${d.year}: <b>${hrs(r.hours)} ώρες</b> σε ${r.ws.length} ποτίσματα${r.paid ? ` · έχουν ήδη πληρωθεί ${eur(r.paid)}` : ''}</div>
+      <div class="chips">${[now.getFullYear() - 1, now.getFullYear()].map(y => `<button class="chip ${d.year === y ? 'sel' : ''}" data-action="dlg-fyear" data-v="${y}">${y}</button>`).join('')}</div>
+      <div class="field"><label for="d-amount">Πόσα πληρώσατε;</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">€</span><span id="d-calc" class="amount-calc"></span></div></div>
+      <div class="field"><label for="d-date">Πότε</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
+      <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα (${esc(catName(fieldCatId()))})</label>` };
+  }
+  if (d.kind === 'pset') {
+    const ts = DB.tenants.filter(t => !t.end || t.end >= curYM());
+    const opt = (sel, none) => `<option value="">${none}</option>${ts.map(t => `<option value="${t.id}" ${sel === t.id ? 'selected' : ''}>${esc(t.name)}${t.property ? ' – ' + esc(t.property) : ''}</option>`).join('')}`;
+    return { head: 'neutral', title: '⚙️ Μοίρασμα ΔΕΗ', body: `
+      <div class="field"><label for="d-pwname">Όνομα</label><input id="d-pwname" type="text" style="width:100%" value="${esc(d.name)}"></div>
+      <div class="row">
+        <div class="field"><label for="d-pwtot">Όλα τα τετραγωνικά</label><input id="d-pwtot" class="num" inputmode="decimal" style="width:9rem" value="${esc(d.totStr)}"> τ.μ.</div>
+        <div class="field"><label for="d-pwm2">Τετραγωνικά με υπομετρητή</label><input id="d-pwm2" class="num" inputmode="decimal" style="width:9rem" value="${esc(d.m2Str)}"> τ.μ.</div>
+      </div>
+      <div class="field"><label for="d-pwmt">Ποιος έχει τον υπομετρητή;</label><select id="d-pwmt" style="width:100%">${opt(d.meteredTenantId, '— κανείς —')}</select></div>
+      <div class="field"><label for="d-pwrest">Ποιος νοικιάζει το υπόλοιπο (${esc(d.restName)});</label><select id="d-pwrest" style="width:100%">${opt(d.restTenantId, 'Ξενοίκιαστο: πληρώνουμε εμείς')}</select>
+        <div class="hint">Όταν νοικιαστεί, διαλέξτε εδώ τον νέο ενοικιαστή (πρώτα προσθέστε τον στα Ενοίκια).</div></div>
+      <div class="row">
+        <div class="field"><label for="d-pwg">Όταν είναι ξενοίκιαστο, ο Γιώργος πληρώνει</label><input id="d-pwg" type="number" min="0" max="100" style="width:6rem" value="${esc(d.gStr)}"> %</div>
+        <div class="field"><label for="d-pwr">Τελευταία ένδειξη υπομετρητή</label><input id="d-pwr" class="num" inputmode="decimal" style="width:9rem" value="${esc(d.lastStr)}"></div>
+      </div>` };
+  }
+  if (d.kind === 'pbill') {
+    const inp = (id, k, unit, w) => `<div class="amount-wrap"><input id="${id}" class="num" inputmode="decimal" style="width:${w || 9}rem;font-size:1.3rem" value="${esc(d[k])}"><span style="font-weight:700">${unit}</span></div>`;
+    return { head: 'neutral', title: `⚡ ${d.id ? 'Λογαριασμός' : 'Νέος λογαριασμός'} ΔΕΗ`, body: `
+      <div class="row">
+        <div class="field"><label for="d-pfrom">Περίοδος από</label><input id="d-pfrom" type="date" value="${esc(d.from)}"></div>
+        <div class="field"><label for="d-pto">έως</label><input id="d-pto" type="date" value="${esc(d.to)}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-pkwh">Κατανάλωση (όλη)</label>${inp('d-pkwh', 'kwhStr', 'kWh')}</div>
+        <div class="field"><label for="d-penergy">Αξία ρεύματος</label>${inp('d-penergy', 'energyStr', '€')}</div>
+        <div class="field"><label for="d-pfees">Δημοτικά τέλη κ.λπ.</label>${inp('d-pfees', 'feesStr', '€')}</div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-pr0">Υπομετρητής: ένδειξη αρχή</label>${inp('d-pr0', 'r0Str', '')}</div>
+        <div class="field"><label for="d-pr1">ένδειξη τέλος</label>${inp('d-pr1', 'r1Str', '')}</div>
+      </div>
+      <div id="d-ppreview" class="notice" style="margin:0;background:var(--brand-soft);border-color:#c5dcd8;color:var(--ink)">${powerPreview(d)}</div>` };
+  }
   if (d.kind === 'car') {
     const cats = DB.categories.filter(c => c.type === 'expense').sort((a, b) => a.name.localeCompare(b.name, 'el'));
     return { head: 'neutral', title: d.id ? 'Στοιχεία αυτοκινήτου' : 'Νέο αυτοκίνητο', body: `
@@ -945,7 +1158,9 @@ function syncDlg2() {
   const c = id => { const el = $('#' + id); return el ? el.checked : undefined; };
   const d = dlg; if (!d) return;
   for (const [id, k] of [['d-amount', 'amountStr'], ['d-date', 'date'], ['d-tname', 'name'], ['d-count', 'count'], ['d-from', 'from'], ['d-pname', 'name'], ['d-pnote', 'note'],
-    ['d-text', 'text'], ['d-km', 'kmStr'], ['d-work', 'work'], ['d-next', 'nextStr'], ['d-cname', 'name'], ['d-fuel', 'fuel'], ['d-kteo', 'kteo']]) { const x = v(id); if (x !== undefined) d[k] = typeof x === 'string' ? x.trim() : x; }
+    ['d-text', 'text'], ['d-km', 'kmStr'], ['d-work', 'work'], ['d-next', 'nextStr'], ['d-cname', 'name'], ['d-fuel', 'fuel'], ['d-kteo', 'kteo'], ['d-hours', 'hoursStr'],
+    ['d-pwname', 'name'], ['d-pwtot', 'totStr'], ['d-pwm2', 'm2Str'], ['d-pwmt', 'meteredTenantId'], ['d-pwrest', 'restTenantId'], ['d-pwg', 'gStr'], ['d-pwr', 'lastStr'],
+    ['d-pfrom', 'from'], ['d-pto', 'to'], ['d-pkwh', 'kwhStr'], ['d-penergy', 'energyStr'], ['d-pfees', 'feesStr'], ['d-pr0', 'r0Str'], ['d-pr1', 'r1Str']]) { const x = v(id); if (x !== undefined) d[k] = typeof x === 'string' ? x.trim() : x; }
   for (const [id, k] of [['d-addexp', 'addExpense'], ['d-sold', 'sold']]) { const x = c(id); if (x !== undefined) d[k] = x; }
 }
 function saveDlg2() {
@@ -1016,6 +1231,49 @@ function saveDlg2() {
     }
     return done(`${c.name}: σέρβις αποθηκεύτηκε`);
   }
+  if (d.kind === 'water') {
+    const h = parseAmount(d.hoursStr);
+    if (!h || isNaN(h) || h <= 0) return fail('Γράψτε πόσες ώρες.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return fail('Η ημερομηνία δεν είναι σωστή.');
+    fieldCfg().waterings.push({ id: 'w' + uid(), date: d.date, hours: h });
+    return done(`Πότισμα: ${hrs(h)} ώρες`);
+  }
+  if (d.kind === 'fieldpay') {
+    const amt = parseAmount(d.amountStr);
+    if (!amt || isNaN(amt) || amt <= 0) return fail('Γράψτε το ποσό.');
+    const r = fieldYear(d.year);
+    const pay = { id: 'f' + uid(), year: d.year, date: d.date, amount: amt, hours: r.hours, txId: '' };
+    if (d.addExpense) {
+      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: fieldCatId(), note: `Πότισμα ${d.year} (${hrs(r.hours)} ώρες)`, person: '', method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
+      DB.transactions.push(tx); pay.txId = tx.id;
+    }
+    fieldCfg().payments.push(pay);
+    return done(`Πότισμα ${d.year}: πληρώθηκαν ${eur(amt)}`);
+  }
+  if (d.kind === 'pset') {
+    const c = powerCfg();
+    const tot = parseAmount(d.totStr), m2 = parseAmount(d.m2Str), g = parseInt(d.gStr || '0', 10);
+    if (!tot || isNaN(tot) || !m2 || isNaN(m2) || m2 > tot) return fail('Ελέγξτε τα τετραγωνικά.');
+    const last = d.lastStr ? parseAmount(d.lastStr) : null;
+    Object.assign(c, { name: d.name || 'ΔΕΗ', totalM2: tot, meteredM2: m2, meteredTenantId: d.meteredTenantId || '', restTenantId: d.restTenantId || '', georgeShare: isNaN(g) ? 0 : Math.max(0, Math.min(100, g)), lastReading: last === null || isNaN(last) ? null : last });
+    return done('Αποθηκεύτηκε.');
+  }
+  if (d.kind === 'pbill') {
+    const c = powerCfg();
+    const x = { kwh: parseAmount(d.kwhStr), energy: parseAmount(d.energyStr), fees: parseAmount(d.feesStr), r0: parseAmount(d.r0Str), r1: parseAmount(d.r1Str) };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.from) || !/^\d{4}-\d{2}-\d{2}$/.test(d.to) || d.to < d.from) return fail('Ελέγξτε τις ημερομηνίες της περιόδου.');
+    if ([x.kwh, x.energy, x.fees, x.r0, x.r1].some(v => v === null || isNaN(v))) return fail('Συμπληρώστε όλα τα νούμερα.');
+    if (x.r1 < x.r0) return fail('Η ένδειξη στο τέλος είναι μικρότερη από την αρχή.');
+    const k = powerCalc(c, x);
+    const old = d.id ? c.bills.find(b => b.id === d.id) : null;
+    const mt = c.meteredTenantId ? tenantById(c.meteredTenantId) : null, rt = c.restTenantId ? tenantById(c.restTenantId) : null;
+    const rec = { from: d.from, to: d.to, kwh: x.kwh, energy: x.energy, fees: x.fees, r0: x.r0, r1: x.r1, sub: k.sub, total: k.total,
+      metered: { who: old ? old.metered.who : (mt ? mt.name : c.meteredName), amount: k.metered, paid: old ? old.metered.paid : false },
+      rest: { who: old ? old.rest.who : (rt ? rt.name : c.restName), tenant: old ? old.rest.tenant : !!rt, amount: k.rest, paid: old ? old.rest.paid : false } };
+    if (old) Object.assign(old, rec); else c.bills.push({ id: 'b' + uid(), ...rec });
+    if (c.lastReading == null || x.r1 > c.lastReading) c.lastReading = x.r1;
+    return done(`ΔΕΗ: ${rec.metered.who} ${eur(k.metered)} · ${rec.rest.who} ${eur(k.rest)}`);
+  }
   if (d.kind === 'car') {
     if (!d.name) return fail('Γράψτε όνομα.');
     if (d.id) Object.assign(DB.cars.find(x => x.id === d.id), { name: d.name, fuelCategoryId: d.fuel || '', kteo: d.kteo || '', sold: d.sold ? (DB.cars.find(x => x.id === d.id).sold || todayStr()) : '' });
@@ -1032,7 +1290,8 @@ function recurringPage() {
     return `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto auto">
       <span class="ic">${esc(catIcon(r.categoryId))}</span>
       <span><div class="t1">${esc(catName(r.categoryId))}${r.note ? ` <span class="muted" style="font-weight:500">— ${esc(r.note)}</span>` : ''}${!r.active ? ' <span class="tag">σταματημένο</span>' : ''}</div>
-        <div class="t2">${esc(freqText(r))}${r.active && nd ? ` · επόμενο: <b>${ymLabel(nd)}</b>` : ''}${r.person ? ' · ' + esc(r.person) : ''}</div></span>
+        <div class="t2">${esc(freqText(r))}${r.active && nd ? ` · επόμενο: <b>${ymLabel(nd)}</b>` : ''}${r.person ? ' · ' + esc(r.person) : ''}</div>
+        ${r.until ? `<div class="t2">${recEnded(r) ? `<b class="inc">Τελείωσε ✓</b> (τελευταία ${r.total ? 'δόση' : 'φορά'}: ${ymLabel(r.until)})` : `${r.total && instNo(r, nd || curYM()) ? `Δόση <b>${instNo(r, nd || curYM())} από ${r.total}</b> · ` : ''}τελευταία ${r.total ? 'δόση' : 'φορά'}: <b>${ymLabel(r.until)}</b>${r.total ? ` · μένουν ${r.total - instNo(r, nd || curYM()) + 1} (${eur((r.total - instNo(r, nd || curYM()) + 1) * r.amount)})` : ''}`}</div>` : ''}</span>
       <span class="amt num ${r.type === 'income' ? 'inc' : 'exp'}">${r.type === 'income' ? '+' : '−'} ${eur(r.amount)}</span>
       <span style="display:flex;gap:.4rem">
         <button class="btn small" data-action="rec-edit" data-id="${r.id}">✎ Αλλαγή</button>
@@ -1040,8 +1299,8 @@ function recurringPage() {
       </span></div>`;
   };
   const list = type => DB.recurring.filter(r => r.type === type).sort((a, b) => (b.active - a.active) || catName(a.categoryId).localeCompare(catName(b.categoryId), 'el'));
-  const monthlyOut = round2(DB.recurring.filter(r => r.active && r.type === 'expense').reduce((a, r) => a + r.amount / (r.every || 1), 0));
-  const monthlyIn = round2(DB.recurring.filter(r => r.active && r.type === 'income').reduce((a, r) => a + r.amount / (r.every || 1), 0));
+  const monthlyOut = round2(DB.recurring.filter(r => r.active && !recEnded(r) && r.type === 'expense').reduce((a, r) => a + r.amount / (r.every || 1), 0));
+  const monthlyIn = round2(DB.recurring.filter(r => r.active && !recEnded(r) && r.type === 'income').reduce((a, r) => a + r.amount / (r.every || 1), 0));
   const exp = list('expense'), inc = list('income');
   return `
   <div class="page-head"><h1>Πάγια</h1><div class="spacer"></div>
@@ -1072,8 +1331,8 @@ function chipsHtml(values, sel, action, emptyLabel) {
   return `<div class="chips">${values.map(v => `<button class="chip ${sel === v ? 'sel' : ''}" data-action="${action}" data-v="${esc(v)}">${v === '' ? emptyLabel : esc(v)}</button>`).join('')}</div>`;
 }
 function openRecDialog(type, r) {
-  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, error: '' }
-    : { kind: 'rec', id: null, type, amountStr: '', categoryId: '', note: '', day: new Date().getDate(), every: 1, from: curYM(), person: '', method: '', error: '' };
+  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, until: r.until || '', totalStr: r.total ? String(r.total) : '', error: '' }
+    : { kind: 'rec', id: null, type, amountStr: '', categoryId: '', note: '', day: new Date().getDate(), every: 1, from: curYM(), person: '', method: '', until: '', totalStr: '', error: '' };
   renderDlg();
   setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30);
 }
@@ -1091,6 +1350,8 @@ function syncDlg() {
     if (v('d-note') !== undefined) dlg.note = v('d-note').trim();
     if (v('d-day') !== undefined) dlg.day = Math.min(31, Math.max(1, +v('d-day') || 1));
     if (v('d-from')) dlg.from = v('d-from');
+    if (v('d-until') !== undefined) dlg.until = v('d-until');
+    if (v('d-total') !== undefined) dlg.totalStr = v('d-total').trim();
   } else {
     for (const [id, k] of [['d-name', 'name'], ['d-prop', 'property'], ['d-rent', 'rentStr'], ['d-share', 'shareStr'], ['d-opening', 'openingStr'], ['d-tnote', 'note']]) if (v(id) !== undefined) dlg[k] = v(id).trim();
     if (v('d-start')) dlg.start = v('d-start');
@@ -1170,6 +1431,12 @@ function renderDlg() {
       <div class="row">
         <div class="field"><label for="d-day">Ποια μέρα του μήνα;</label><input id="d-day" type="number" min="1" max="31" value="${d.day}" style="width:7rem"></div>
         <div class="field"><label for="d-from">Από ποιον μήνα;</label><input id="d-from" type="month" value="${esc(d.from)}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-until">Τελειώνει; Τελευταίος μήνας <span class="muted" style="font-weight:500">(αν έχει τέλος)</span></label>
+          <div style="display:flex;gap:.6rem;align-items:center"><input id="d-until" type="month" value="${esc(d.until)}">${d.until ? '<button class="btn small ghost" data-action="dlg-clear-until">✕ Χωρίς τέλος</button>' : ''}</div></div>
+        <div class="field"><label for="d-total">Αν είναι δόσεις: πόσες όλες μαζί;</label><input id="d-total" type="number" min="1" max="600" value="${esc(d.totalStr)}" style="width:7rem" placeholder="—">
+          <div class="hint">Τότε φαίνεται «δόση 80 από 100».</div></div>
       </div>
       <div class="row">
         ${(DB.settings.persons || []).length ? `<div class="field"><div class="flabel">Ποιος;</div>${chipsHtml(['', ...DB.settings.persons], d.person, 'dlg-person', 'Όλοι / —')}</div>` : ''}
@@ -1261,6 +1528,7 @@ function renderDlg() {
         ${d.kind === 'service' && d.sid ? '<button class="btn danger" data-action="service-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'person' && d.id ? '<button class="btn danger" data-action="person-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'car' && d.id ? '<button class="btn danger" data-action="car-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'pbill' && d.id ? '<button class="btn danger" data-action="pb-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
         <button class="btn" data-action="dlg-close">Ακύρωση</button>
         <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">✓ Αποθήκευση</button>
@@ -1269,7 +1537,7 @@ function renderDlg() {
   </div>`;
 }
 function saveDlg() {
-  if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car'].includes(dlg.kind)) { saveDlg2(); return; }
+  if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
     syncLeave();
@@ -1289,14 +1557,18 @@ function saveDlg() {
     if (amt === null || isNaN(amt) || amt <= 0) return fail('Γράψτε ένα ποσό μεγαλύτερο από 0.');
     if (!d.categoryId) return fail('Διαλέξτε για τι είναι.');
     if (!/^\d{4}-\d{2}$/.test(d.from)) return fail('Διαλέξτε από ποιον μήνα.');
-    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method };
+    if (d.until && d.until < d.from) return fail('Ο τελευταίος μήνας είναι πριν από την αρχή.');
+    const total = d.totalStr ? parseInt(d.totalStr, 10) : null;
+    if (d.totalStr && !(total >= 1)) return fail('Οι δόσεις πρέπει να είναι αριθμός.');
+    if (total && !d.until) return fail('Για τις δόσεις, διαλέξτε και τον μήνα της τελευταίας δόσης.');
+    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method, until: d.until || '', total: total || null };
     if (d.id) {
       const r = DB.recurring.find(x => x.id === d.id);
       Object.assign(r, fields);
       // οι προγραμματισμένες (όχι οι πληρωμένες) ξαναφτιάχνονται με τα νέα στοιχεία
       DB.transactions = DB.transactions.filter(t => !(t.recurringId === r.id && t.planned));
     } else {
-      DB.recurring.push({ id: 'r' + uid(), active: true, skip: [], until: '', ...fields });
+      DB.recurring.push({ id: 'r' + uid(), active: true, skip: [], ...fields });
     }
     generateRecurring();
     dlg = null; renderDlg(); persist(); render();
@@ -1846,6 +2118,7 @@ const actions = {
   'dlg-back': (el, ev) => { if (ev.target === el) { dlg = null; renderDlg(); } },
   'dlg-save': () => saveDlg(),
   'dlg-cat': el => { syncDlg(); dlg.categoryId = el.dataset.id; dlg.error = ''; renderDlg(); },
+  'dlg-clear-until': () => { syncDlg(); dlg.until = ''; dlg.totalStr = ''; renderDlg(); },
   'dlg-every': el => { syncDlg(); dlg.every = +el.dataset.v; renderDlg(); },
   'dlg-person': el => { syncDlg(); dlg.person = el.dataset.v; renderDlg(); },
   'dlg-method': el => { syncDlg(); dlg.method = el.dataset.v; renderDlg(); },
@@ -1858,6 +2131,28 @@ const actions = {
     if (el.dataset.page === 'list') { ui.list.type = el.dataset.k; ui.list.cat = ''; ui.list.limit = 200; }
     render(); $('.main').scrollTop = 0;
   },
+  'decl-prev': () => { ui.declYear = (ui.declYear || now.getFullYear()) - 1; render(); },
+  'decl-next': () => { ui.declYear = (ui.declYear || now.getFullYear()) + 1; render(); },
+  'water-new': () => { dlg = { kind: 'water', hoursStr: '2', date: todayStr(), error: '' }; renderDlg(); },
+  'dlg-hours': el => { syncDlg2(); dlg.hoursStr = el.dataset.v; renderDlg(); },
+  'water-del': el => { const f = fieldCfg(); const w = f.waterings.find(x => x.id === el.dataset.id); if (!w || !confirm(`Να σβηστεί το πότισμα της ${shortDate(w.date)};`)) return; f.waterings = f.waterings.filter(x => x !== w); persist(); render(); },
+  'field-pay': () => {
+    const y0 = now.getFullYear(); const prev = fieldYear(y0 - 1);
+    const year = prev.hours && !prev.paid ? y0 - 1 : y0;
+    const r = fieldYear(year);
+    dlg = { kind: 'fieldpay', year, amountStr: r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : '', date: todayStr(), addExpense: true, error: '' }; renderDlg();
+  },
+  'dlg-fyear': el => { syncDlg2(); dlg.year = +el.dataset.v; const r = fieldYear(dlg.year); dlg.amountStr = r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : ''; renderDlg(); },
+  'pw-set': () => { const c = powerCfg(); const f = n => (n == null ? '' : numFmt.format(n).replace(/\./g, '').replace(/,00$/, ''));
+    dlg = { kind: 'pset', name: c.name, totStr: f(c.totalM2), m2Str: f(c.meteredM2), meteredTenantId: c.meteredTenantId, restTenantId: c.restTenantId, restName: c.restName, gStr: String(c.georgeShare || 0), lastStr: f(c.lastReading), error: '' }; renderDlg(); },
+  'pb-new': () => { const c = powerCfg(); const last = c.bills.slice().sort((a, b) => a.to.localeCompare(b.to)).pop();
+    const r0 = last ? last.r1 : c.lastReading;
+    dlg = { kind: 'pbill', id: null, from: last ? shiftDay(last.to, 1) : '', to: todayStr(), kwhStr: '', energyStr: '', feesStr: '', r0Str: r0 == null ? '' : String(r0).replace('.', ','), r1Str: '', error: '' }; renderDlg(); },
+  'pb-edit': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); const f = n => String(n).replace('.', ',');
+    dlg = { kind: 'pbill', id: b.id, from: b.from, to: b.to, kwhStr: f(b.kwh), energyStr: f(b.energy), feesStr: f(b.fees), r0Str: f(b.r0), r1Str: f(b.r1), error: '' }; renderDlg(); },
+  'pb-delete': () => { if (!confirm('Να σβηστεί αυτός ο λογαριασμός;')) return; const c = powerCfg(); c.bills = c.bills.filter(b => b.id !== dlg.id); dlg = null; renderDlg(); persist(); render(); },
+  'pb-paid': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); b[el.dataset.p].paid = true; b[el.dataset.p].paidDate = todayStr(); persist(); render(); toast(`${b[el.dataset.p].who}: τα έδωσε (${eur(b[el.dataset.p].amount)})`); },
+  'pb-unpaid': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); b[el.dataset.p].paid = false; persist(); render(); },
   'goto-page': el => { ui.page = el.dataset.page; render(); $('.main').scrollTop = 0; },
   'taxyear-prev': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) - 1; render(); },
   'taxyear-next': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) + 1; render(); },
@@ -2050,6 +2345,7 @@ document.addEventListener('input', ev => {
     const bd = $('#d-baldiff'); if (bd && dlg.kind === 'bal') bd.innerHTML = balDiffHint(DB.accounts.find(x => x.id === dlg.id), parseAmount(t.value));
     return;
   }
+  if (dlg && dlg.kind === 'pbill' && /^d-p(kwh|energy|fees|r0|r1)$/.test(t.id)) { syncDlg2(); const pv = $('#d-ppreview'); if (pv) pv.innerHTML = powerPreview(dlg); return; }
   if (t.id === 'fm-amount' && form) {
     form.amountStr = t.value; const c = $('#fm-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value));
     const sh = $('#fm-share'); if (sh) sh.innerHTML = shareHint(form, parseAmount(t.value));
