@@ -107,7 +107,7 @@ function normalize(d) {
   d.categories = (d.categories || []).map((c, i) => Object.assign({ color: PALETTE[i % PALETTE.length], budget: null, extra: false, archived: false, order: i }, c));
   d.transactions = (d.transactions || []).filter(t => t && t.date && t.categoryId).map(t => Object.assign({ note: '', person: '', method: '', planned: false, dayKnown: true, tenantId: '', recurringId: '' }, t, { amount: +t.amount || 0 }));
   d.recurring = (d.recurring || []).map(r => Object.assign({ every: 1, day: 1, note: '', person: '', method: '', active: true, skip: [], until: '' }, r));
-  d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true }, t));
+  d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true, share: 100 }, t));
   d.history = d.history || {};
   return d;
 }
@@ -178,6 +178,10 @@ function tenantRent(t, s) {
 const currentRent = t => tenantRent(t, curYM() < t.start ? t.start : curYM());
 const tenantActiveIn = (t, s) => s >= t.start && (!t.end || s <= t.end);
 const tenantPayments = t => DB.transactions.filter(x => x.tenantId === t.id && x.type === 'income' && !x.planned).sort((a, b) => a.date.localeCompare(b.date));
+// Πόσα έδωσε ο ενοικιαστής (όλο το ποσό). Στα έσοδα μπαίνει μόνο το δικό μας μερίδιο.
+const paidOf = x => (x.rentAmount != null ? x.rentAmount : x.amount);
+const sumPaid = arr => round2(arr.reduce((a, x) => a + paidOf(x), 0));
+const shareOf = t => (t && t.share != null ? +t.share : 100);
 // Καρτέλα: για κάθε μήνα ενοίκιο, πληρωμές και τι χρωστάει
 function tenantLedger(t) {
   const pays = tenantPayments(t);
@@ -185,21 +189,21 @@ function tenantLedger(t) {
   const rows = [];
   let bal = +t.opening || 0;
   const early = pays.filter(p => p.date.slice(0, 7) < t.start);
-  bal -= sum(early);
+  bal -= sumPaid(early);
   for (let s = t.start, g = 0; s <= upto && g < 600; s = addMonths(s, 1), g++) {
     const due = tenantRent(t, s);
     const mp = pays.filter(p => p.date.slice(0, 7) === s);
-    const paid = sum(mp);
+    const paid = sumPaid(mp);
     bal = round2(bal + due - paid);
     rows.push({ s, due, paid, pays: mp, bal });
   }
   const later = pays.filter(p => p.date.slice(0, 7) > upto);
-  if (later.length) { bal = round2(bal - sum(later)); }
+  if (later.length) { bal = round2(bal - sumPaid(later)); }
   return { rows, balance: round2(bal), early, later };
 }
 function tenantMonthStatus(t, s) {
   const due = tenantRent(t, s);
-  const paid = sum(tenantPayments(t).filter(p => p.date.slice(0, 7) === s));
+  const paid = sumPaid(tenantPayments(t).filter(p => p.date.slice(0, 7) === s));
   if (!due) return { due, paid, cls: 'ok', text: 'Χωρίς ενοίκιο' };
   if (paid >= due - 0.005) return { due, paid, cls: 'ok', text: '✓ Πλήρωσε' };
   if (paid > 0) return { due, paid, cls: 'part', text: `Μερικώς: ${eur(paid)} από ${eur(due)}` };
@@ -481,7 +485,8 @@ function rentPage() {
         ${st ? statusChip(st) : '<span class="status" style="' + STATUS_STYLE.wait + '">Έφυγε</span>'}
       </div>
       <div class="tenant-bal">${balanceText(led.balance)}</div>
-      <div class="muted" style="font-size:.95rem">${last ? `Τελευταία πληρωμή: <b>${eur(last.amount)}</b> στις ${esc(dateLabel(last))}` : 'Δεν έχει καταγραφεί πληρωμή.'}</div>
+      <div class="muted" style="font-size:.95rem">${last ? `Τελευταία πληρωμή: <b>${eur(paidOf(last))}</b> ${last.dayKnown === false ? 'τον' : 'στις'} ${esc(dateLabel(last))}` : 'Δεν έχει καταγραφεί πληρωμή.'}</div>
+      ${shareOf(t) !== 100 ? `<div class="muted" style="font-size:.95rem">Δικό μας το ${shareOf(t)}%: ${eur(currentRent(t) * shareOf(t) / 100)} τον μήνα</div>` : ''}
       <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
         <button class="btn income" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>
         <button class="btn" data-action="tenant-open" data-id="${t.id}">📒 Καρτέλα</button>
@@ -516,7 +521,7 @@ function tenantPage(t) {
   </div>
   <div class="cards">
     <div class="card ${led.balance > 0.005 ? 'exp' : 'inc'}"><div class="label">Σήμερα</div><div class="value num" style="font-size:1.6rem;margin-top:.4rem">${balanceText(led.balance)}</div></div>
-    <div class="card bal"><div class="label">Ενοίκιο</div><div class="value num">${eur(currentRent(t))}</div><div class="sub">${esc(t.property || '')}${t.dueDay ? ` · πληρώνει στις ${t.dueDay} του μήνα` : ''}</div></div>
+    <div class="card bal"><div class="label">Ενοίκιο</div><div class="value num">${eur(currentRent(t))}</div><div class="sub">${esc(t.property || '')}${t.dueDay ? ` · πληρώνει στις ${t.dueDay} του μήνα` : ''}${shareOf(t) !== 100 ? `<br>Δικό μας το ${shareOf(t)}%: <b>${eur(currentRent(t) * shareOf(t) / 100)}</b>` : ''}</div></div>
     <div class="card"><div class="label">Από</div><div class="value" style="font-size:1.6rem">${ymLabel(t.start)}</div><div class="sub">${t.end ? 'Έφυγε: ' + ymLabel(t.end) : ''}${t.opening ? `${t.end ? ' · ' : ''}Παλιό υπόλοιπο: ${eur(t.opening)}` : ''}</div></div>
   </div>
   ${t.note ? `<div class="notice">${esc(t.note)}</div>` : ''}
@@ -526,7 +531,7 @@ function tenantPage(t) {
       <td><b>${ymLabel(r.s)}</b></td>
       <td class="r num">${eur(r.due)}</td>
       <td class="r num inc">${r.paid ? eur(r.paid) : '<span class="muted">—</span>'}</td>
-      <td>${r.pays.map(p => `<button class="chip" style="min-height:2.1rem;padding:.1rem .7rem;margin:.1rem" data-action="edit" data-id="${p.id}">${new Date(p.date + 'T12:00').getDate()}/${+p.date.slice(5, 7)} · ${eur(p.amount)}</button>`).join('')}</td>
+      <td>${r.pays.map(p => `<button class="chip" style="min-height:2.1rem;padding:.1rem .7rem;margin:.1rem" data-action="edit" data-id="${p.id}">${p.dayKnown === false ? '' : `${new Date(p.date + 'T12:00').getDate()}/${+p.date.slice(5, 7)} · `}${eur(paidOf(p))}</button>`).join('')}</td>
       <td>${statusChip(st)}</td>
       <td class="r num ${r.bal > 0.005 ? 'exp' : 'inc'}"><b>${r.bal < -0.005 ? '−' + eur(-r.bal) : eur(r.bal)}</b></td></tr>`; }).join('')}
       ${t.opening ? `<tr style="cursor:default"><td class="muted">Πριν τον ${ymLabel(t.start)}</td><td colspan="4" class="muted">Παλιό υπόλοιπο</td><td class="r num"><b>${eur(t.opening)}</b></td></tr>` : ''}
@@ -584,8 +589,8 @@ function openRecDialog(type, r) {
   setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30);
 }
 function openTenantDialog(t) {
-  dlg = t ? { kind: 'tenant', id: t.id, name: t.name, property: t.property, rentStr: numFmt.format(currentRent(t)).replace(/\./g, ''), start: t.start, openingStr: t.opening ? numFmt.format(t.opening).replace(/\./g, '') : '', dueDay: t.dueDay || 1, note: t.note, end: t.end || '', error: '' }
-    : { kind: 'tenant', id: null, name: '', property: '', rentStr: '', start: curYM(), openingStr: '', dueDay: 1, note: '', end: '', error: '' };
+  dlg = t ? { kind: 'tenant', id: t.id, name: t.name, property: t.property, rentStr: numFmt.format(currentRent(t)).replace(/\./g, ''), shareStr: String(shareOf(t)), start: t.start, openingStr: t.opening ? numFmt.format(t.opening).replace(/\./g, '') : '', dueDay: t.dueDay || 1, note: t.note, end: t.end || '', error: '' }
+    : { kind: 'tenant', id: null, name: '', property: '', rentStr: '', shareStr: '100', start: curYM(), openingStr: '', dueDay: 1, note: '', end: '', error: '' };
   renderDlg();
   setTimeout(() => { const a = $('#d-name'); if (a) a.focus(); }, 30);
 }
@@ -598,7 +603,7 @@ function syncDlg() {
     if (v('d-day') !== undefined) dlg.day = Math.min(31, Math.max(1, +v('d-day') || 1));
     if (v('d-from')) dlg.from = v('d-from');
   } else {
-    for (const [id, k] of [['d-name', 'name'], ['d-prop', 'property'], ['d-rent', 'rentStr'], ['d-opening', 'openingStr'], ['d-tnote', 'note']]) if (v(id) !== undefined) dlg[k] = v(id).trim();
+    for (const [id, k] of [['d-name', 'name'], ['d-prop', 'property'], ['d-rent', 'rentStr'], ['d-share', 'shareStr'], ['d-opening', 'openingStr'], ['d-tnote', 'note']]) if (v(id) !== undefined) dlg[k] = v(id).trim();
     if (v('d-start')) dlg.start = v('d-start');
     if (v('d-due') !== undefined) dlg.dueDay = Math.min(31, Math.max(1, +v('d-due') || 1));
     if (v('d-end') !== undefined) dlg.end = v('d-end');
@@ -645,6 +650,10 @@ function renderDlg() {
           ${d.id ? '<div class="hint">Αν αλλάξει το ενοίκιο, το νέο μετράει από αυτόν τον μήνα. Οι παλιοί μήνες μένουν όπως ήταν.</div>' : ''}</div>
         <div class="field"><label for="d-due">Πληρώνει συνήθως στις</label><div style="display:flex;align-items:center;gap:.6rem"><input id="d-due" type="number" min="1" max="31" value="${d.dueDay}" style="width:6rem"> <span>του μήνα</span></div></div>
       </div>
+      <div class="field"><label for="d-share">Πόσο από το ενοίκιο είναι δικό μας;</label>
+        <div style="display:flex;align-items:center;gap:.6rem"><input id="d-share" type="number" min="1" max="100" value="${esc(d.shareStr)}" style="width:6rem"> <span>%</span>
+        <button class="chip ${d.shareStr === '100' ? 'sel' : ''}" data-action="dlg-share" data-v="100">Όλο (100%)</button><button class="chip ${d.shareStr === '50' ? 'sel' : ''}" data-action="dlg-share" data-v="50">Μισό (50%)</button></div>
+        <div class="hint">Αν το ακίνητο είναι μισό δικό μας, στα έσοδα μπαίνει μόνο το μισό από κάθε πληρωμή. Η οφειλή του ενοικιαστή μετριέται πάντα με όλο το ενοίκιο.</div></div>
       <div class="row">
         <div class="field"><label for="d-start">Από ποιον μήνα μετράμε;</label><input id="d-start" type="month" value="${esc(d.start)}"></div>
         <div class="field"><label for="d-opening">Χρωστούσε ήδη από πριν;</label>
@@ -698,10 +707,14 @@ function saveDlg() {
     if (isNaN(opening)) return fail('Το «χρωστούσε από πριν» δεν είναι σωστό ποσό.');
     if (!/^\d{4}-\d{2}$/.test(d.start)) return fail('Διαλέξτε από ποιον μήνα μετράμε.');
     if (d.end && d.end < d.start) return fail('Ο μήνας που έφυγε είναι πριν από την αρχή.');
+    const share = Math.round(+String(d.shareStr).replace(',', '.'));
+    if (!(share >= 1 && share <= 100)) return fail('Το «πόσο είναι δικό μας» πρέπει να είναι από 1 ως 100%.');
     if (d.id) {
       const t = tenantById(d.id);
       const oldStart = t.start;
-      Object.assign(t, { name: d.name, property: d.property, start: d.start, opening: opening || 0, dueDay: d.dueDay, note: d.note, end: d.end || '' });
+      const oldShare = shareOf(t);
+      Object.assign(t, { name: d.name, property: d.property, start: d.start, opening: opening || 0, dueDay: d.dueDay, note: d.note, end: d.end || '', share });
+      if (oldShare !== share) for (const x of DB.transactions) if (x.tenantId === t.id) { const full = paidOf(x); x.amount = round2(full * share / 100); if (share === 100) delete x.rentAmount; else x.rentAmount = full; }
       if (Math.abs(currentRent(t) - rent) > 0.005 || oldStart !== d.start) {
         const from = curYM() <= t.start ? t.start : curYM();
         t.rents = (t.rents || []).filter(r => r.from < from && r.from >= t.start);
@@ -709,7 +722,7 @@ function saveDlg() {
         if (!t.rents.some(r => r.from <= t.start)) t.rents[0].from = t.start;
       }
     } else {
-      DB.tenants.push({ id: 't' + uid(), name: d.name, property: d.property, rents: [{ from: d.start, amount: rent }], start: d.start, end: '', opening: opening || 0, dueDay: d.dueDay, note: d.note, active: true });
+      DB.tenants.push({ id: 't' + uid(), name: d.name, property: d.property, rents: [{ from: d.start, amount: rent }], start: d.start, end: '', opening: opening || 0, dueDay: d.dueDay, note: d.note, active: true, share });
       rentCatId();
     }
     dlg = null; renderDlg(); persist(); render();
@@ -939,7 +952,7 @@ function settingsPage() {
 
 // ======================= φόρμα καταχώρησης =======================
 function openForm(type, tx, preset) {
-  const base = tx ? { ...tx, amountStr: numFmt.format(tx.amount).replace(/\./g, '') } : {
+  const base = tx ? { ...tx, amountStr: numFmt.format(paidOf(tx)).replace(/\./g, '') } : {
     id: null, type, amountStr: '', categoryId: '', note: '', date: defaultDateFor(), dayKnown: true,
     person: '', method: '', planned: false, tenantId: '', recurringId: '', ...(preset || {})
   };
@@ -983,6 +996,7 @@ function renderForm() {
             <span class="amount-eur">€</span>
             <span id="fm-calc" class="amount-calc">${calcHint(f.amountStr, amt)}</span>
           </div>
+          <div id="fm-share" class="amount-calc" style="margin-top:.35rem">${shareHint(f, amt)}</div>
           <div class="hint">Μπορείτε να γράψετε και πρόσθεση, όπως στο Excel: <b>50+39+12,5</b></div>
         </div>
         <div class="field">
@@ -1034,6 +1048,13 @@ function renderForm() {
     </div>
   </div>`;
 }
+function formTenant(f) { return f && f.type === 'income' && f.tenantId && DB.tenants.length && f.categoryId === rentCatId() ? tenantById(f.tenantId) : null; }
+function shareHint(f, amt) {
+  const t = formTenant(f);
+  if (!t || shareOf(t) === 100) return '';
+  const ours = amt && !isNaN(amt) ? eur(amt * shareOf(t) / 100) : '—';
+  return `Γράψτε όσα έδωσε ο ενοικιαστής. Στα έσοδα μπαίνει το δικό μας ${shareOf(t)}%: <b>${ours}</b>`;
+}
 function calcHint(raw, amt) {
   if (!raw) return '';
   if (amt === null) return '';
@@ -1056,9 +1077,12 @@ function saveForm() {
   if (!f.categoryId) { f.error = 'Διαλέξτε για τι είναι («2. Για τι;»).'; renderForm(); return; }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) { f.error = 'Η ημερομηνία δεν είναι σωστή.'; renderForm(); return; }
   const isRent = f.type === 'income' && DB.tenants.length && f.categoryId === rentCatId();
+  const ten = isRent && f.tenantId ? tenantById(f.tenantId) : null;
+  const sh = ten ? shareOf(ten) : 100;
   const rec = {
     tenantId: isRent ? (f.tenantId || '') : '', recurringId: f.recurringId || '',
-    id: f.id || uid(), date: f.date, dayKnown: f.dayKnown !== false, type: f.type, amount: amt, categoryId: f.categoryId,
+    ...(sh !== 100 ? { rentAmount: amt } : {}),
+    id: f.id || uid(), date: f.date, dayKnown: f.dayKnown !== false, type: f.type, amount: sh !== 100 ? round2(amt * sh / 100) : amt, categoryId: f.categoryId,
     note: f.note || '', person: f.person || '', method: f.method || '', planned: !!f.planned,
     source: f.source || 'app', created: f.created || new Date().toISOString()
   };
@@ -1219,6 +1243,7 @@ const actions = {
   'dlg-person': el => { syncDlg(); dlg.person = el.dataset.v; renderDlg(); },
   'dlg-method': el => { syncDlg(); dlg.method = el.dataset.v; renderDlg(); },
   'dlg-clear-end': () => { syncDlg(); dlg.end = ''; renderDlg(); },
+  'dlg-share': el => { syncDlg(); dlg.shareStr = el.dataset.v; renderDlg(); },
   // ενοίκια
   'tenant-new': () => openTenantDialog(null),
   'tenant-edit': el => openTenantDialog(tenantById(el.dataset.id)),
@@ -1328,6 +1353,7 @@ document.addEventListener('input', ev => {
   if (t.id === 'd-amount' && dlg) { dlg.amountStr = t.value; const c = $('#d-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value)); return; }
   if (t.id === 'fm-amount' && form) {
     form.amountStr = t.value; const c = $('#fm-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value));
+    const sh = $('#fm-share'); if (sh) sh.innerHTML = shareHint(form, parseAmount(t.value));
   } else if (t.id === 'f-q') { ui.list.q = t.value; ui.list.limit = 200; ui._focusSearch = true; render(); }
 });
 document.addEventListener('change', ev => {
