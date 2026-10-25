@@ -88,7 +88,7 @@ function setSaveState(s) {
   const el = $('#save-state');
   if (!el) return;
   el.textContent = s === 'saving' ? 'Αποθήκευση…' : s === 'error' ? '⚠ Πρόβλημα στην αποθήκευση!' : '✓ Όλα αποθηκευμένα';
-  el.style.color = s === 'error' ? '#ffb4a6' : '';
+  el.style.color = s === 'error' ? 'var(--exp)' : '';
 }
 
 function defaultData() {
@@ -352,22 +352,31 @@ function homePage() {
 
   const recent = [...exp, ...inc].sort((a, b) => (b.created || '').localeCompare(a.created || '') || b.date.localeCompare(a.date)).slice(0, 8);
 
+  const hr = new Date().getHours();
+  const hello = hr < 12 ? 'Καλημέρα' : hr < 18 ? 'Καλό απόγευμα' : 'Καλησπέρα';
+  const who = (DB.settings.persons || [])[0] || '';
+  const voc = who.replace(/ος$/, 'ο').replace(/ης$/, 'η').replace(/ας$/, 'α');
+  const msg = !tI && !tE ? (isCurrent ? 'Δεν έχει γραφτεί τίποτα αυτόν τον μήνα ακόμα.' : 'Δεν υπάρχουν κινήσεις αυτόν τον μήνα.')
+    : bal < 0 ? `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} βγήκαν περισσότερα απ’ όσα μπήκαν.` : `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} έμειναν ${eur(bal)}.`;
+  const tot = Math.max(tI, tE) || 1;
   return `
-  <div class="page-head">
-    <div class="month-nav">
-      <button class="btn" data-action="month-prev" title="Προηγούμενος μήνας">◀</button>
-      <div class="month-title">${MONTHS[month - 1]} ${year}</div>
-      <button class="btn" data-action="month-next" title="Επόμενος μήνας">▶</button>
-    </div>
-    ${isCurrent ? '' : '<button class="btn" data-action="month-today">Τρέχων μήνας</button>'}
+  <div class="hero">
+    <h1>${MONTHS[month - 1]} <span class="yr">${year}</span></h1>
     <div class="spacer"></div>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
+    ${isCurrent ? '' : '<button class="btn no-print" data-action="month-today">Σήμερα</button>'}
+    <button class="btn no-print" data-action="print" title="Εκτύπωση">🖨️</button>
+    <div class="month-nav no-print">
+      <button class="btn" data-action="month-prev" title="Προηγούμενος μήνας">‹</button>
+      <button class="btn" data-action="month-next" title="Επόμενος μήνας">›</button>
+    </div>
   </div>
+  <div class="greet">${isCurrent ? `${hello}${voc ? ', ' + esc(voc) : ''}. ` : ''}${msg}</div>
 
-  <div class="cards">
-    <div class="card inc"><div class="label">Έσοδα του μήνα</div><div class="value inc num">${eur(tI)}</div><div class="sub">Από αρχή χρονιάς: <b class="num">${eur(ytdI)}</b></div></div>
-    <div class="card exp"><div class="label">Έξοδα του μήνα</div><div class="value exp num">${eur(tE)}</div><div class="sub">Από αρχή χρονιάς: <b class="num">${eur(ytdE)}</b></div></div>
-    <div class="card bal"><div class="label">Έμειναν (έσοδα − έξοδα)</div><div class="value num" style="color:${bal < 0 ? 'var(--exp)' : 'var(--brand)'}">${eur(bal)}</div><div class="sub">Από αρχή χρονιάς: <b class="num">${eur(ytdI - ytdE)}</b></div></div>
+  <div class="scale">
+    <div><div class="k">Μπήκαν</div><div class="v inc num">${eur(tI)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI)}</b></div></div>
+    <div><div class="k">Βγήκαν</div><div class="v exp num">${eur(tE)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdE)}</b></div></div>
+    <div><div class="k">Έμειναν</div><div class="v num" style="color:${bal < 0 ? 'var(--exp)' : 'var(--ink)'}">${bal < 0 ? '−' + eur(-bal) : eur(bal)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI - ytdE)}</b></div></div>
+    ${tI || tE ? `<div class="meter" title="Πράσινο: μπήκαν · Κόκκινο: βγήκαν"><i style="flex:${tI / tot};background:var(--inc)"></i><i style="flex:${tE / tot};background:var(--exp)"></i></div>` : ''}
   </div>
 
   ${homeTabs()}`;
@@ -473,7 +482,7 @@ function listPage() {
 const STATUS_STYLE = {
   ok: 'background:var(--inc-soft);color:var(--inc)',
   part: 'background:var(--warn-soft);color:var(--warn)',
-  wait: 'background:#eef1f0;color:var(--ink-2)',
+  wait: 'background:var(--soft);color:var(--ink-2)',
   late: 'background:var(--exp-soft);color:var(--exp)'
 };
 const statusChip = st => `<span class="status" style="${STATUS_STYLE[st.cls]}">${esc(st.text)}</span>`;
@@ -623,11 +632,11 @@ function moneyChart() {
   const y = v => T + (H - T - B) * (1 - v / top);
   const gw = (W - L - 10) / show.length;
   let svg = '';
-  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" stroke="#e7e3da"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" fill="#6f7a75">${kfmt(v)}</text>`;
+  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
   show.forEach((p, k) => {
     const x = L + k * gw + gw * 0.18, bw = gw * 0.64;
-    svg += `<rect x="${x}" y="${y(p.v)}" width="${bw}" height="${y(0) - y(p.v)}" rx="4" fill="#0f4c47"><title>${ymLabel(p.s)}: ${eur0(p.v)}</title></rect>`;
-    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="14" fill="#4a5550">${MONTHS_SHORT[+p.s.slice(5) - 1]}${p.s.slice(5) === '01' ? " '" + p.s.slice(2, 4) : ''}</text>`;
+    svg += `<rect x="${x}" y="${y(p.v)}" width="${bw}" height="${y(0) - y(p.v)}" rx="4" style="fill:var(--brand)"><title>${ymLabel(p.s)}: ${eur0(p.v)}</title></rect>`;
+    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="14" style="fill:var(--ink-2)">${MONTHS_SHORT[+p.s.slice(5) - 1]}${p.s.slice(5) === '01' ? " '" + p.s.slice(2, 4) : ''}</text>`;
   });
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>`;
 }
@@ -735,7 +744,7 @@ function reminders() {
 function remindersPanel() {
   const r = reminders();
   if (!r.length) return '';
-  return `<div class="panel" style="border-left:8px solid var(--gold)"><h2>🔔 Να θυμηθώ</h2>
+  return `<div class="panel"><h2>🔔 Να θυμηθώ</h2>
     ${r.map(x => `<div class="planned-row"><span class="p-ic">${x.icon}</span><span class="p-nm">${x.text}<div style="font-size:.9rem" class="${x.cls === 'late' ? 'exp' : 'muted'}">${x.sub}</div></span><span class="p-amt"></span><span class="p-act">${x.btn}</span></div>`).join('')}
   </div>`;
 }
@@ -794,7 +803,7 @@ function taxPage() {
     const rest = round2(t.installments.filter(i => !i.paid).reduce((a, i) => a + i.amount, 0));
     return `<div class="panel"><h2>🏛️ ${esc(t.name)} – ${esc(t.person)} <span class="muted">${pd} από ${t.installments.length} δόσεις πληρωμένες${rest ? ` · μένουν ${eur(rest)}` : ' · εξοφλήθηκε ✓'}</span>
       <span style="flex:1"></span><button class="btn small ghost no-print" data-action="tax-edit" data-id="${t.id}">✎</button></h2>
-      <div class="track" style="height:.6rem;background:#efece5;border-radius:99px;overflow:hidden;margin-bottom:.8rem"><div style="height:100%;width:${pd / Math.max(1, t.installments.length) * 100}%;background:var(--inc)"></div></div>
+      <div class="track" style="height:.6rem;background:var(--track);border-radius:99px;overflow:hidden;margin-bottom:.8rem"><div style="height:100%;width:${pd / Math.max(1, t.installments.length) * 100}%;background:var(--inc)"></div></div>
       <table class="data"><thead><tr><th style="width:3rem">#</th><th>Λήξη</th><th class="r">Ποσό</th><th>Κατάσταση</th><th></th></tr></thead><tbody>${t.installments.map((i, k) => instRow(t, i, k)).join('')}</tbody></table></div>`;
   }).join('');
   })()}`;
@@ -827,7 +836,7 @@ function peoplePage() {
   }
   return `
   <div class="page-head"><h1>Οφειλές με άλλους</h1><div class="spacer"></div><button class="btn primary no-print" data-action="person-new">+ Νέο πρόσωπο</button></div>
-  <div class="notice" style="background:var(--brand-soft);border-color:#c5dcd8;color:var(--brand)">Για ανθρώπους που πληρώνουμε κάτι για λογαριασμό τους, ή που μας δίνουν χρήματα. Η εφαρμογή κρατάει ποιος χρωστάει σε ποιον. Αυτά <b>δεν</b> μετράνε στα έξοδα και τα έσοδα του σπιτιού.</div>
+  <div class="notice info">Για ανθρώπους που πληρώνουμε κάτι για λογαριασμό τους, ή που μας δίνουν χρήματα. Η εφαρμογή κρατάει ποιος χρωστάει σε ποιον. Αυτά <b>δεν</b> μετράνε στα έξοδα και τα έσοδα του σπιτιού.</div>
   ${DB.people.length ? `<div class="tenant-grid">${DB.people.map(p => { const last = p.entries.slice().sort((a, b) => b.date.localeCompare(a.date))[0]; return `<div class="card tenant-card">
     <div class="tenant-name">🤝 ${esc(p.name)}</div><div class="muted">${esc(p.note || '')}</div>
     <div class="tenant-bal">${personBalText(personBalance(p))}</div>
@@ -1138,7 +1147,7 @@ function renderDlg2(d) {
         <div class="field"><label for="d-pr0">Υπομετρητής: ένδειξη αρχή</label>${inp('d-pr0', 'r0Str', '')}</div>
         <div class="field"><label for="d-pr1">ένδειξη τέλος</label>${inp('d-pr1', 'r1Str', '')}</div>
       </div>
-      <div id="d-ppreview" class="notice" style="margin:0;background:var(--brand-soft);border-color:#c5dcd8;color:var(--ink)">${powerPreview(d)}</div>` };
+      <div id="d-ppreview" class="notice info" style="margin:0">${powerPreview(d)}</div>` };
   }
   if (d.kind === 'car') {
     const cats = DB.categories.filter(c => c.type === 'expense').sort((a, b) => a.name.localeCompare(b.name, 'el'));
@@ -1306,7 +1315,7 @@ function recurringPage() {
   <div class="page-head"><h1>Πάγια</h1><div class="spacer"></div>
     <button class="btn expense no-print" data-action="rec-new" data-type="expense">+ Πάγιο έξοδο</button>
     <button class="btn income no-print" data-action="rec-new" data-type="income">+ Πάγιο έσοδο</button></div>
-  <div class="notice" style="background:var(--brand-soft);border-color:#c5dcd8;color:var(--brand)">Πάγια είναι τα ποσά που επαναλαμβάνονται, όπως ΔΕΗ, τηλέφωνο, δόσεις, σύνταξη. Τα γράφετε μία φορά εδώ και κάθε μήνα εμφανίζονται μόνα τους στον «Μήνα», στα <b>📌 Προγραμματισμένα</b>, για να πατήσετε <b>«✓ Έγινε»</b>.</div>
+  <div class="notice info">Πάγια είναι τα ποσά που επαναλαμβάνονται, όπως ΔΕΗ, τηλέφωνο, δόσεις, σύνταξη. Τα γράφετε μία φορά εδώ και κάθε μήνα εμφανίζονται μόνα τους στον «Μήνα», στα <b>📌 Προγραμματισμένα</b>, για να πατήσετε <b>«✓ Έγινε»</b>.</div>
   <div class="cards" style="grid-template-columns:repeat(2,1fr)">
     <div class="card exp"><div class="label">Πάγια έξοδα τον μήνα (περίπου)</div><div class="value exp num">${eur(monthlyOut)}</div></div>
     <div class="card inc"><div class="label">Πάγια έσοδα τον μήνα (περίπου)</div><div class="value inc num">${eur(monthlyIn)}</div></div>
@@ -1520,7 +1529,7 @@ function renderDlg() {
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head ${head}"><h2>${title}</h2><button class="btn small" data-action="dlg-close">✕</button></div>
       <div class="modal-body">${body}
-        ${d.error ? `<div class="notice" style="margin:0;border-color:#e3b3a8;background:var(--exp-soft);color:var(--exp)"><b>${esc(d.error)}</b></div>` : ''}</div>
+        ${d.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(d.error)}</b></div>` : ''}</div>
       <div class="modal-foot">
         ${d.kind === 'tenant' && d.id ? '<button class="btn danger" data-action="tenant-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'tax' && d.id ? '<button class="btn danger" data-action="tax-delete">🗑 Διαγραφή</button>' : ''}
@@ -1696,21 +1705,21 @@ function monthChart(inc, exp, lastExp, year) {
   const y = v => T + (H - T - B) * (1 - v / top);
   const gw = (W - L - 10) / 12;
   let g = '';
-  for (let v = 0; v <= top + 1e-6; v += step) g += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" stroke="#e7e3da"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" fill="#6f7a75">${kfmt(v)}</text>`;
+  for (let v = 0; v <= top + 1e-6; v += step) g += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
   let bars = '';
   for (let m = 0; m < 12; m++) {
     const x = L + m * gw + gw * 0.14, bw = gw * 0.34;
-    bars += `<rect x="${x}" y="${y(inc[m])}" width="${bw}" height="${y(0) - y(inc[m])}" rx="4" fill="#17703a"><title>Έσοδα ${MONTHS[m]}: ${eur(inc[m])}</title></rect>`;
-    bars += `<rect x="${x + bw + 3}" y="${y(exp[m])}" width="${bw}" height="${y(0) - y(exp[m])}" rx="4" fill="#b3361f"><title>Έξοδα ${MONTHS[m]}: ${eur(exp[m])}</title></rect>`;
-    bars += `<text x="${L + m * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="15" fill="#4a5550">${MONTHS_SHORT[m]}</text>`;
+    bars += `<rect x="${x}" y="${y(inc[m])}" width="${bw}" height="${y(0) - y(inc[m])}" rx="4" style="fill:var(--inc)"><title>Έσοδα ${MONTHS[m]}: ${eur(inc[m])}</title></rect>`;
+    bars += `<rect x="${x + bw + 3}" y="${y(exp[m])}" width="${bw}" height="${y(0) - y(exp[m])}" rx="4" style="fill:var(--exp)"><title>Έξοδα ${MONTHS[m]}: ${eur(exp[m])}</title></rect>`;
+    bars += `<text x="${L + m * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="15" style="fill:var(--ink-2)">${MONTHS_SHORT[m]}</text>`;
   }
   let line = '';
   if (lastExp) {
     const pts = lastExp.map((v, m) => `${L + m * gw + gw / 2},${y(v)}`).join(' ');
-    line = `<polyline points="${pts}" fill="none" stroke="#8a8f8c" stroke-width="2.5" stroke-dasharray="6 5"/>` + lastExp.map((v, m) => `<circle cx="${L + m * gw + gw / 2}" cy="${y(v)}" r="4" fill="#8a8f8c"><title>Έξοδα ${MONTHS[m]} ${year - 1}: ${eur(v)}</title></circle>`).join('');
+    line = `<polyline points="${pts}" fill="none" style="stroke:var(--ink-3)" stroke-width="2.5" stroke-dasharray="6 5"/>` + lastExp.map((v, m) => `<circle cx="${L + m * gw + gw / 2}" cy="${y(v)}" r="4" style="fill:var(--ink-3)"><title>Έξοδα ${MONTHS[m]} ${year - 1}: ${eur(v)}</title></circle>`).join('');
   }
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Έσοδα και έξοδα ανά μήνα">${g}${bars}${line}</svg>
-    <div class="legend"><span><i style="background:#17703a"></i>Έσοδα</span><span><i style="background:#b3361f"></i>Έξοδα</span>${lastExp ? `<span><i style="background:#8a8f8c"></i>Έξοδα ${year - 1}</span>` : ''}</div>`;
+    <div class="legend"><span><i style="background:var(--inc)"></i>Έσοδα</span><span><i style="background:var(--exp)"></i>Έξοδα</span>${lastExp ? `<span><i style="background:var(--ink-3)"></i>Έξοδα ${year - 1}</span>` : ''}</div>`;
 }
 function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw || 1))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
 function kfmt(v) { return v >= 1000 ? int0.format(v / 1000) + 'χ' : int0.format(v); }
@@ -1735,12 +1744,12 @@ function historyPage() {
   const y = v => T + (H - T - B) * (1 - v / top);
   const gw = (W - L - 10) / Math.max(rows.length, 1);
   let svg = '';
-  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" stroke="#e7e3da"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" fill="#6f7a75">${kfmt(v)}</text>`;
+  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
   rows.forEach((r, k) => {
     const x = L + k * gw + gw * 0.1, bw = gw * 0.38;
-    if (r.i != null) svg += `<rect x="${x}" y="${y(r.i)}" width="${bw}" height="${y(0) - y(r.i)}" rx="3" fill="#17703a"><title>Έσοδα ${r.y}: ${eur(r.i)}</title></rect>`;
-    if (r.e != null) svg += `<rect x="${x + bw + 2}" y="${y(r.e)}" width="${bw}" height="${y(0) - y(r.e)}" rx="3" fill="#b3361f"><title>Έξοδα ${r.y}: ${eur(r.e)}</title></rect>`;
-    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="${rows.length > 16 ? 12 : 14}" fill="#4a5550">${rows.length > 16 ? "'" + String(r.y).slice(2) : r.y}</text>`;
+    if (r.i != null) svg += `<rect x="${x}" y="${y(r.i)}" width="${bw}" height="${y(0) - y(r.i)}" rx="3" style="fill:var(--inc)"><title>Έσοδα ${r.y}: ${eur(r.i)}</title></rect>`;
+    if (r.e != null) svg += `<rect x="${x + bw + 2}" y="${y(r.e)}" width="${bw}" height="${y(0) - y(r.e)}" rx="3" style="fill:var(--exp)"><title>Έξοδα ${r.y}: ${eur(r.e)}</title></rect>`;
+    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="${rows.length > 16 ? 12 : 14}" style="fill:var(--ink-2)">${rows.length > 16 ? "'" + String(r.y).slice(2) : r.y}</text>`;
   });
   return `
   <div class="page-head"><h1>Ιστορικό χρόνων</h1><div class="spacer"></div><button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
@@ -1748,7 +1757,7 @@ function historyPage() {
   <div class="panel ${ui._histTab === 'chart' ? '' : 'hidden'}">
     <h2>Έσοδα και έξοδα ανά χρονιά</h2>
     <svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>
-    <div class="legend"><span><i style="background:#17703a"></i>Έσοδα</span><span><i style="background:#b3361f"></i>Έξοδα</span></div>
+    <div class="legend"><span><i style="background:var(--inc)"></i>Έσοδα</span><span><i style="background:var(--exp)"></i>Έξοδα</span></div>
   </div>
   <div class="sheet-wrap ${ui._histTab === 'table' ? '' : 'hidden'}"><table class="data">
     <thead><tr><th>Χρονιά</th><th class="r">Έσοδα</th><th class="r">Έξοδα</th><th class="r">Διαφορά</th><th>Πηγή</th></tr></thead>
@@ -1784,8 +1793,13 @@ function settingsPage() {
   };
   return `
   <div class="page-head"><h1>Ρυθμίσεις</h1></div>
-  ${(() => { const [t, b] = tabBar('settings', [{ k: 'general', icon: '🔠', label: 'Γράμματα & πρόσωπα' }, { k: 'exp', icon: '📂', label: 'Κατηγορίες εξόδων' }, { k: 'inc', icon: '💶', label: 'Κατηγορίες εσόδων' }, { k: 'data', icon: '💾', label: 'Τα δεδομένα μου' }, { k: 'version', icon: '🔄', label: 'Έκδοση' }], 'general'); ui._setTab = t; return b; })()}
+  ${(() => { const [t, b] = tabBar('settings', [{ k: 'general', icon: '🎨', label: 'Εμφάνιση & πρόσωπα' }, { k: 'exp', icon: '📂', label: 'Κατηγορίες εξόδων' }, { k: 'inc', icon: '💶', label: 'Κατηγορίες εσόδων' }, { k: 'data', icon: '💾', label: 'Τα δεδομένα μου' }, { k: 'version', icon: '🔄', label: 'Έκδοση' }], 'general'); ui._setTab = t; return b; })()}
 
+  <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
+    <h2>🎨 Εμφάνιση</h2>
+    <div class="theme-pick">${[['light', '☀️ Φωτεινή', ['#EEF4F7', '#ffffff', '#0B7A8A']], ['dark', '🌙 Σκούρα', ['#0E1A29', '#162537', '#3CC3D2']], ['auto', '🖥️ Αυτόματα', ['#EEF4F7', '#0E1A29', '#0B7A8A']]].map(([k, l, c]) => `<button class="${themePref() === k ? 'sel' : ''}" data-action="theme" data-v="${k}"><span class="sw" style="background:${c[0]}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>${l}</button>`).join('')}</div>
+    <div class="hint muted" style="margin-top:.6rem">«Αυτόματα»: φωτεινή τη μέρα και σκούρα όταν ο υπολογιστής είναι σε σκούρα λειτουργία.</div>
+  </div>
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🔠 Μέγεθος γραμμάτων</h2>
     <div class="chips">${FONT_SCALES.map(f => `<button class="chip ${s.fontScale === f.v ? 'sel' : ''}" data-action="font" data-v="${f.v}" style="font-size:${f.v}rem">${f.l}</button>`).join('')}</div>
@@ -1804,7 +1818,7 @@ function settingsPage() {
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>👪 Πρόσωπα</h2>
     <p class="muted" style="margin-top:-.4rem">Ποιοι εμφανίζονται στο «Ποιος;» της καταχώρησης. Χωρίστε με κόμμα.</p>
-    <input type="text" id="persons" value="${esc(s.persons.join(', '))}" style="width:100%;border:2px solid var(--line-2);border-radius:10px;padding:.6rem .8rem">
+    <input type="text" id="persons" value="${esc(s.persons.join(', '))}" style="width:100%;border:2px solid var(--line-2);border-radius:14px;padding:.6rem .9rem;background:var(--paper)">
   </div>
 
   <div class="panel set-section ${ui._setTab === 'data' ? '' : 'hidden'}">
@@ -1897,7 +1911,7 @@ function renderForm() {
             <div class="chips">
               <button class="chip ${f.dayKnown && f.date === today ? 'sel' : ''}" data-action="form-date" data-v="${today}">Σήμερα</button>
               <button class="chip ${f.dayKnown && f.date === yest ? 'sel' : ''}" data-action="form-date" data-v="${yest}">Χθες</button>
-              <input id="fm-date" type="date" value="${esc(f.date)}" style="border:2px solid var(--line-2);border-radius:99px;padding:.3rem .8rem;min-height:2.6rem">
+              <input id="fm-date" type="date" value="${esc(f.date)}" style="border:2px solid var(--line-2);border-radius:99px;padding:.3rem .9rem;min-height:2.6rem;background:var(--paper)">
             </div>
             ${f.dayKnown === false ? `<div class="hint">Από το Excel: ξέρουμε μόνο τον μήνα (${MONTHS[+f.date.slice(5, 7) - 1]}).</div>` : ''}
           </div>
@@ -1916,7 +1930,7 @@ function renderForm() {
             ${f.id || f.recurringId || f.tenantId ? '' : `<label class="check"><input type="checkbox" id="fm-recurring" ${f.makeRecurring ? 'checked' : ''}> 🔁 Να γίνει πάγιο (κάθε μήνα)</label>`}
           </div>
         </div>
-        ${f.error ? `<div class="notice" style="margin:0;border-color:#e3b3a8;background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
+        ${f.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
       </div>
       <div class="modal-foot">
         ${f.id ? '<button class="btn danger" data-action="form-delete">🗑 Διαγραφή</button>' : ''}
@@ -2258,6 +2272,7 @@ const actions = {
   'form-delete': () => deleteFromForm(),
   // ρυθμίσεις
   font: el => { DB.settings.fontScale = +el.dataset.v; applyFont(); persist(); render(); },
+  theme: el => { DB.settings.theme = el.dataset.v; applyTheme(); persist(); render(); },
   'pick-icon': el => iconPicker(el.dataset.id),
   'picker-close': () => { $('#modal-root').innerHTML = ''; },
   'picker-set': el => { const c = catById(el.dataset.id); c.icon = el.dataset.v; $('#modal-root').innerHTML = ''; persist(); render(); },
@@ -2326,7 +2341,22 @@ async function importFlow(replacing) {
   DB = d; generateRecurring(); applyFont(); await persist(); ui.page = 'home'; render();
   toast(`Φορτώθηκαν ${d.transactions.length} κινήσεις.`);
 }
-function applyFont() { document.documentElement.style.setProperty('--scale', (DB && DB.settings.fontScale) || 1.15); }
+function applyFont() { document.documentElement.style.setProperty('--scale', (DB && DB.settings.fontScale) || 1.15); applyTheme(); }
+// Εμφάνιση: φωτεινή, σκούρα ή αυτόματη (όπως ο υπολογιστής)
+const darkMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function themePref() {
+  let t = DB && DB.settings.theme;
+  if (!t) { try { t = localStorage.getItem('homeflow-theme'); } catch (e) { t = null; } }
+  return t === 'dark' || t === 'auto' ? t : 'light';
+}
+function applyTheme() {
+  const t = themePref();
+  const dark = t === 'dark' || (t === 'auto' && darkMQ && darkMQ.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  try { localStorage.setItem('homeflow-theme', t); } catch (e) { /* τίποτα */ }
+}
+if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); });
+applyTheme();
 
 // ======================= συμβάντα =======================
 document.addEventListener('click', ev => {
