@@ -100,6 +100,9 @@ function defaultData() {
     recurring: [],
     tenants: [],
     accounts: [],
+    taxes: [],
+    people: [],
+    cars: [],
     history: {}
   };
 }
@@ -111,6 +114,9 @@ function normalize(d) {
   d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true, share: 100 }, t));
   d.accounts = (d.accounts || []).map((a, i) => Object.assign({ bank: '', name: '', owner: '', currency: 'EUR', kind: 'current', archived: false, order: i, history: [] }, a));
   d.settings.usdPerEur = +d.settings.usdPerEur || 1.16;
+  d.taxes = (d.taxes || []).map(t => Object.assign({ name: '', person: '', kind: 'other', installments: [] }, t));
+  d.people = (d.people || []).map(p => Object.assign({ name: '', note: '', entries: [] }, p));
+  d.cars = (d.cars || []).map(c => Object.assign({ name: '', since: '', fuelCategoryId: '', sold: '', kteo: '', km: [], services: [] }, c));
   d.history = d.history || {};
   return d;
 }
@@ -286,7 +292,7 @@ function render() {
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.page === ui.page));
   const page = $('#page');
   if (!DB) { page.innerHTML = welcomePage(); return; }
-  const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
+  const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, tax: taxPage, people: peoplePage, cars: carsPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
   page.innerHTML = fn();
   if (ui.page === 'list') { const q = $('#f-q'); if (q && ui._focusSearch) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); ui._focusSearch = false; } }
 }
@@ -356,6 +362,7 @@ function homePage() {
       </div>
     </div>
     <div>
+      ${isCurrent ? remindersPanel() : ''}
       ${homeRentPanel(ymOf(year, month))}
       ${plannedTx.length ? `<div class="panel">
         <h2>📌 Προγραμματισμένα <span class="muted">${plannedTx.length}</span></h2>
@@ -638,6 +645,348 @@ function moneyPage() {
     : `<div class="panel" style="max-width:46rem"><p style="font-size:1.1rem;margin-top:0">Εδώ βλέπετε όλα τα χρήματα μαζί: λογαριασμούς, προθεσμιακές, μετρητά.</p><button class="btn big primary" style="width:auto;padding:0 2rem" data-action="acc-new">+ Νέος λογαριασμός</button></div>`}`;
 }
 
+// ---------- Να θυμηθώ (αρχική) ----------
+function daysUntil(d) { return Math.round((new Date(d + 'T12:00') - new Date(todayStr() + 'T12:00')) / 86400000); }
+function reminders() {
+  const out = [];
+  for (const t of DB.taxes) {
+    const due = t.installments.map((i, k) => ({ i, k, dd: daysUntil(i.due) })).filter(x => !x.i.paid && x.dd <= 20);
+    if (!due.length) continue;
+    const late = due.filter(x => x.dd < 0);
+    if (due.length === 1) {
+      const { i, k, dd } = due[0];
+      out.push({ sort: dd, cls: dd < 0 ? 'late' : 'wait', icon: '🏛️',
+        text: `${esc(t.name)} – ${esc(t.person)}: <b>${eur(i.amount)}</b>`,
+        sub: dd < 0 ? `έληξε ${shortDate(i.due)}` : dd === 0 ? 'λήγει σήμερα' : `λήγει σε ${dd} ${dd === 1 ? 'μέρα' : 'μέρες'} (${shortDate(i.due)})`,
+        btn: `<button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button>` });
+    } else {
+      const total = due.reduce((a, x) => a + x.i.amount, 0);
+      out.push({ sort: due[0].dd, cls: late.length ? 'late' : 'wait', icon: '🏛️',
+        text: `${esc(t.name)} – ${esc(t.person)}: <b>${due.length} δόσεις, ${eur(total)}</b>`,
+        sub: late.length ? `${late.length} ${late.length === 1 ? 'έχει λήξει' : 'έχουν λήξει'} (η πρώτη ${shortDate(late[0].i.due)})` : `η πρώτη λήγει ${shortDate(due[0].i.due)}`,
+        btn: `<button class="btn small" data-action="goto-page" data-page="tax">🏛️ Εφορία</button>` });
+    }
+  }
+  for (const c of DB.cars.filter(c => !c.sold)) {
+    const st = carService(c);
+    if (st && st.left < 1500) out.push({ sort: st.left < 0 ? -50 : 5, cls: st.left < 0 ? 'late' : 'wait', icon: '🔧',
+      text: `${esc(c.name)}: σέρβις στα <b>${int0.format(st.next)} km</b>`,
+      sub: st.left < 0 ? `έχει περάσει κατά ${int0.format(-st.left)} km` : `σε ${int0.format(st.left)} km`,
+      btn: `<button class="btn small" data-action="car-service" data-id="${c.id}">🔧 Έγινε</button>` });
+    if (c.kteo) { const dd = daysUntil(c.kteo); if (dd <= 30) out.push({ sort: dd, cls: dd < 0 ? 'late' : 'wait', icon: '🚗', text: `${esc(c.name)}: ΚΤΕΟ`, sub: dd < 0 ? `έληξε ${shortDate(c.kteo)}` : `σε ${dd} μέρες (${shortDate(c.kteo)})`, btn: `<button class="btn small" data-action="car-edit" data-id="${c.id}">✎</button>` }); }
+  }
+  return out.sort((a, b) => a.sort - b.sort);
+}
+function remindersPanel() {
+  const r = reminders();
+  if (!r.length) return '';
+  return `<div class="panel" style="border-left:8px solid var(--gold)"><h2>🔔 Να θυμηθώ</h2>
+    ${r.map(x => `<div class="planned-row"><span class="p-ic">${x.icon}</span><span class="p-nm">${x.text}<div style="font-size:.9rem" class="${x.cls === 'late' ? 'exp' : 'muted'}">${x.sub}</div></span><span class="p-amt"></span><span class="p-act">${x.btn}</span></div>`).join('')}
+  </div>`;
+}
+
+// ---------- Εφορία ----------
+const taxInst = () => DB.taxes.flatMap(t => t.installments.map((i, k) => ({ t, i, k })));
+function taxCatId() {
+  let id = DB.settings.taxCategoryId;
+  if (id && catById(id)) return id;
+  let c = DB.categories.find(x => x.type === 'expense' && /εφορ/i.test(x.name));
+  if (!c) { c = { id: 'c' + uid(), name: 'Εφορία', icon: '🏛️', type: 'expense', color: '#b91c1c', budget: null, extra: false, archived: false, order: 98 }; DB.categories.push(c); }
+  DB.settings.taxCategoryId = c.id;
+  return c.id;
+}
+function taxPage() {
+  const year = ui.taxYear || now.getFullYear();
+  const list = taxInst().filter(x => +x.i.due.slice(0, 4) === year);
+  const paid = round2(list.filter(x => x.i.paid).reduce((a, x) => a + x.i.amount, 0));
+  const left = round2(list.filter(x => !x.i.paid).reduce((a, x) => a + x.i.amount, 0));
+  const overdue = list.filter(x => !x.i.paid && x.i.due < todayStr());
+  const next = list.filter(x => !x.i.paid).sort((a, b) => a.i.due.localeCompare(b.i.due)).slice(0, 6);
+  const spent = sum(DB.transactions.filter(t => t.type === 'expense' && !t.planned && yOf(t) === year && t.categoryId === taxCatId()));
+  const obligations = DB.taxes.filter(t => t.installments.some(i => +i.due.slice(0, 4) === year));
+  const instRow = (t, i, k) => {
+    const late = !i.paid && i.due < todayStr();
+    return `<tr style="cursor:default"><td>${k + 1}</td><td>${shortDate(i.due)}</td><td class="r num"><b>${eur(i.amount)}</b></td>
+      <td>${i.paid ? `<span class="status" style="${STATUS_STYLE.ok}">✓ Πληρώθηκε${i.paidDate ? ' ' + shortDate(i.paidDate) : ''}</span>` : late ? `<span class="status" style="${STATUS_STYLE.late}">Έληξε</span>` : `<span class="status" style="${STATUS_STYLE.wait}">Θα πληρωθεί</span>`}</td>
+      <td style="text-align:right">${i.paid ? `<button class="btn small ghost" data-action="tax-unpay" data-id="${t.id}" data-k="${k}">↩ Αναίρεση</button>` : `<button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button>`}</td></tr>`;
+  };
+  return `
+  <div class="page-head">
+    <div class="month-nav"><button class="btn" data-action="taxyear-prev">◀</button><div class="month-title" style="min-width:11rem">Εφορία ${year}</div><button class="btn" data-action="taxyear-next">▶</button></div>
+    <div class="spacer"></div>
+    <button class="btn primary no-print" data-action="tax-new">+ Νέα οφειλή</button>
+    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
+  </div>
+  <div class="cards">
+    <div class="card inc"><div class="label">Δόσεις που πληρώθηκαν</div><div class="value num">${eur(paid)}</div><div class="sub">Όλα τα έξοδα εφορίας ${year}: ${eur(spent)}</div></div>
+    <div class="card exp"><div class="label">Μένουν να πληρωθούν</div><div class="value exp num">${eur(left)}</div></div>
+    <div class="card ${overdue.length ? 'exp' : 'bal'}"><div class="label">Ληξιπρόθεσμες</div><div class="value num" style="color:${overdue.length ? 'var(--exp)' : 'var(--inc)'}">${overdue.length ? overdue.length : '0 ✓'}</div>
+      ${overdue.length ? '<div class="sub"><button class="btn small no-print" data-action="tax-pay-overdue">✓ Πλήρωσα όλες τις ληξιπρόθεσμες</button></div>' : ''}</div>
+  </div>
+  ${next.length ? `<div class="panel"><h2>📅 Επόμενες δόσεις</h2>${next.map(({ t, i, k }) => `<div class="planned-row">
+    <span class="p-ic">🏛️</span><span class="p-nm"><b>${esc(t.name)}</b> – ${esc(t.person)}<div class="muted" style="font-size:.9rem">δόση ${k + 1} από ${t.installments.length} · λήγει ${shortDate(i.due)}</div></span>
+    <span class="p-amt num exp">${eur(i.amount)}</span><span class="p-act"><button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button></span></div>`).join('')}</div>` : ''}
+  ${obligations.map(t => {
+    const pd = t.installments.filter(i => i.paid).length;
+    const rest = round2(t.installments.filter(i => !i.paid).reduce((a, i) => a + i.amount, 0));
+    return `<div class="panel"><h2>🏛️ ${esc(t.name)} – ${esc(t.person)} <span class="muted">${pd} από ${t.installments.length} δόσεις πληρωμένες${rest ? ` · μένουν ${eur(rest)}` : ' · εξοφλήθηκε ✓'}</span>
+      <span style="flex:1"></span><button class="btn small ghost no-print" data-action="tax-edit" data-id="${t.id}">✎</button></h2>
+      <div class="track" style="height:.6rem;background:#efece5;border-radius:99px;overflow:hidden;margin-bottom:.8rem"><div style="height:100%;width:${pd / Math.max(1, t.installments.length) * 100}%;background:var(--inc)"></div></div>
+      <table class="data"><thead><tr><th style="width:3rem">#</th><th>Λήξη</th><th class="r">Ποσό</th><th>Κατάσταση</th><th></th></tr></thead><tbody>${t.installments.map((i, k) => instRow(t, i, k)).join('')}</tbody></table></div>`;
+  }).join('') || `<div class="panel empty">Δεν υπάρχουν δόσεις για το ${year}. Πατήστε «+ Νέα οφειλή» για να προσθέσετε π.χ. ΕΝΦΙΑ ή φόρο εισοδήματος.</div>`}`;
+}
+
+// ---------- Οφειλές με άλλους ----------
+function personBalance(p) { return round2(p.entries.reduce((a, e) => a + (e.dir === 'out' ? e.amount : -e.amount), 0)); }
+function personBalText(b) {
+  if (b > 0.005) return `<span class="exp">Μας χρωστάνε <b class="num">${eur(b)}</b></span>`;
+  if (b < -0.005) return `<span class="inc">Τους χρωστάμε <b class="num">${eur(-b)}</b></span>`;
+  return '<span class="inc"><b>Εντάξει ✓</b></span>';
+}
+function peoplePage() {
+  const p = ui.personId && DB.people.find(x => x.id === ui.personId);
+  if (p) {
+    const es = p.entries.slice().sort((a, b) => a.date.localeCompare(b.date));
+    let run = 0; const rows = es.map(e => { run = round2(run + (e.dir === 'out' ? e.amount : -e.amount)); return { e, run }; }).reverse();
+    return `
+    <div class="page-head"><button class="btn no-print" data-action="person-back">◀ Όλοι</button><h1>🤝 ${esc(p.name)}</h1><div class="spacer"></div>
+      <button class="btn expense no-print" data-action="pentry-new" data-id="${p.id}" data-dir="out">− Πληρώσαμε για αυτούς</button>
+      <button class="btn income no-print" data-action="pentry-new" data-id="${p.id}" data-dir="in">+ Μας έδωσαν</button>
+      <button class="btn no-print" data-action="person-edit" data-id="${p.id}">✎</button>
+      <button class="btn no-print" data-action="print">🖨️</button></div>
+    <div class="cards" style="grid-template-columns:1fr 2fr"><div class="card bal"><div class="label">Σήμερα</div><div class="value" style="font-size:1.6rem;margin-top:.4rem">${personBalText(personBalance(p))}</div></div>
+      <div class="card"><div class="label">Σημείωση</div><div style="margin-top:.4rem">${esc(p.note || '—')}</div></div></div>
+    <div class="sheet-wrap"><table class="data"><thead><tr><th>Ημερομηνία</th><th>Τι</th><th class="r">Πληρώσαμε εμείς</th><th class="r">Μας έδωσαν</th><th class="r">Υπόλοιπο</th></tr></thead>
+      <tbody>${rows.map(({ e, run }) => `<tr data-action="pentry-edit" data-id="${p.id}" data-e="${e.id}"><td>${shortDate(e.date)}</td><td>${esc(e.text)}</td>
+        <td class="r num exp">${e.dir === 'out' ? eur(e.amount) : ''}</td><td class="r num inc">${e.dir === 'in' ? eur(e.amount) : ''}</td>
+        <td class="r num"><b class="${run > 0 ? 'exp' : 'inc'}">${run < 0 ? '−' : ''}${eur(Math.abs(run))}</b></td></tr>`).join('')}</tbody></table></div>`;
+  }
+  return `
+  <div class="page-head"><h1>Οφειλές με άλλους</h1><div class="spacer"></div><button class="btn primary no-print" data-action="person-new">+ Νέο πρόσωπο</button></div>
+  <div class="notice" style="background:var(--brand-soft);border-color:#c5dcd8;color:var(--brand)">Για ανθρώπους που πληρώνουμε κάτι για λογαριασμό τους, ή που μας δίνουν χρήματα. Η εφαρμογή κρατάει ποιος χρωστάει σε ποιον. Αυτά <b>δεν</b> μετράνε στα έξοδα και τα έσοδα του σπιτιού.</div>
+  ${DB.people.length ? `<div class="tenant-grid">${DB.people.map(p => { const last = p.entries.slice().sort((a, b) => b.date.localeCompare(a.date))[0]; return `<div class="card tenant-card">
+    <div class="tenant-name">🤝 ${esc(p.name)}</div><div class="muted">${esc(p.note || '')}</div>
+    <div class="tenant-bal">${personBalText(personBalance(p))}</div>
+    <div class="muted" style="font-size:.95rem">${last ? `Τελευταίο: ${esc(last.text)} – ${eur(last.amount)} (${shortDate(last.date)})` : 'Καμία κίνηση ακόμα.'}</div>
+    <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
+      <button class="btn expense" data-action="pentry-new" data-id="${p.id}" data-dir="out">− Πληρώσαμε</button>
+      <button class="btn income" data-action="pentry-new" data-id="${p.id}" data-dir="in">+ Μας έδωσαν</button>
+      <button class="btn" data-action="person-open" data-id="${p.id}">📒 Καρτέλα</button></div></div>`; }).join('')}</div>` : '<div class="panel empty">Κανένα πρόσωπο ακόμα.</div>'}`;
+}
+
+// ---------- Αυτοκίνητα ----------
+const carKm = c => (c.km.length ? c.km.slice().sort((a, b) => a.date.localeCompare(b.date)).pop() : null);
+function carService(c) {
+  const cur = carKm(c);
+  const withNext = c.services.filter(s => s.nextKm).sort((a, b) => a.date.localeCompare(b.date)).pop();
+  if (!withNext || !cur) return null;
+  return { next: withNext.nextKm, left: withNext.nextKm - cur.km, last: withNext };
+}
+function carYearKm(c, year) {
+  const log = c.km.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const before = log.filter(x => x.date < `${year}-01-01`).pop() || log.find(x => x.date.slice(0, 4) === String(year));
+  const after = log.filter(x => x.date.slice(0, 4) === String(year)).pop();
+  return before && after ? after.km - before.km : 0;
+}
+function carsPage() {
+  const c0 = ui.carId && DB.cars.find(x => x.id === ui.carId);
+  const year = now.getFullYear();
+  if (c0) {
+    const c = c0;
+    const sv = c.services.slice().sort((a, b) => b.date.localeCompare(a.date));
+    const log = c.km.slice().sort((a, b) => b.date.localeCompare(a.date));
+    return `
+    <div class="page-head"><button class="btn no-print" data-action="car-back">◀ Όλα</button><h1>🚗 ${esc(c.name)}</h1><div class="spacer"></div>
+      <button class="btn primary no-print" data-action="car-km" data-id="${c.id}">📍 Χιλιόμετρα</button>
+      <button class="btn no-print" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
+      <button class="btn no-print" data-action="car-edit" data-id="${c.id}">✎</button>
+      <button class="btn no-print" data-action="print">🖨️</button></div>
+    <div class="grid2">
+      <div class="panel"><h2>🔧 Σέρβις και επισκευές</h2>
+        ${sv.length ? `<table class="data"><thead><tr><th>Ημερομηνία</th><th class="r">Χλμ</th><th>Τι έγινε</th><th class="r">Επόμενο</th></tr></thead><tbody>${sv.map(s => `<tr data-action="service-edit" data-id="${c.id}" data-s="${s.id}"><td>${shortDate(s.date)}</td><td class="r num">${s.km ? int0.format(s.km) : ''}</td><td>${esc(s.work)}${s.cost ? ` <span class="muted">(${eur(s.cost)})</span>` : ''}</td><td class="r num">${s.nextKm ? int0.format(s.nextKm) : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Κανένα σέρβις ακόμα.</div>'}</div>
+      <div class="panel"><h2>📍 Χιλιόμετρα</h2>
+        ${log.length ? `<table class="data"><tbody>${log.map((k, i) => `<tr style="cursor:default"><td>${shortDate(k.date)}</td><td class="r num"><b>${int0.format(k.km)}</b></td><td class="r muted num">${log[i + 1] ? '+' + int0.format(k.km - log[i + 1].km) : ''}</td><td style="width:3rem"><button class="btn small ghost" data-action="km-del" data-id="${c.id}" data-d="${k.date}" title="Σβήσιμο">🗑</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">Δεν έχουν γραφτεί χιλιόμετρα.</div>'}</div>
+    </div>`;
+  }
+  const card = c => {
+    const cur = carKm(c), st = carService(c);
+    const ykm = carYearKm(c, year);
+    const fuel = c.fuelCategoryId ? sum(DB.transactions.filter(t => t.categoryId === c.fuelCategoryId && yOf(t) === year && !t.planned)) : 0;
+    const per = ykm ? fuel / ykm : 0;
+    const stTxt = !st ? '<span class="muted">Δεν υπάρχει επόμενο σέρβις</span>' : st.left < 0 ? `<span class="exp"><b>Έχει περάσει το σέρβις</b> (ήταν στα ${int0.format(st.next)} km)</span>` : st.left < 1500 ? `<span style="color:var(--warn)"><b>Σέρβις σύντομα:</b> σε ${int0.format(st.left)} km</span>` : `<span class="inc">Επόμενο σέρβις σε ${int0.format(st.left)} km</span>`;
+    return `<div class="card tenant-card">
+      <div style="display:flex;gap:.8rem;align-items:flex-start"><div style="flex:1"><div class="tenant-name">🚗 ${esc(c.name)}</div>
+        <div class="muted">${cur ? `<b>${int0.format(cur.km)} km</b> (${shortDate(cur.date)})` : 'Χωρίς χιλιόμετρα'}${c.sold ? ' · πουλήθηκε' : ''}</div></div></div>
+      <div style="margin:.7rem 0 .3rem;font-size:1.1rem">${stTxt}</div>
+      <div class="muted" style="font-size:.95rem">${year}: ${int0.format(ykm)} km${fuel ? ` · καύσιμα ${eur(fuel)}${per ? ` · ${numFmt.format(per)} €/km` : ''}` : ''}${c.kteo ? ` · ΚΤΕΟ ${shortDate(c.kteo)}` : ''}</div>
+      <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
+        <button class="btn primary" data-action="car-km" data-id="${c.id}">📍 Χιλιόμετρα</button>
+        <button class="btn" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
+        <button class="btn" data-action="car-open" data-id="${c.id}">📒 Καρτέλα</button></div></div>`;
+  };
+  const active = DB.cars.filter(c => !c.sold), sold = DB.cars.filter(c => c.sold);
+  return `
+  <div class="page-head"><h1>Αυτοκίνητα</h1><div class="spacer"></div><button class="btn primary no-print" data-action="car-new">+ Νέο αυτοκίνητο</button></div>
+  <div class="h-hint" style="margin:-.6rem 0 1rem">Γράφετε τα χιλιόμετρα μία φορά τον μήνα (ή όποτε θέλετε) και κάθε σέρβις με το πότε είναι το επόμενο. Η εφαρμογή θυμίζει στον «Μήνα» όταν πλησιάζει.</div>
+  ${active.length ? `<div class="tenant-grid">${active.map(card).join('')}</div>` : '<div class="panel empty">Κανένα αυτοκίνητο ακόμα.</div>'}
+  ${sold.length ? `<h2 style="margin-top:1.6rem">Παλιά</h2><div class="tenant-grid">${sold.map(card).join('')}</div>` : ''}`;
+}
+
+// ---------- παράθυρα: εφορία, οφειλές, αυτοκίνητα ----------
+function renderDlg2(d) {
+  // επιστρέφει { title, head, body } ή null
+  if (d.kind === 'taxpay') {
+    const t = DB.taxes.find(x => x.id === d.tid); const i = t.installments[d.k];
+    return { head: 'expense', title: `Πληρωμή: ${esc(t.name)} – ${esc(t.person)}`, body: `
+      <div style="font-size:1.15rem">Δόση ${d.k + 1} από ${t.installments.length}, λήξη ${shortDate(i.due)}</div>
+      <div class="field"><label for="d-amount">Ποσό</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}"><span class="amount-eur">€</span></div></div>
+      <div class="field"><label for="d-date">Πότε πληρώθηκε</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
+      <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα (${esc(catName(taxCatId()))})</label>
+      <div class="hint">Βγάλτε το τσεκ αν η πληρωμή έχει ήδη γραφτεί στα έξοδα.</div>` };
+  }
+  if (d.kind === 'tax') {
+    return { head: 'neutral', title: d.id ? 'Οφειλή στην εφορία' : 'Νέα οφειλή στην εφορία', body: `
+      <div class="field"><label for="d-tname">Τι είναι;</label><input id="d-tname" type="text" style="width:100%" value="${esc(d.name)}">
+        <div class="chips" style="margin-top:.4rem">${['ΕΝΦΙΑ ' + (d.year || now.getFullYear()), 'Φόρος εισοδήματος', 'Τέλη κυκλοφορίας'].map(n => `<button class="chip" data-action="dlg-tname" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>
+      ${(DB.settings.persons || []).length ? `<div class="field"><div class="flabel">Ποιος;</div>${chipsHtml(DB.settings.persons, d.person, 'dlg-tperson', '')}</div>` : ''}
+      ${d.id ? '' : `<div class="row">
+        <div class="field"><label for="d-count">Πόσες δόσεις;</label><input id="d-count" type="number" min="1" max="24" value="${esc(d.count)}" style="width:7rem"></div>
+        <div class="field"><label for="d-amount">Ποσό κάθε δόσης</label><div class="amount-wrap"><input id="d-amount" class="num" style="width:10rem" inputmode="decimal" value="${esc(d.amountStr)}"><span style="font-weight:700">€</span></div></div>
+        <div class="field"><label for="d-from">Πρώτη δόση (μήνας)</label><input id="d-from" type="month" value="${esc(d.from)}"></div></div>
+        <div class="hint">Κάθε δόση λήγει την τελευταία μέρα του μήνα.</div>`}` };
+  }
+  if (d.kind === 'person') {
+    return { head: 'neutral', title: d.id ? 'Στοιχεία' : 'Νέο πρόσωπο', body: `
+      <div class="field"><label for="d-pname">Όνομα</label><input id="d-pname" type="text" style="width:100%" value="${esc(d.name)}"></div>
+      <div class="field"><label for="d-pnote">Σημείωση</label><input id="d-pnote" type="text" style="width:100%" value="${esc(d.note)}"></div>` };
+  }
+  if (d.kind === 'pentry') {
+    const p = DB.people.find(x => x.id === d.pid);
+    return { head: d.dir === 'out' ? 'expense' : 'income', title: `${esc(p.name)}: ${d.dir === 'out' ? 'πληρώσαμε για αυτούς' : 'μας έδωσαν'}`, body: `
+      <div class="chips"><button class="chip ${d.dir === 'out' ? 'sel' : ''}" data-action="dlg-pdir" data-v="out">− Πληρώσαμε εμείς για αυτούς</button><button class="chip ${d.dir === 'in' ? 'sel' : ''}" data-action="dlg-pdir" data-v="in">+ Μας έδωσαν χρήματα</button></div>
+      <div class="field"><label for="d-amount">Ποσό</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">€</span><span id="d-calc" class="amount-calc"></span></div></div>
+      <div class="field"><label for="d-text">Για τι;</label><input id="d-text" type="text" style="width:100%" value="${esc(d.text)}" placeholder="π.χ. ΕΝΦΙΑ, ΔΕΗ, έστειλαν με τράπεζα"></div>
+      <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>` };
+  }
+  if (d.kind === 'km') {
+    const c = DB.cars.find(x => x.id === d.cid); const cur = carKm(c);
+    return { head: 'neutral', title: `📍 Χιλιόμετρα: ${esc(c.name)}`, body: `
+      ${cur ? `<div style="font-size:1.1rem">Τελευταία: <b>${int0.format(cur.km)} km</b> στις ${shortDate(cur.date)}</div>` : ''}
+      <div class="field"><label for="d-km">Τι δείχνει ο μετρητής τώρα;</label><div class="amount-wrap"><input id="d-km" class="amount-input num" inputmode="numeric" value="${esc(d.kmStr)}"><span class="amount-eur">km</span></div></div>
+      <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>` };
+  }
+  if (d.kind === 'service') {
+    const c = DB.cars.find(x => x.id === d.cid);
+    return { head: 'neutral', title: `🔧 ${d.sid ? 'Σέρβις' : 'Νέο σέρβις'}: ${esc(c.name)}`, body: `
+      <div class="field"><label for="d-work">Τι έγινε;</label><input id="d-work" type="text" style="width:100%" value="${esc(d.work)}" placeholder="π.χ. λάδια, φίλτρα">
+        <div class="chips" style="margin-top:.4rem">${['Λάδια και φίλτρα', 'Ελαστικά', 'Τακάκια', 'Μπαταρία', 'ΚΤΕΟ'].map(w => `<button class="chip" data-action="dlg-work" data-v="${w}">${w}</button>`).join('')}</div></div>
+      <div class="row">
+        <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
+        <div class="field"><label for="d-km">Χιλιόμετρα τότε</label><input id="d-km" class="num" inputmode="numeric" style="width:10rem" value="${esc(d.kmStr)}"></div>
+        <div class="field"><label for="d-next">Επόμενο σέρβις στα (km)</label><input id="d-next" class="num" inputmode="numeric" style="width:10rem" value="${esc(d.nextStr)}">
+          <div class="chips" style="margin-top:.4rem">${[10000, 15000].map(n => `<button class="chip" data-action="dlg-next" data-v="${n}">+${int0.format(n)}</button>`).join('')}</div></div>
+      </div>
+      ${d.sid ? '' : `<div class="row"><div class="field"><label for="d-amount">Κόστος <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><div class="amount-wrap"><input id="d-amount" class="num" style="width:10rem" inputmode="decimal" value="${esc(d.amountStr)}"><span style="font-weight:700">€</span></div>
+        <label class="check" style="margin-top:.5rem"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα</label></div></div>`}` };
+  }
+  if (d.kind === 'car') {
+    const cats = DB.categories.filter(c => c.type === 'expense').sort((a, b) => a.name.localeCompare(b.name, 'el'));
+    return { head: 'neutral', title: d.id ? 'Στοιχεία αυτοκινήτου' : 'Νέο αυτοκίνητο', body: `
+      <div class="field"><label for="d-cname">Όνομα</label><input id="d-cname" type="text" style="width:100%" value="${esc(d.name)}" placeholder="π.χ. Kia XCeed"></div>
+      <div class="row">
+        <div class="field"><label for="d-fuel">Κατηγορία καυσίμων (για €/km)</label><select id="d-fuel" style="width:100%"><option value="">—</option>${cats.map(c => `<option value="${esc(c.id)}" ${d.fuel === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="d-kteo">Επόμενο ΚΤΕΟ</label><input id="d-kteo" type="date" value="${esc(d.kteo)}"></div>
+      </div>
+      ${d.id ? '' : '<div class="field"><label for="d-km">Χιλιόμετρα σήμερα</label><input id="d-km" class="num" inputmode="numeric" style="width:10rem" value=""></div>'}
+      ${d.id ? `<label class="check"><input type="checkbox" id="d-sold" ${d.sold ? 'checked' : ''}> Το αυτοκίνητο πουλήθηκε / δεν το έχουμε πια</label>` : ''}` };
+  }
+  return null;
+}
+function syncDlg2() {
+  const v = id => { const el = $('#' + id); return el ? el.value : undefined; };
+  const c = id => { const el = $('#' + id); return el ? el.checked : undefined; };
+  const d = dlg; if (!d) return;
+  for (const [id, k] of [['d-amount', 'amountStr'], ['d-date', 'date'], ['d-tname', 'name'], ['d-count', 'count'], ['d-from', 'from'], ['d-pname', 'name'], ['d-pnote', 'note'],
+    ['d-text', 'text'], ['d-km', 'kmStr'], ['d-work', 'work'], ['d-next', 'nextStr'], ['d-cname', 'name'], ['d-fuel', 'fuel'], ['d-kteo', 'kteo']]) { const x = v(id); if (x !== undefined) d[k] = typeof x === 'string' ? x.trim() : x; }
+  for (const [id, k] of [['d-addexp', 'addExpense'], ['d-sold', 'sold']]) { const x = c(id); if (x !== undefined) d[k] = x; }
+}
+function saveDlg2() {
+  syncDlg2();
+  const d = dlg;
+  const fail = msg => { d.error = msg; renderDlg(); return true; };
+  const done = msg => { dlg = null; renderDlg(); persist(); render(); if (msg) toast(msg); return true; };
+  const intOf = s => { const n = parseInt(String(s || '').replace(/[.\s]/g, ''), 10); return isNaN(n) ? null : n; };
+  if (d.kind === 'taxpay') {
+    const t = DB.taxes.find(x => x.id === d.tid); const i = t.installments[d.k];
+    const amt = parseAmount(d.amountStr);
+    if (!amt || isNaN(amt)) return fail('Γράψτε το ποσό.');
+    i.paid = true; i.paidDate = d.date; i.amount = amt;
+    if (d.addExpense) {
+      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: taxCatId(), note: `${t.name} (δόση ${d.k + 1}/${t.installments.length})`, person: t.person, method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
+      DB.transactions.push(tx); i.txId = tx.id;
+    }
+    return done(`Πληρώθηκε: ${t.name} – ${eur(amt)}`);
+  }
+  if (d.kind === 'tax') {
+    if (!d.name) return fail('Γράψτε τι είναι (π.χ. ΕΝΦΙΑ).');
+    if (d.id) { const t = DB.taxes.find(x => x.id === d.id); Object.assign(t, { name: d.name, person: d.person }); return done('Αποθηκεύτηκε.'); }
+    const n = intOf(d.count), amt = parseAmount(d.amountStr);
+    if (!n || n < 1) return fail('Γράψτε πόσες δόσεις.');
+    if (!amt || isNaN(amt)) return fail('Γράψτε το ποσό κάθε δόσης.');
+    if (!/^\d{4}-\d{2}$/.test(d.from)) return fail('Διαλέξτε τον μήνα της πρώτης δόσης.');
+    const inst = []; for (let k = 0, s = d.from; k < n; k++, s = addMonths(s, 1)) inst.push({ due: `${s}-${pad(lastDay(s))}`, amount: amt, paid: false, paidDate: '', txId: '' });
+    DB.taxes.push({ id: 'x' + uid(), name: d.name, person: d.person, kind: 'other', year: +d.from.slice(0, 4), installments: inst });
+    return done(`Νέα οφειλή: ${d.name}, ${n} δόσεις`);
+  }
+  if (d.kind === 'person') {
+    if (!d.name) return fail('Γράψτε όνομα.');
+    if (d.id) Object.assign(DB.people.find(x => x.id === d.id), { name: d.name, note: d.note });
+    else DB.people.push({ id: 'p' + uid(), name: d.name, note: d.note, entries: [] });
+    return done('Αποθηκεύτηκε.');
+  }
+  if (d.kind === 'pentry') {
+    const p = DB.people.find(x => x.id === d.pid);
+    const amt = parseAmount(d.amountStr);
+    if (!amt || isNaN(amt) || amt <= 0) return fail('Γράψτε το ποσό.');
+    if (d.eid) Object.assign(p.entries.find(e => e.id === d.eid), { amount: amt, dir: d.dir, text: d.text, date: d.date });
+    else p.entries.push({ id: 'e' + uid(), date: d.date, text: d.text, amount: amt, dir: d.dir });
+    return done(`${p.name}: ${d.dir === 'out' ? 'πληρώσαμε' : 'μας έδωσαν'} ${eur(amt)}`);
+  }
+  if (d.kind === 'km') {
+    const c = DB.cars.find(x => x.id === d.cid); const km = intOf(d.kmStr);
+    if (!km) return fail('Γράψτε τα χιλιόμετρα.');
+    const cur = carKm(c);
+    if (cur && km < cur.km && d.date >= cur.date && !confirm(`Τα ${int0.format(km)} km είναι λιγότερα από τα προηγούμενα (${int0.format(cur.km)}). Σωστό;`)) return true;
+    c.km = c.km.filter(x => x.date !== d.date); c.km.push({ date: d.date, km });
+    return done(`${c.name}: ${int0.format(km)} km`);
+  }
+  if (d.kind === 'service') {
+    const c = DB.cars.find(x => x.id === d.cid);
+    if (!d.work) return fail('Γράψτε τι έγινε.');
+    const km = intOf(d.kmStr), nx = intOf(d.nextStr);
+    const rec = { date: d.date, km: km || 0, work: d.work, nextKm: nx && (!km || nx > km) ? nx : null };
+    if (d.sid) Object.assign(c.services.find(s => s.id === d.sid), rec);
+    else {
+      const cost = d.amountStr ? parseAmount(d.amountStr) : null;
+      if (cost !== null && isNaN(cost)) return fail('Το κόστος δεν είναι σωστό.');
+      c.services.push({ id: 's' + uid(), ...rec, cost: cost || null });
+      if (km && !c.km.some(x => x.date === d.date)) c.km.push({ date: d.date, km });
+      if (cost && d.addExpense) {
+        const cat = DB.categories.find(x => x.type === 'expense' && /αυτοκίν/i.test(x.name)) || catById(c.fuelCategoryId);
+        if (cat) DB.transactions.push({ id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: cost, categoryId: cat.id, note: `${c.name}: ${d.work}`, person: '', method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() });
+      }
+    }
+    return done(`${c.name}: σέρβις αποθηκεύτηκε`);
+  }
+  if (d.kind === 'car') {
+    if (!d.name) return fail('Γράψτε όνομα.');
+    if (d.id) Object.assign(DB.cars.find(x => x.id === d.id), { name: d.name, fuelCategoryId: d.fuel || '', kteo: d.kteo || '', sold: d.sold ? (DB.cars.find(x => x.id === d.id).sold || todayStr()) : '' });
+    else { const km = intOf(d.kmStr); DB.cars.push({ id: 'c' + uid(), name: d.name, since: todayStr(), fuelCategoryId: d.fuel || '', sold: '', kteo: d.kteo || '', km: km ? [{ date: todayStr(), km }] : [], services: [] }); }
+    return done('Αποθηκεύτηκε.');
+  }
+  return false;
+}
+
 // ---------- Πάγια ----------
 function recurringPage() {
   const row = r => {
@@ -761,7 +1110,9 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  if (d.kind === 'rec') {
+  const r2 = renderDlg2(d);
+  if (r2) { ({ title, head, body } = r2); }
+  else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
     head = isExp ? 'expense' : 'income';
     title = (d.id ? 'Αλλαγή πάγιου ' : 'Νέο πάγιο ') + (isExp ? 'εξόδου' : 'εσόδου');
@@ -864,6 +1215,11 @@ function renderDlg() {
         ${d.error ? `<div class="notice" style="margin:0;border-color:#e3b3a8;background:var(--exp-soft);color:var(--exp)"><b>${esc(d.error)}</b></div>` : ''}</div>
       <div class="modal-foot">
         ${d.kind === 'tenant' && d.id ? '<button class="btn danger" data-action="tenant-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'tax' && d.id ? '<button class="btn danger" data-action="tax-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'pentry' && d.eid ? '<button class="btn danger" data-action="pentry-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'service' && d.sid ? '<button class="btn danger" data-action="service-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'person' && d.id ? '<button class="btn danger" data-action="person-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'car' && d.id ? '<button class="btn danger" data-action="car-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
         <button class="btn" data-action="dlg-close">Ακύρωση</button>
         <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">✓ Αποθήκευση</button>
@@ -872,6 +1228,7 @@ function renderDlg() {
   </div>`;
 }
 function saveDlg() {
+  if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
     syncLeave();
@@ -1449,6 +1806,63 @@ const actions = {
   'dlg-clear-end': () => { syncDlg(); dlg.end = ''; renderDlg(); },
   'dlg-share': el => { syncDlg(); dlg.shareStr = el.dataset.v; renderDlg(); },
   'dlg-end': el => { dlg.end = el.dataset.v; dlg.error = ''; renderDlg(); },
+  // εφορία
+  'goto-page': el => { ui.page = el.dataset.page; render(); $('.main').scrollTop = 0; },
+  'taxyear-prev': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) - 1; render(); },
+  'taxyear-next': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) + 1; render(); },
+  'tax-pay': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); const k = +el.dataset.k; dlg = { kind: 'taxpay', tid: t.id, k, amountStr: numFmt.format(t.installments[k].amount).replace(/\./g, ''), date: todayStr(), addExpense: true, error: '' }; renderDlg(); },
+  'tax-unpay': el => {
+    const t = DB.taxes.find(x => x.id === el.dataset.id); const i = t.installments[+el.dataset.k];
+    if (!confirm('Να ξαναγίνει «απλήρωτη» αυτή η δόση;' + (i.txId ? ' Θα σβηστεί και από τα έξοδα.' : ''))) return;
+    if (i.txId) DB.transactions = DB.transactions.filter(x => x.id !== i.txId);
+    Object.assign(i, { paid: false, paidDate: '', txId: '' }); persist(); render();
+  },
+  'tax-pay-overdue': () => {
+    const list = taxInst().filter(x => !x.i.paid && x.i.due < todayStr());
+    const total = list.reduce((a, x) => a + x.i.amount, 0);
+    if (!confirm(`Να σημειωθούν ως πληρωμένες ${list.length} δόσεις (${eur(total)});\n\nΘα μπουν και στα έξοδα με σημερινή ημερομηνία. Αν έχουν ήδη γραφτεί στα έξοδα, πατήστε «Άκυρο» και σημειώστε τις μία-μία βγάζοντας το τσεκ.`)) return;
+    for (const { t, i, k } of list) {
+      const tx = { id: uid(), date: todayStr(), dayKnown: true, type: 'expense', amount: i.amount, categoryId: taxCatId(), note: `${t.name} (δόση ${k + 1}/${t.installments.length})`, person: t.person, method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
+      DB.transactions.push(tx); Object.assign(i, { paid: true, paidDate: todayStr(), txId: tx.id });
+    }
+    persist(); render(); toast(`${list.length} δόσεις πληρώθηκαν.`);
+  },
+  'tax-new': () => { dlg = { kind: 'tax', id: null, name: '', person: '', count: '1', amountStr: '', from: curYM(), year: ui.taxYear || now.getFullYear(), error: '' }; renderDlg(); },
+  'tax-edit': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); dlg = { kind: 'tax', id: t.id, name: t.name, person: t.person, year: t.year, error: '' }; renderDlg(); },
+  'tax-delete': () => {
+    const t = DB.taxes.find(x => x.id === dlg.id);
+    if (!confirm(`Να διαγραφεί η οφειλή «${t.name} – ${t.person}»; (Ό,τι έχει μπει στα έξοδα μένει.)`)) return;
+    DB.taxes = DB.taxes.filter(x => x.id !== t.id); dlg = null; renderDlg(); persist(); render();
+  },
+  'dlg-tname': el => { syncDlg2(); dlg.name = el.dataset.v; renderDlg(); },
+  'dlg-tperson': el => { syncDlg2(); dlg.person = el.dataset.v; renderDlg(); },
+  // οφειλές με άλλους
+  'person-new': () => { dlg = { kind: 'person', id: null, name: '', note: '', error: '' }; renderDlg(); },
+  'person-edit': el => { const p = DB.people.find(x => x.id === el.dataset.id); dlg = { kind: 'person', id: p.id, name: p.name, note: p.note, error: '' }; renderDlg(); },
+  'person-open': el => { ui.personId = el.dataset.id; render(); $('.main').scrollTop = 0; },
+  'person-back': () => { ui.personId = null; render(); },
+  'person-delete': () => {
+    const p = DB.people.find(x => x.id === dlg.id);
+    if (!confirm(`Να διαγραφεί «${p.name}» μαζί με όλη την καρτέλα (${p.entries.length} κινήσεις);`)) return;
+    DB.people = DB.people.filter(x => x.id !== p.id); ui.personId = null; dlg = null; renderDlg(); persist(); render();
+  },
+  'pentry-new': el => { dlg = { kind: 'pentry', pid: el.dataset.id, eid: null, dir: el.dataset.dir, amountStr: '', text: '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30); },
+  'pentry-edit': el => { const p = DB.people.find(x => x.id === el.dataset.id); const e = p.entries.find(x => x.id === el.dataset.e); dlg = { kind: 'pentry', pid: p.id, eid: e.id, dir: e.dir, amountStr: numFmt.format(e.amount).replace(/\./g, ''), text: e.text, date: e.date, error: '' }; renderDlg(); },
+  'pentry-delete': () => { const p = DB.people.find(x => x.id === dlg.pid); if (!confirm('Να σβηστεί αυτή η κίνηση;')) return; p.entries = p.entries.filter(e => e.id !== dlg.eid); dlg = null; renderDlg(); persist(); render(); },
+  'dlg-pdir': el => { syncDlg2(); dlg.dir = el.dataset.v; renderDlg(); },
+  // αυτοκίνητα
+  'car-new': () => { dlg = { kind: 'car', id: null, name: '', fuel: '', kteo: '', sold: false, error: '' }; renderDlg(); },
+  'car-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'car', id: c.id, name: c.name, fuel: c.fuelCategoryId, kteo: c.kteo, sold: !!c.sold, error: '' }; renderDlg(); },
+  'car-open': el => { ui.carId = el.dataset.id; ui.page = 'cars'; render(); $('.main').scrollTop = 0; },
+  'car-back': () => { ui.carId = null; render(); },
+  'car-delete': () => { const c = DB.cars.find(x => x.id === dlg.id); if (!confirm(`Να διαγραφεί το «${c.name}» με όλο το ιστορικό του;`)) return; DB.cars = DB.cars.filter(x => x.id !== c.id); ui.carId = null; dlg = null; renderDlg(); persist(); render(); },
+  'car-km': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'km', cid: c.id, kmStr: '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const a = $('#d-km'); if (a) a.focus(); }, 30); },
+  'km-del': el => { const c = DB.cars.find(x => x.id === el.dataset.id); if (!confirm('Να σβηστεί αυτή η μέτρηση;')) return; c.km = c.km.filter(k => k.date !== el.dataset.d); persist(); render(); },
+  'car-service': el => { const c = DB.cars.find(x => x.id === el.dataset.id); const cur = carKm(c); dlg = { kind: 'service', cid: c.id, sid: null, work: '', date: todayStr(), kmStr: cur ? String(cur.km) : '', nextStr: '', amountStr: '', addExpense: true, error: '' }; renderDlg(); },
+  'service-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); const sv = c.services.find(x => x.id === el.dataset.s); dlg = { kind: 'service', cid: c.id, sid: sv.id, work: sv.work, date: sv.date, kmStr: sv.km ? String(sv.km) : '', nextStr: sv.nextKm ? String(sv.nextKm) : '', error: '' }; renderDlg(); },
+  'service-delete': () => { const c = DB.cars.find(x => x.id === dlg.cid); if (!confirm('Να σβηστεί αυτό το σέρβις;')) return; c.services = c.services.filter(x => x.id !== dlg.sid); dlg = null; renderDlg(); persist(); render(); },
+  'dlg-work': el => { syncDlg2(); dlg.work = el.dataset.v; renderDlg(); },
+  'dlg-next': el => { syncDlg2(); const km = parseInt(String(dlg.kmStr).replace(/\D/g, ''), 10) || 0; dlg.nextStr = String(km + +el.dataset.v); renderDlg(); },
   'acc-update': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); const lb = lastBal(a); dlg = { kind: 'bal', id: a.id, amountStr: lb ? numFmt.format(lb.balance).replace(/\./g, '') : '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) { i.focus(); i.select(); } }, 30); },
   'acc-new': () => { dlg = { kind: 'acc', id: null, bank: '', name: '', owner: '', currency: 'EUR', kind2: 'current', amountStr: '', archived: false, error: '' }; renderDlg(); },
   'acc-edit': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); dlg = { kind: 'acc', id: a.id, bank: a.bank, name: a.name, owner: a.owner, currency: a.currency, kind2: a.kind, archived: a.archived, error: '' }; renderDlg(); },
@@ -1571,7 +1985,7 @@ function applyFont() { document.documentElement.style.setProperty('--scale', (DB
 // ======================= συμβάντα =======================
 document.addEventListener('click', ev => {
   const nav = ev.target.closest('#nav button');
-  if (nav) { if (!DB) return; ui.page = nav.dataset.page; ui.tenantId = null; if (ui.page === 'year') ui.yearView = ui.year; if (ui.page === 'list') Object.assign(ui.list, { year: ui.year, month: ui.month }); render(); $('.main').scrollTop = 0; return; }
+  if (nav) { if (!DB) return; ui.page = nav.dataset.page; ui.tenantId = null; ui.personId = null; ui.carId = null; if (ui.page === 'year') ui.yearView = ui.year; if (ui.page === 'list') Object.assign(ui.list, { year: ui.year, month: ui.month }); render(); $('.main').scrollTop = 0; return; }
   const el = ev.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;

@@ -55,12 +55,12 @@ button { cursor: pointer; }
 .brand-logo { width: 3rem; height: 3rem; }
 .brand-name { font-size: 1.45rem; font-weight: 700; letter-spacing: .01em; }
 .brand-sub { font-size: .8rem; opacity: .8; }
-.nav { display: flex; flex-direction: column; gap: .3rem; }
+.nav { display: flex; flex-direction: column; gap: .15rem; }
 .nav button {
   display: flex; align-items: center; gap: .8rem;
   background: transparent; border: 0; color: #fff;
-  text-align: left; font-size: 1.12rem; font-weight: 600;
-  padding: .8rem 1rem; border-radius: 12px; opacity: .88;
+  text-align: left; font-size: 1.1rem; font-weight: 600;
+  padding: .58rem 1rem; border-radius: 12px; opacity: .88;
 }
 .nav button .ni { font-size: 1.3rem; width: 1.6rem; text-align: center; }
 .nav button:hover { background: rgba(255, 255, 255, .09); opacity: 1; }
@@ -287,17 +287,18 @@ table.sheet .zero { color: #c9c4b8; }
 }
 
 /* μικρές οθόνες (π.χ. 1366×768) */
-@media (max-height: 860px) {
+@media (max-height: 940px) {
   .sidebar { padding-top: .8rem; gap: .6rem; }
   .brand { padding-bottom: .2rem; }
   .nav { gap: .15rem; }
-  .nav button { padding: .5rem 1rem; }
+  .nav button { padding: .42rem 1rem; }
   .side-actions .btn.big { min-height: 3rem; }
 }
 @media (max-height: 800px) {
   .brand-logo { width: 2.4rem; height: 2.4rem; }
   .brand-name { font-size: 1.25rem; }
-  .nav button { padding: .4rem 1rem; font-size: 1.05rem; }
+  .nav button { padding: .3rem .9rem; font-size: 1rem; }
+  .nav button .ni { font-size: 1.15rem; }
   .side-actions { gap: .4rem; }
   .side-actions .btn.big { min-height: 2.7rem; font-size: 1.05rem; }
   .save-state { display: none; }
