@@ -1,7 +1,9 @@
-name: Build HomeFlow (Windows + Mac)
+name: Build HomeFlow (Windows και Mac)
 
-# Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>)
-# για Windows και Mac, και ανεβαίνει στα Releases.
+# Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>).
+# Ανεβαίνουν ΔΥΟ χωριστές εκδόσεις στα Releases:
+#   v0.1.N      -> Windows (η «Latest», από εκεί ενημερώνεται αυτόματα)
+#   mac-v0.1.N  -> Mac
 on:
   push:
     branches: [main]
@@ -52,10 +54,9 @@ jobs:
           if-no-files-found: error
           path: |
             dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
             dist/*.dmg
-            dist/*.zip
-            dist/*.blockmap
-            dist/latest*.yml
 
   release:
     needs: build
@@ -66,14 +67,27 @@ jobs:
           path: out
           merge-multiple: true
 
-      - name: Δημοσίευση στα Releases
+      - name: Έκδοση για Mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ls -la out
           V="0.1.${{ github.run_number }}"
-          gh release create "v$V" out/* \
+          gh release create "mac-v$V" out/*.dmg \
             --repo "${{ github.repository }}" \
-            --title "HomeFlow $V" \
+            --title "HomeFlow $V για Mac" \
             --target "${{ github.sha }}" \
-            --notes "Windows: κατεβάστε το HomeFlow-Setup-$V.exe. Mac: κατεβάστε το HomeFlow-$V-mac.dmg. Οδηγίες στο README."
+            --latest=false \
+            --notes "Κατεβάστε το HomeFlow-$V-mac.dmg, ανοίξτε το και σύρετε το HomeFlow στις Εφαρμογές. Δουλεύει σε Apple Silicon και Intel."
+
+      - name: Έκδοση για Windows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V="0.1.${{ github.run_number }}"
+          gh release create "v$V" out/*.exe out/*.exe.blockmap out/latest.yml \
+            --repo "${{ github.repository }}" \
+            --title "HomeFlow $V για Windows" \
+            --target "${{ github.sha }}" \
+            --latest \
+            --notes "Κατεβάστε το HomeFlow-Setup-$V.exe. Αν είναι ήδη εγκατεστημένο, ενημερώνεται μόνο του."

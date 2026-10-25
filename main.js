@@ -163,35 +163,68 @@ ipcMain.handle('app:print', () => {
   if (win) win.webContents.print({ printBackground: true });
 });
 
-// ---------- αυτόματες ενημερώσεις ----------
+// ---------- ενημερώσεις ----------
+// Windows: εκδόσεις με tag "v0.1.N" -> αυτόματο κατέβασμα και εγκατάσταση.
+// Mac:     εκδόσεις με tag "mac-v0.1.N" -> ειδοποίηση με κουμπί «Κατέβασμα»
+//          (η αυτόματη εγκατάσταση στο Mac θέλει πληρωμένη υπογραφή Apple).
+const REPO = 'demelistasos/HomeFlow';
+const IS_MAC = process.platform === 'darwin';
 let updater = null;
-const RELEASES_URL = 'https://github.com/demelistasos/HomeFlow/releases/latest';
 function send(status, extra = {}) {
   if (win && !win.isDestroyed()) win.webContents.send('update:status', { status, ...extra });
 }
+function newer(a, b) {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  }
+  return false;
+}
+async function checkMac() {
+  send('checking');
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'HomeFlow' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    let best = null;
+    for (const rel of list) {
+      if (rel.draft || !/^mac-v\d/.test(rel.tag_name)) continue;
+      const v = rel.tag_name.slice(5);
+      if (!best || newer(v, best.version)) best = { version: v, url: rel.html_url };
+    }
+    if (best && newer(best.version, app.getVersion())) send('manual', best);
+    else send('latest');
+  } catch (e) {
+    send('error', { message: e.message });
+  }
+}
+function checkNow() {
+  if (IS_MAC) return checkMac();
+  if (updater) return updater.checkForUpdates().catch(() => {});
+}
 function setupUpdates() {
   if (!app.isPackaged) return;
-  try {
-    updater = require('electron-updater').autoUpdater;
-  } catch { return; }
-  // Στο Mac η αυτόματη εγκατάσταση θέλει υπογραφή Apple, οπότε
-  // απλώς ειδοποιούμε ότι υπάρχει νέα έκδοση για κατέβασμα.
-  const manual = process.platform === 'darwin';
-  updater.autoDownload = !manual;
-  updater.autoInstallOnAppQuit = !manual;
-  updater.on('checking-for-update', () => send('checking'));
-  updater.on('update-available', info => send(manual ? 'manual' : 'downloading', { version: info.version, url: RELEASES_URL }));
-  updater.on('update-not-available', () => send('latest'));
-  updater.on('download-progress', p => send('progress', { percent: Math.round(p.percent || 0) }));
-  updater.on('update-downloaded', info => send('ready', { version: info.version }));
-  updater.on('error', err => send('error', { message: String(err && err.message || err) }));
-  setTimeout(() => updater.checkForUpdates().catch(() => {}), 4000);
+  if (!IS_MAC) {
+    try { updater = require('electron-updater').autoUpdater; } catch { return; }
+    updater.autoDownload = true;
+    updater.autoInstallOnAppQuit = true;
+    updater.on('checking-for-update', () => send('checking'));
+    updater.on('update-available', info => send('downloading', { version: info.version }));
+    updater.on('update-not-available', () => send('latest'));
+    updater.on('download-progress', p => send('progress', { percent: Math.round(p.percent || 0) }));
+    updater.on('update-downloaded', info => send('ready', { version: info.version }));
+    updater.on('error', err => send('error', { message: String(err && err.message || err) }));
+  }
+  setTimeout(checkNow, 4000);
   // Έλεγχος και κάθε 4 ώρες αν μένει ανοιχτό
-  setInterval(() => updater.checkForUpdates().catch(() => {}), 4 * 60 * 60 * 1000);
+  setInterval(checkNow, 4 * 60 * 60 * 1000);
 }
 ipcMain.handle('update:check', async () => {
-  if (!updater) return { status: app.isPackaged ? 'error' : 'dev' };
-  try { await updater.checkForUpdates(); return { status: 'checking' }; } catch (e) { return { status: 'error', message: e.message }; }
+  if (!app.isPackaged) return { status: 'dev' };
+  checkNow();
+  return { status: 'checking' };
 });
 ipcMain.handle('update:install', () => { if (updater) updater.quitAndInstall(false, true); });
 
