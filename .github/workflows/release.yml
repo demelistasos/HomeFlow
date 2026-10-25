@@ -1,0 +1,39 @@
+name: Build HomeFlow (Windows)
+
+# Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>)
+# και ανεβαίνει στα Releases. Η εφαρμογή τη βρίσκει μόνη της.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Εγκατάσταση
+        run: npm install
+
+      - name: Αριθμός έκδοσης
+        shell: bash
+        run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version --allow-same-version
+
+      - name: Build και δημοσίευση
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

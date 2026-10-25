@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'">
+  <title>HomeFlow</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.svg" alt="" class="brand-logo">
+      <div>
+        <div class="brand-name">HomeFlow</div>
+        <div class="brand-sub" id="brand-version">Έσοδα &amp; έξοδα σπιτιού</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-page="home" class="active"><span class="ni">🏠</span>Ο μήνας</button>
+      <button data-page="list"><span class="ni">📋</span>Κινήσεις</button>
+      <button data-page="year"><span class="ni">📅</span>Η χρονιά</button>
+      <button data-page="history"><span class="ni">📈</span>Ιστορικό</button>
+      <button data-page="settings"><span class="ni">⚙️</span>Ρυθμίσεις</button>
+    </nav>
+    <div class="side-actions">
+      <button class="btn big expense" data-action="new-expense">− Νέο έξοδο</button>
+      <button class="btn big income" data-action="new-income">+ Νέο έσοδο</button>
+    </div>
+    <div class="save-state" id="save-state">✓ Όλα αποθηκευμένα</div>
+  </aside>
+
+  <main class="main">
+    <div id="update-banner" class="update-banner hidden"></div>
+    <div id="page"></div>
+  </main>
+
+  <div id="modal-root"></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

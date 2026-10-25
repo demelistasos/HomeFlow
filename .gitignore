@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+
+# Τα οικονομικά στοιχεία ΔΕΝ ανεβαίνουν ποτέ στο GitHub
+*.xls
+*.xlsx
+homeflow-data*.json
+HomeFlow-*.json
+*.csv

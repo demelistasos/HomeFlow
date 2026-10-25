@@ -1,0 +1,279 @@
+/* HomeFlow – εμφάνιση. Μεγάλα γράμματα, έντονη αντίθεση, μεγάλα κουμπιά. */
+:root {
+  --scale: 1.15;
+  --bg: #f6f4ef;
+  --paper: #ffffff;
+  --ink: #1d2622;
+  --ink-2: #4a5550;
+  --ink-3: #6f7a75;
+  --line: #e2ded4;
+  --line-2: #cfc9bc;
+  --brand: #0f4c47;
+  --brand-2: #16655e;
+  --brand-soft: #e3efed;
+  --gold: #f2c14e;
+  --inc: #17703a;
+  --inc-soft: #e4f3e8;
+  --exp: #b3361f;
+  --exp-soft: #fbe9e4;
+  --warn: #8a5a00;
+  --warn-soft: #fff4d6;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(20, 30, 25, .06), 0 4px 14px rgba(20, 30, 25, .06);
+  font-size: calc(16px * var(--scale));
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", "Segoe UI Variable", system-ui, -apple-system, "Noto Sans", "DejaVu Sans", Arial, sans-serif;
+  line-height: 1.45;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--ink-3); }
+.inc { color: var(--inc); }
+.exp { color: var(--exp); }
+
+/* ---------- πλαϊνή στήλη ---------- */
+.sidebar {
+  width: 17rem;
+  flex: 0 0 17rem;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 1.2rem .9rem;
+  gap: 1rem;
+}
+.brand { display: flex; align-items: center; gap: .75rem; padding: 0 .4rem .6rem; }
+.brand-logo { width: 3rem; height: 3rem; }
+.brand-name { font-size: 1.45rem; font-weight: 700; letter-spacing: .01em; }
+.brand-sub { font-size: .8rem; opacity: .8; }
+.nav { display: flex; flex-direction: column; gap: .3rem; }
+.nav button {
+  display: flex; align-items: center; gap: .8rem;
+  background: transparent; border: 0; color: #fff;
+  text-align: left; font-size: 1.12rem; font-weight: 600;
+  padding: .8rem 1rem; border-radius: 12px; opacity: .88;
+}
+.nav button .ni { font-size: 1.3rem; width: 1.6rem; text-align: center; }
+.nav button:hover { background: rgba(255, 255, 255, .09); opacity: 1; }
+.nav button.active { background: #fff; color: var(--brand); opacity: 1; }
+.side-actions { margin-top: auto; display: flex; flex-direction: column; gap: .6rem; }
+.save-state { font-size: .82rem; opacity: .8; text-align: center; }
+
+/* ---------- κουμπιά ---------- */
+.btn {
+  border: 2px solid var(--line-2);
+  background: var(--paper);
+  border-radius: 12px;
+  padding: .6rem 1.1rem;
+  font-weight: 600;
+  min-height: 2.9rem;
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem; white-space: nowrap;
+}
+.btn:hover { border-color: var(--brand-2); }
+.btn:focus-visible, .nav button:focus-visible, .chip:focus-visible, .cat-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.primary:hover { background: var(--brand-2); }
+.btn.expense { background: var(--exp); border-color: var(--exp); color: #fff; }
+.btn.income { background: var(--inc); border-color: var(--inc); color: #fff; }
+.btn.danger { color: var(--exp); border-color: #e3b3a8; }
+.btn.big { font-size: 1.15rem; min-height: 3.6rem; width: 100%; }
+.btn.small { min-height: 2.3rem; padding: .3rem .8rem; font-size: .9rem; }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn.ghost:hover { background: rgba(0, 0, 0, .05); }
+.btn:disabled { opacity: .45; cursor: default; }
+
+/* ---------- κύριο μέρος ---------- */
+.main { flex: 1; overflow-y: auto; height: 100vh; }
+#page { max-width: 1240px; margin: 0 auto; padding: 1.6rem 2rem 4rem; }
+.page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.3rem; }
+.page-head h1 { margin: 0; font-size: 1.9rem; letter-spacing: -.01em; }
+.page-head .spacer { flex: 1; }
+.month-nav { display: flex; align-items: center; gap: .5rem; }
+.month-nav .btn { min-width: 3rem; font-size: 1.3rem; }
+.month-title { font-size: 1.9rem; font-weight: 700; min-width: 17.5rem; text-align: center; white-space: nowrap; }
+
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
+.cards.four { grid-template-columns: repeat(4, 1fr); }
+.card {
+  background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 1.1rem 1.3rem; border: 1px solid var(--line);
+}
+.card .label { font-size: 1rem; color: var(--ink-2); font-weight: 600; }
+.card .value { font-size: 2.1rem; font-weight: 700; margin-top: .15rem; }
+.card .sub { font-size: .9rem; color: var(--ink-3); margin-top: .25rem; }
+.card.inc { border-left: 8px solid var(--inc); }
+.card.exp { border-left: 8px solid var(--exp); }
+.card.bal { border-left: 8px solid var(--brand); }
+.card.extra { border-left: 8px solid var(--gold); }
+
+.grid2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 1.2rem; align-items: start; }
+.panel { background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--line); padding: 1.1rem 1.3rem; margin-bottom: 1.2rem; }
+.panel h2 { font-size: 1.3rem; margin: 0 0 .8rem; display: flex; align-items: center; gap: .6rem; }
+.panel h2 .muted { font-size: .95rem; font-weight: 500; }
+.h-hint { color: var(--ink-3); margin: -.5rem 0 .7rem; font-size: .95rem; }
+.empty { color: var(--ink-3); padding: 1rem 0; font-size: 1.05rem; }
+
+/* μπάρες κατηγοριών */
+.bars { display: flex; flex-direction: column; gap: .35rem; }
+.bar-row {
+  display: grid; grid-template-columns: 2rem 1fr auto; align-items: center; gap: .7rem;
+  padding: .45rem .5rem; border-radius: 10px; border: 0; background: transparent; text-align: left; width: 100%;
+}
+.bar-row:hover { background: var(--bg); }
+.bar-row .ic { font-size: 1.35rem; text-align: center; }
+.bar-row .nm { font-weight: 600; }
+.bar-row .track { height: .55rem; background: #efece5; border-radius: 99px; margin-top: .3rem; overflow: hidden; }
+.bar-row .fill { height: 100%; border-radius: 99px; }
+.bar-row .amt { font-weight: 700; font-size: 1.08rem; }
+.bar-row .amt small { display: block; font-weight: 500; color: var(--ink-3); font-size: .8rem; text-align: right; }
+
+/* λίστες κινήσεων */
+.tx-list { display: flex; flex-direction: column; }
+.tx {
+  display: grid; grid-template-columns: 2.4rem 1fr auto; gap: .8rem; align-items: center;
+  padding: .7rem .5rem; border-bottom: 1px solid var(--line); background: transparent; border-left: 0; border-right: 0; border-top: 0; text-align: left; width: 100%;
+}
+.tx:last-child { border-bottom: 0; }
+.tx:hover { background: var(--bg); }
+.tx .ic { font-size: 1.5rem; text-align: center; }
+.tx .t1 { font-weight: 600; }
+.tx .t2 { font-size: .9rem; color: var(--ink-3); }
+.tx .amt { font-weight: 700; font-size: 1.15rem; }
+.tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: .05rem .5rem; border-radius: 99px; background: var(--bg); color: var(--ink-2); margin-left: .3rem; vertical-align: 1px; }
+.tag.planned { background: var(--warn-soft); color: var(--warn); }
+
+.planned-row { display: grid; grid-template-columns: 2.2rem 1fr auto; grid-template-areas: 'ic nm amt' 'ic act act'; column-gap: .8rem; row-gap: .35rem; align-items: center; padding: .6rem .3rem; border-bottom: 1px dashed var(--line-2); }
+.planned-row .p-ic { grid-area: ic; font-size: 1.4rem; text-align: center; align-self: start; }
+.planned-row .p-nm { grid-area: nm; }
+.planned-row .p-amt { grid-area: amt; font-weight: 700; }
+.planned-row .p-act { grid-area: act; display: flex; gap: .4rem; justify-content: flex-end; }
+.planned-row:last-child { border-bottom: 0; }
+
+/* πίνακας κινήσεων */
+.filters { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; margin-bottom: 1rem; }
+.filters select, .filters input, .field input, .field select, .field textarea {
+  border: 2px solid var(--line-2); border-radius: 10px; background: #fff; padding: .55rem .8rem; min-height: 2.9rem;
+}
+.filters input[type=search] { min-width: 16rem; }
+table.data { width: 100%; border-collapse: collapse; background: var(--paper); }
+table.data th, table.data td { padding: .65rem .7rem; border-bottom: 1px solid var(--line); text-align: left; }
+table.data th { font-size: .92rem; color: var(--ink-2); background: #faf8f3; position: sticky; top: 0; z-index: 1; }
+table.data td.r, table.data th.r { text-align: right; }
+table.data tbody tr { cursor: pointer; }
+table.data tbody tr:hover td { background: #f3f8f7; }
+table.data tfoot td { font-weight: 700; background: #faf8f3; border-top: 2px solid var(--line-2); }
+
+/* ετήσιος πίνακας τύπου Excel */
+.sheet-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--paper); }
+table.sheet { border-collapse: collapse; font-size: .9rem; min-width: 100%; }
+table.sheet th, table.sheet td { padding: .45rem .55rem; border-bottom: 1px solid var(--line); border-right: 1px solid #f0ede6; text-align: right; white-space: nowrap; }
+table.sheet th { background: #faf8f3; color: var(--ink-2); font-weight: 700; position: sticky; top: 0; }
+table.sheet td.cat, table.sheet th.cat { text-align: left; position: sticky; left: 0; background: var(--paper); z-index: 2; min-width: 15rem; font-weight: 600; }
+table.sheet th.cat { background: #faf8f3; z-index: 3; }
+table.sheet td.cell { cursor: pointer; }
+table.sheet td.cell:hover { background: #e8f2f0; }
+table.sheet td.tot { font-weight: 700; background: #faf8f3; }
+table.sheet tr.total td { font-weight: 700; background: #f3efe6; border-top: 2px solid var(--line-2); }
+table.sheet tr.total td.cat { background: #f3efe6; }
+table.sheet .pl { display: block; font-size: .75rem; color: var(--warn); font-style: italic; }
+table.sheet .over { color: var(--exp); font-weight: 700; }
+table.sheet .ok { color: var(--inc); }
+table.sheet .zero { color: #c9c4b8; }
+
+/* γράφημα */
+.chart { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 1.2rem; font-size: .95rem; color: var(--ink-2); margin-top: .4rem; }
+.legend i { display: inline-block; width: .9rem; height: .9rem; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
+
+/* ---------- παράθυρο καταχώρησης ---------- */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(15, 30, 26, .45);
+  display: flex; align-items: flex-start; justify-content: center; padding: 3vh 1rem; z-index: 50; overflow-y: auto;
+}
+.modal {
+  background: var(--paper); border-radius: 18px; width: min(62rem, 100%); max-height: 94vh;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .25); overflow: hidden; display: flex; flex-direction: column;
+}
+.modal-head { padding: 1rem 1.4rem; display: flex; align-items: center; gap: 1rem; color: #fff; }
+.modal-head.expense { background: var(--exp); }
+.modal-head.income { background: var(--inc); }
+.modal-head.neutral { background: var(--brand); }
+.modal-head h2 { margin: 0; font-size: 1.5rem; flex: 1; }
+.modal-head .btn { background: rgba(255, 255, 255, .15); color: #fff; border-color: rgba(255, 255, 255, .4); }
+.modal-body { padding: 1.2rem 1.4rem; display: flex; flex-direction: column; gap: 1.1rem; overflow-y: auto; flex: 1; }
+.modal-foot { padding: 1rem 1.4rem; border-top: 1px solid var(--line); display: flex; gap: .8rem; align-items: center; background: #faf8f3; }
+.modal-foot .spacer { flex: 1; }
+
+.field > label, .field > .flabel { display: block; font-weight: 700; margin-bottom: .4rem; font-size: 1.02rem; }
+.field .hint { font-size: .88rem; color: var(--ink-3); margin-top: .3rem; }
+.amount-wrap { display: flex; align-items: center; gap: .8rem; }
+.amount-input {
+  font-size: 2.4rem !important; font-weight: 700; width: 16rem; text-align: right;
+  border: 3px solid var(--line-2) !important; border-radius: 14px !important; padding: .3rem .9rem !important;
+}
+.amount-input:focus { border-color: var(--brand) !important; outline: none; }
+.amount-eur { font-size: 2.2rem; font-weight: 700; color: var(--ink-2); }
+.amount-calc { font-size: 1.15rem; color: var(--brand); font-weight: 600; }
+.amount-err { color: var(--exp); font-weight: 600; }
+
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .5rem; }
+.cat-btn {
+  display: flex; align-items: center; gap: .55rem; text-align: left;
+  border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: .55rem .7rem; min-height: 3.3rem; font-weight: 600; font-size: .95rem; line-height: 1.2;
+}
+.cat-btn .ic { font-size: 1.45rem; }
+.cat-btn:hover { border-color: var(--brand-2); }
+.cat-btn.sel { border-color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand); }
+.chips { display: flex; flex-wrap: wrap; gap: .45rem; }
+.chip {
+  border: 2px solid var(--line); background: #fff; border-radius: 99px; padding: .35rem .95rem; font-weight: 600; min-height: 2.6rem;
+}
+.chip:hover { border-color: var(--brand-2); }
+.chip.sel { background: var(--brand); border-color: var(--brand); color: #fff; }
+.row { display: flex; gap: 1.4rem; flex-wrap: wrap; }
+.row > .field { flex: 1; min-width: 14rem; }
+.check { display: flex; align-items: center; gap: .6rem; font-weight: 600; }
+.check input { width: 1.4rem; height: 1.4rem; }
+
+/* ρυθμίσεις */
+.set-section { margin-bottom: 1.4rem; }
+.cat-table { table-layout: fixed; }
+.cat-table td { vertical-align: middle; }
+.cat-table input[type=text], .cat-table input[type=number] { border: 2px solid var(--line-2); border-radius: 8px; padding: .35rem .6rem; width: 100%; }
+.cat-table .btn.small { padding: .3rem .55rem; }
+.cat-table .ic-btn { font-size: 1.4rem; background: #fff; border: 2px solid var(--line); border-radius: 10px; width: 3rem; height: 2.8rem; }
+.emoji-grid { display: grid; grid-template-columns: repeat(10, 2.8rem); gap: .3rem; }
+.emoji-grid button { font-size: 1.4rem; height: 2.8rem; border: 2px solid var(--line); background: #fff; border-radius: 10px; }
+.path { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: .9rem; background: var(--bg); padding: .4rem .6rem; border-radius: 8px; word-break: break-all; }
+
+/* ειδοποιήσεις */
+.toast {
+  position: fixed; left: 50%; bottom: 1.6rem; transform: translateX(-50%);
+  background: #14231f; color: #fff; padding: .9rem 1.2rem; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+  display: flex; align-items: center; gap: 1rem; font-size: 1.05rem; z-index: 80; max-width: 90vw;
+}
+.toast .btn { background: transparent; color: var(--gold); border-color: var(--gold); min-height: 2.4rem; }
+.update-banner {
+  background: var(--gold); color: #3b2a00; padding: .8rem 2rem; font-weight: 600; display: flex; gap: 1rem; align-items: center; justify-content: center;
+}
+.notice { background: var(--warn-soft); border: 1px solid #f0d99a; color: #5c4300; border-radius: 12px; padding: .8rem 1rem; margin-bottom: 1rem; }
+
+/* εκτύπωση */
+@media print {
+  .sidebar, .no-print, .update-banner, .toast { display: none !important; }
+  body { display: block; background: #fff; }
+  .main { height: auto; overflow: visible; }
+  #page { max-width: none; padding: 0; }
+  .card, .panel, .sheet-wrap { box-shadow: none; }
+  .sheet-wrap { overflow: visible; }
+  table.sheet { font-size: 8pt; }
+  table.sheet td.cat, table.sheet th.cat { position: static; }
+}
