@@ -67,7 +67,16 @@ function createWindow() {
       sandbox: true
     }
   });
-  Menu.setApplicationMenu(null);
+  if (process.platform === 'darwin') {
+    // Στο Mac χρειάζεται μενού για Cmd+C / Cmd+V / Cmd+Q
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      { role: 'appMenu', label: 'HomeFlow' },
+      { role: 'editMenu', label: 'Επεξεργασία' },
+      { role: 'windowMenu', label: 'Παράθυρο' }
+    ]));
+  } else {
+    Menu.setApplicationMenu(null);
+  }
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
   // Εξωτερικοί σύνδεσμοι ανοίγουν στον browser
@@ -156,6 +165,7 @@ ipcMain.handle('app:print', () => {
 
 // ---------- αυτόματες ενημερώσεις ----------
 let updater = null;
+const RELEASES_URL = 'https://github.com/demelistasos/HomeFlow/releases/latest';
 function send(status, extra = {}) {
   if (win && !win.isDestroyed()) win.webContents.send('update:status', { status, ...extra });
 }
@@ -164,10 +174,13 @@ function setupUpdates() {
   try {
     updater = require('electron-updater').autoUpdater;
   } catch { return; }
-  updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = true;
+  // Στο Mac η αυτόματη εγκατάσταση θέλει υπογραφή Apple, οπότε
+  // απλώς ειδοποιούμε ότι υπάρχει νέα έκδοση για κατέβασμα.
+  const manual = process.platform === 'darwin';
+  updater.autoDownload = !manual;
+  updater.autoInstallOnAppQuit = !manual;
   updater.on('checking-for-update', () => send('checking'));
-  updater.on('update-available', info => send('downloading', { version: info.version }));
+  updater.on('update-available', info => send(manual ? 'manual' : 'downloading', { version: info.version, url: RELEASES_URL }));
   updater.on('update-not-available', () => send('latest'));
   updater.on('download-progress', p => send('progress', { percent: Math.round(p.percent || 0) }));
   updater.on('update-downloaded', info => send('ready', { version: info.version }));

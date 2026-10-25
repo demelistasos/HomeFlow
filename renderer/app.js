@@ -835,6 +835,7 @@ const actions = {
     else if (r.status === 'error') m.textContent = 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).';
   },
   'install-update': () => window.homeflow.installUpdate(),
+  'open-url': el => window.open(el.dataset.url, '_blank'),
   'welcome-fresh': () => { DB = defaultData(); persist(); render(); },
   'welcome-import': () => importFlow(false)
 };
@@ -925,7 +926,11 @@ if (window.homeflow) {
       b.innerHTML = `🎉 Νέα έκδοση ${esc(s.version)} είναι έτοιμη. <button class="btn small" data-action="install-update">Επανεκκίνηση τώρα</button> <span style="font-weight:500">(ή θα μπει μόνη της στο επόμενο κλείσιμο)</span>`;
       b.classList.remove('hidden');
     }
-    if (m) m.textContent = { checking: 'Έλεγχος…', latest: 'Έχετε την πιο νέα έκδοση ✓', downloading: 'Κατεβαίνει νέα έκδοση…', progress: `Κατέβασμα ${s.percent || 0}%…`, ready: `Η έκδοση ${s.version} είναι έτοιμη.`, error: 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).' }[s.status] || '';
+    if (s.status === 'manual') {
+      b.innerHTML = `🎉 Υπάρχει νέα έκδοση ${esc(s.version)}. <button class="btn small" data-action="open-url" data-url="${esc(s.url)}">Κατέβασμα</button> <span style="font-weight:500">(ανοίξτε το .dmg και σύρετε το HomeFlow στις Εφαρμογές)</span>`;
+      b.classList.remove('hidden');
+    }
+    if (m) m.textContent = { manual: `Υπάρχει νέα έκδοση ${s.version}.`, checking: 'Έλεγχος…', latest: 'Έχετε την πιο νέα έκδοση ✓', downloading: 'Κατεβαίνει νέα έκδοση…', progress: `Κατέβασμα ${s.percent || 0}%…`, ready: `Η έκδοση ${s.version} είναι έτοιμη.`, error: 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).' }[s.status] || '';
   });
 }
 

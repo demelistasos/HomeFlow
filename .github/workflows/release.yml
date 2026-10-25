@@ -1,7 +1,7 @@
-name: Build HomeFlow (Windows)
+name: Build HomeFlow (Windows + Mac)
 
 # Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>)
-# και ανεβαίνει στα Releases. Η εφαρμογή τη βρίσκει μόνη της.
+# για Windows και Mac, και ανεβαίνει στα Releases.
 on:
   push:
     branches: [main]
@@ -17,14 +17,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: macos-latest
+            target: --mac
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Εγκατάσταση
         run: npm install
@@ -33,7 +41,39 @@ jobs:
         shell: bash
         run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version --allow-same-version
 
-      - name: Build και δημοσίευση
-        run: npx electron-builder --win --publish always
+      - name: Build
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+            dist/latest*.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Δημοσίευση στα Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ls -la out
+          V="0.1.${{ github.run_number }}"
+          gh release create "v$V" out/* \
+            --repo "${{ github.repository }}" \
+            --title "HomeFlow $V" \
+            --target "${{ github.sha }}" \
+            --notes "Windows: κατεβάστε το HomeFlow-Setup-$V.exe. Mac: κατεβάστε το HomeFlow-$V-mac.dmg. Οδηγίες στο README."
