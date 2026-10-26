@@ -40,14 +40,19 @@ jobs:
   build:
     needs: test
     strategy:
-      fail-fast: true
+      # Αν το GitHub δεν έχει ελεύθερο Mac, η έκδοση για Windows βγαίνει κανονικά χωρίς αυτό.
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             target: --win
+            optional: false
           - os: macos-latest
             target: --mac
+            optional: true
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -74,7 +79,8 @@ jobs:
           path: dist/HomeFlow-*.zip
 
   release:
-    needs: build
+    needs: [test, build]
+    if: ${{ always() && needs.test.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -88,9 +94,12 @@ jobs:
         run: |
           ls -la out
           V="0.1.${{ github.run_number }}"
+          # Τα Windows είναι υποχρεωτικά. Το Mac μπαίνει μόνο αν χτίστηκε.
+          test -f "out/HomeFlow-Windows-$V.zip" || { echo "Λείπει το zip των Windows"; exit 1; }
+          FILES=$(cd out && ls HomeFlow-*-"$V".zip)
           # «αποτύπωμα» κάθε zip, για να ελέγχει η εφαρμογή ότι κατέβηκε σωστά
-          (cd out && sha256sum "HomeFlow-Windows-$V.zip" "HomeFlow-Mac-$V.zip" > SHA256SUMS.txt && cat SHA256SUMS.txt)
-          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" "out/HomeFlow-Mac-$V.zip" "out/SHA256SUMS.txt" \
+          (cd out && sha256sum $FILES > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release create "v$V" $(for f in $FILES; do echo "out/$f"; done) "out/SHA256SUMS.txt" \
             --repo "${{ github.repository }}" \
             --title "HomeFlow $V" \
             --target "${{ github.sha }}" \
