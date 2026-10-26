@@ -1,0 +1,19 @@
+/* HomeFlow · Εκτύπωση και κίνηση */
+
+/* εκτύπωση: πάντα φωτεινή */
+@media print {
+  :root { --bg: #fff; --paper: #fff; --paper-2: #f3f6f8; --ink: #000; --ink-2: #333; --ink-3: #555; --line: #ccc; --shadow: none; }
+  .sidebar, .no-print, .update-banner, .toast, .tabs { display: none !important; }
+  body { display: block; background: #fff; }
+  .main { height: auto; overflow: visible; }
+  #page { max-width: none; padding: 0; }
+  .card, .panel, .sheet-wrap, .scale { box-shadow: none; }
+  .sheet-wrap { overflow: visible; }
+  table.sheet { font-size: 8pt; }
+  table.sheet td.cat, table.sheet th.cat { position: static; }
+}
+
+/* κίνηση μόνο όταν την ζητάει ο χρήστης */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .tab, .chip, .cat-btn, .nav button { transition: background-color .15s, border-color .15s, color .15s; }
+}

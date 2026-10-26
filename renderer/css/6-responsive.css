@@ -1,0 +1,72 @@
+/* HomeFlow · Προσαρμογή σε κάθε οθόνη και μπάρα ενημέρωσης */
+
+/* ======== προσαρμογή σε κάθε οθόνη ========
+   Η εφαρμογή βάζει στο <html> κλάσεις ανάλογα με το πόσα «γράμματα» χωράνε:
+   w-m (μεσαίο πλάτος), w-s (στενό), w-xs (πολύ στενό), w-wide (φαρδύ)
+   h-m, h-s, h-xs για το ύψος. Έτσι η διάταξη ταιριάζει σε κάθε ανάλυση και μεγέθυνση. */
+html.w-m .sidebar { width: 13.8rem; flex-basis: 13.8rem; padding-left: .7rem; padding-right: .7rem; }
+html.w-m #page { padding-left: 1.4rem; padding-right: 1.4rem; }
+html.w-m .nav button { gap: .65rem; padding-left: .8rem; padding-right: .8rem; }
+html.w-m .month-title { min-width: 0; }
+html.w-m .grid2 { grid-template-columns: 1fr; }
+html.w-m .page-head h1 { font-size: 2rem; }
+html.w-m .hero h1 { font-size: 2.8rem; }
+
+/* στενό: το μενού γίνεται στήλη με εικονίδια και μικρή λέξη από κάτω */
+html.w-s .sidebar { width: 6.4rem; flex-basis: 6.4rem; padding: .7rem .4rem; gap: .5rem; }
+html.w-s .brand { justify-content: center; padding: 0; }
+html.w-s .brand > div, html.w-s .brand-sub { display: none; }
+html.w-s .side-tools { flex-direction: column; align-items: center; }
+html.w-s .search-btn { width: 3rem; height: 3rem; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; flex: none; }
+html.w-s .search-btn .sb-t { display: none; }
+html.w-s .nav button { flex-direction: column; gap: .1rem; padding: .35rem .2rem; font-size: .72rem; line-height: 1.15; text-align: center; border-radius: 16px; }
+html.w-s .nav button .ni { font-size: 1.35rem; width: auto; }
+html.w-s .side-actions .btn.big { font-size: 1.5rem; min-height: 3rem; padding: 0; }
+html.w-s .side-actions .btn.big .lbl { display: none; }
+html.w-s .save-state { display: none; }
+html.w-s #page { padding: 1rem 1rem 3rem; }
+html.w-s .scale { grid-template-columns: 1fr; }
+html.w-s .scale .v { font-size: 2rem; }
+html.w-s .hero h1 { font-size: 2.3rem; }
+html.w-s .page-head h1 { font-size: 1.7rem; }
+html.w-s .month-title { font-size: 1.4rem; }
+html.w-s .planned-row { grid-template-columns: 2.4rem 1fr; grid-template-areas: 'ic nm' 'ic amt' 'act act'; }
+html.w-s .planned-row .p-act { justify-content: flex-start; }
+html.w-s .panel, html.w-s .card { padding: 1rem 1.1rem; }
+html.w-s .panel { overflow-x: auto; }
+html.w-s .tenant-grid { grid-template-columns: 1fr; }
+html.w-s .theme-pick { grid-template-columns: 1fr 1fr 1fr; }
+html.w-s .cal { gap: .2rem; }
+html.w-s .cal-c { min-height: 4.2rem; padding: .25rem; border-radius: 10px; }
+html.w-s .cal-t { display: none; }
+html.w-s .cal-e { padding: .1rem .2rem; }
+html.w-s .help-list { grid-template-columns: 1fr; }
+html.w-s .modal-back { padding: .5rem; }
+html.w-s .modal { border-radius: 22px; max-height: 98vh; }
+html.w-s .modal-head, html.w-s .modal-body, html.w-s .modal-foot { padding-left: 1rem; padding-right: 1rem; }
+html.w-s .amount-input { width: 100%; max-width: 14rem; font-size: 2rem !important; }
+html.w-s .row { gap: .8rem; }
+html.w-s .row > .field { min-width: 100%; }
+html.w-s .filters input[type=search] { min-width: 0; width: 100%; }
+
+/* πολύ στενό: το μενού πάει κάτω, σαν στο κινητό */
+html.w-xs body { flex-direction: column-reverse; }
+html.w-xs .sidebar { width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; padding: .35rem .4rem; border-right: 0; border-top: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; }
+html.w-xs .brand, html.w-xs .save-state { display: none; }
+html.w-xs .side-tools { flex-direction: row; }
+html.w-xs .nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: 1 1 auto; }
+html.w-xs .nav button { min-width: 4.4rem; }
+html.w-xs .side-actions { flex-direction: row; margin-top: 0; }
+html.w-xs .side-actions .btn.big { width: 3rem; height: 3rem; border-radius: 50%; }
+html.w-xs .main { height: auto; flex: 1; min-height: 0; }
+
+/* τα κουμπιά μέσα σε κάρτες σπάνε σε δύο γραμμές αν δεν χωράνε */
+.card .btn { white-space: normal; text-align: center; max-width: 100%; height: auto; }
+
+/* μπάρα ενημέρωσης */
+.update-banner { flex-wrap: wrap; text-align: center; }
+.update-banner.bad { background: var(--exp-soft); color: var(--exp); }
+.update-banner .btn { background: #fff; color: #3b2a00; }
+.update-banner .btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.upd-bar { display: inline-block; width: 12rem; height: .7rem; border-radius: 999px; background: rgba(0, 0, 0, .12); overflow: hidden; vertical-align: middle; }
+.upd-bar i { display: block; height: 100%; background: var(--brand); border-radius: 999px; transition: width .2s; }

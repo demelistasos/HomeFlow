@@ -1,0 +1,93 @@
+/* HomeFlow – «Αιγαίο». Φωτεινό και σκούρο. Μεγάλα γράμματα, στρογγυλές άκρες, κουμπιά που φαίνονται καθαρά. */
+@font-face {
+  font-family: "Commissioner";
+  src: url("../fonts/Commissioner.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+:root {
+  --scale: 1.15;
+  --bg: #EEF4F7;
+  --paper: #ffffff;
+  --paper-2: #F5F9FB;
+  --ink: #0E2A47;
+  --ink-2: #3F566E;
+  --ink-3: #66798D;
+  --line: #DCE6EE;
+  --line-2: #B9CBD9;
+  --btn: #E9F1F6;
+  --btn-hover: #DCEAF2;
+  --brand: #0B7A8A;
+  --brand-2: #08697A;
+  --brand-soft: #DDF0F2;
+  --brand-line: #A9D8DE;
+  --on-color: #ffffff;
+  --gold: #F6B93B;
+  --inc: #1E8E5A;
+  --inc-soft: #E1F4EA;
+  --exp: #D2462F;
+  --exp-soft: #FCE9E5;
+  --exp-line: #F0BDB2;
+  --warn: #8F5E00;
+  --warn-soft: #FFF2D2;
+  --warn-line: #F3D68C;
+  --soft: #EDF3F7;
+  --track: #EAF0F5;
+  --hover: #F2F8FB;
+  --shadow: 0 1px 2px rgba(14, 42, 71, .05), 0 10px 28px rgba(14, 42, 71, .06);
+  --r: 24px;
+  --r-sm: 16px;
+  color-scheme: light;
+  font-size: calc(16px * var(--scale));
+}
+:root[data-theme="dark"] {
+  --bg: #0E1A29;
+  --paper: #162537;
+  --paper-2: #1B2D42;
+  --ink: #EAF2F8;
+  --ink-2: #B6C6D4;
+  --ink-3: #8A9EB1;
+  --line: #273B52;
+  --line-2: #3E5873;
+  --btn: #20344B;
+  --btn-hover: #284059;
+  --brand: #3CC3D2;
+  --brand-2: #63D2DE;
+  --brand-soft: #143D48;
+  --brand-line: #22606B;
+  --on-color: #06232A;
+  --gold: #FFC95C;
+  --inc: #4FD592;
+  --inc-soft: #133A2A;
+  --exp: #FF8B75;
+  --exp-soft: #43231E;
+  --exp-line: #6E3329;
+  --warn: #FFCB66;
+  --warn-soft: #3A2E14;
+  --warn-line: #6A5420;
+  --soft: #1E3147;
+  --track: #22374D;
+  --hover: #1C3046;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 10px 28px rgba(0, 0, 0, .25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Commissioner", "Segoe UI", system-ui, -apple-system, "Noto Sans", Arial, sans-serif;
+  font-variation-settings: "FLAR" 0, "VOLM" 0;
+  line-height: 1.45;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.muted { color: var(--ink-3); }
+.inc { color: var(--inc); }
+.exp { color: var(--exp); }
+b, strong { font-weight: 700; }

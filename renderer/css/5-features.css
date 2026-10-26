@@ -1,0 +1,123 @@
+/* HomeFlow · Μικρό ύψος οθόνης, PIN, αναζήτηση, ημερολόγιο, συνημμένα, βοήθεια */
+
+/* μικρές οθόνες (π.χ. 1366×768) */
+html.h-m .sidebar { padding-top: .8rem; padding-bottom: .7rem; gap: .5rem; }
+html.h-m .brand { padding-bottom: 0; }
+html.h-m .nav { gap: .08rem; }
+html.h-m .nav button { padding: .3rem .95rem; }
+html.h-m .brand-sub { display: none; }
+html.h-m .brand-logo { width: 2.4rem; height: 2.4rem; }
+html.h-m .search-btn { min-height: 2.6rem; padding-top: .3rem; padding-bottom: .3rem; }
+html.h-m .help-btn { width: 2.6rem; height: 2.6rem; }
+html.h-m .side-actions { gap: .45rem; }
+html.h-m .side-actions .btn.big { min-height: 2.75rem; }
+html.h-m .hero h1 { font-size: 3rem; }
+html.h-s .brand-logo { width: 2.3rem; height: 2.3rem; }
+html.h-s .brand-name { font-size: 1.25rem; }
+html.h-s .nav button { padding: .2rem .9rem; font-size: .98rem; }
+html.h-s .nav button .ni { font-size: 1.12rem; }
+html.h-s .side-actions { gap: .4rem; }
+html.h-s .side-actions .btn.big { min-height: 2.7rem; font-size: 1.02rem; }
+html.h-s .save-state { display: none; }
+html.h-s .hero h1 { font-size: 2.6rem; }
+html.h-s .greet { margin: .4rem 0 1rem; }
+
+/* οθόνη κλειδώματος (PIN) */
+#lock-root { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: grid; place-items: center; overflow-y: auto; }
+.lock { display: flex; flex-direction: column; align-items: center; gap: .9rem; padding: 2rem; text-align: center; }
+.lock-logo { width: 5rem; height: 5rem; border-radius: 24px; }
+.lock h1 { margin: 0; font-size: 2.2rem; font-weight: 300; letter-spacing: -.03em; font-variation-settings: "FLAR" 100, "VOLM" 0; }
+.lock p { margin: 0; font-size: 1.2rem; color: var(--ink-2); }
+.pin-dots { display: flex; gap: 1.1rem; margin: .4rem 0; }
+.pin-dots i { width: 1.3rem; height: 1.3rem; border-radius: 50%; border: 3px solid var(--brand); }
+.pin-dots i.on { background: var(--brand); }
+.pin-dots.bad i { border-color: var(--exp); }
+.lock-msg { min-height: 1.5rem; color: var(--exp); font-weight: 700; }
+.keypad { display: grid; grid-template-columns: repeat(3, 5.2rem); gap: .8rem; margin-bottom: .6rem; }
+.key { width: 5.2rem; height: 5.2rem; border-radius: 50%; border: 2px solid var(--line-2); background: var(--paper); font-size: 1.9rem; font-weight: 600; color: var(--ink); box-shadow: var(--shadow); }
+.key:hover { border-color: var(--brand); background: var(--brand-soft); }
+.key:active { background: var(--brand); color: var(--on-color); }
+
+/* αναζήτηση παντού */
+.search-btn {
+  display: flex; align-items: center; gap: .6rem; width: 100%;
+  border: 2px solid var(--line-2); background: var(--btn); color: var(--ink-2); border-radius: 999px;
+  padding: .5rem .6rem .5rem 1rem; font-weight: 600; font-size: 1.02rem; min-height: 2.9rem;
+}
+.search-btn:hover { border-color: var(--brand); color: var(--ink); }
+.search-btn .sb-t { flex: 1; text-align: left; }
+kbd { font-family: inherit; font-size: .78rem; font-weight: 700; color: var(--ink-2); background: var(--paper); border: 1.5px solid var(--line-2); border-bottom-width: 3px; border-radius: 8px; padding: .05rem .45rem; white-space: nowrap; }
+#pal-root { position: fixed; inset: 0; z-index: 120; }
+.pal-back { position: absolute; inset: 0; background: rgba(8, 22, 38, .5); display: flex; justify-content: center; align-items: flex-start; padding: 8vh 1rem 2rem; }
+.pal { background: var(--paper); width: min(48rem, 100%); max-height: 80vh; border-radius: 28px; box-shadow: 0 24px 70px rgba(0, 0, 0, .35); display: flex; flex-direction: column; overflow: hidden; }
+.pal-in { display: flex; align-items: center; gap: .8rem; padding: 1rem 1.3rem; border-bottom: 1px solid var(--line); font-size: 1.3rem; }
+.pal-in input { flex: 1; border: 0; outline: none; background: transparent; font-size: 1.3rem; min-width: 0; }
+.pal-list { overflow-y: auto; padding: .4rem .6rem .8rem; }
+.pal-group { font-size: .88rem; font-weight: 700; color: var(--ink-3); padding: .8rem .8rem .3rem; }
+.pal-item { display: flex; align-items: center; gap: .85rem; width: 100%; text-align: left; border: 2px solid transparent; background: transparent; border-radius: 18px; padding: .55rem .8rem; }
+.pal-item:hover { background: var(--hover); }
+.pal-item.sel { background: var(--brand-soft); border-color: var(--brand-line); }
+.pal-ic { font-size: 1.35rem; width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: 13px; background: var(--soft); flex: none; }
+.pal-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pal-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-t small { color: var(--ink-3); font-size: .88rem; }
+.pal-amt { font-weight: 700; }
+.pal-foot { border-top: 1px solid var(--line); padding: .7rem 1.3rem; font-size: .85rem; color: var(--ink-3); background: var(--paper-2); }
+
+/* σύγκριση με πέρσι */
+.scale .cmp { grid-column: 1 / -1; color: var(--ink-2); font-size: .98rem; padding-top: .3rem; border-top: 1px dashed var(--line); margin-top: .3rem; }
+.scale .cmp-sep { margin: 0 .4rem; color: var(--ink-3); }
+.bar-row .ly { font-size: .8rem; color: var(--ink-3); font-weight: 500; margin-left: .3rem; }
+.bar-row .ly.up { color: var(--exp); font-weight: 700; }
+.warn-t { color: var(--warn); }
+
+/* ημερολόγιο */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .4rem; }
+.cal-h { text-align: center; font-weight: 700; color: var(--ink-3); font-size: .9rem; padding: .2rem 0; }
+.cal-c { min-height: 6.6rem; border: 1.5px solid var(--line); border-radius: 16px; padding: .35rem .4rem; background: var(--paper); display: flex; flex-direction: column; gap: .2rem; overflow: hidden; }
+.cal-c.empty { border: 0; background: transparent; }
+.cal-c.has { cursor: pointer; }
+.cal-c.has:hover { border-color: var(--brand); background: var(--hover); }
+.cal-c.today { border: 2.5px solid var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.cal-d { font-weight: 700; font-size: .95rem; color: var(--ink-2); }
+.cal-c.today .cal-d { color: var(--brand); }
+.cal-e { display: flex; gap: .25rem; align-items: center; font-size: .78rem; line-height: 1.2; border-radius: 8px; padding: .12rem .3rem; }
+.cal-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-late { background: var(--exp-soft); color: var(--exp); }
+.c-wait { background: var(--warn-soft); color: var(--warn); }
+.c-ok { background: var(--inc-soft); color: var(--inc); }
+.cal-more { font-size: .76rem; color: var(--ink-3); font-weight: 700; }
+.cal-key { display: inline-block; border-radius: 999px; padding: 0 .55rem; font-size: .82rem; font-weight: 600; margin-left: .3rem; }
+.cal-sum { margin-top: .9rem; font-size: 1.02rem; }
+
+/* συνημμένα */
+.att { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-top: .55rem; }
+.att-chip { display: inline-flex; align-items: center; border: 2px solid var(--line-2); border-radius: 999px; background: var(--btn); overflow: hidden; }
+.att-open { border: 0; background: transparent; padding: .3rem .4rem .3rem .8rem; font-weight: 600; font-size: .9rem; max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-open:hover { text-decoration: underline; }
+.att-x { border: 0; border-left: 1.5px solid var(--line-2); background: transparent; padding: .3rem .6rem; color: var(--exp); font-weight: 700; }
+
+/* βοήθεια */
+.help-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: .5rem; }
+.help-q { display: flex; align-items: center; gap: .7rem; text-align: left; border: 2px solid var(--line-2); background: var(--btn); border-radius: 18px; padding: .7rem .9rem; font-weight: 600; font-size: 1rem; }
+.help-q:hover { border-color: var(--brand); background: var(--brand-soft); }
+.help-q span { font-size: 1.3rem; width: 1.8rem; text-align: center; flex: none; }
+.help-steps { margin: 0; padding-left: 1.6rem; display: flex; flex-direction: column; gap: .8rem; font-size: 1.15rem; line-height: 1.5; }
+.help-steps li::marker { font-weight: 800; color: var(--brand); }
+.side-foot { display: flex; align-items: center; justify-content: space-between; gap: .4rem; }
+.side-tools { display: flex; gap: .4rem; }
+.side-tools .search-btn { flex: 1; min-width: 0; }
+.help-btn { border: 2px solid var(--line-2); background: var(--btn); border-radius: 50%; width: 2.9rem; height: 2.9rem; flex: none; font-size: 1.15rem; color: var(--ink-2); display: grid; place-items: center; padding: 0; }
+.search-btn kbd { display: none; }
+.help-btn:hover { border-color: var(--brand); color: var(--ink); }
+
+/* τα κουμπιά «Νέο έξοδο / Νέο έσοδο» μένουν πάντα ορατά· αν δεν χωράει, κυλάει μόνο το μενού */
+.sidebar { overflow: hidden; }
+.nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+html.h-xs #page { padding-top: 1rem; }
+html.h-xs .hero h1 { font-size: 2.2rem; }
+html.h-xs .greet { margin: .3rem 0 .8rem; font-size: 1rem; }
+html.h-xs .scale { padding: .9rem 1.2rem; }
+html.h-xs .scale .v { font-size: 1.9rem; }
+html.h-xs .page-head h1 { font-size: 1.9rem; }
+html.h-xs .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
