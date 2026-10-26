@@ -1893,6 +1893,8 @@ function settingsPage() {
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🔠 Μέγεθος γραμμάτων</h2>
     <div class="chips">${FONT_SCALES.map(f => `<button class="chip ${s.fontScale === f.v ? 'sel' : ''}" data-action="font" data-v="${f.v}" style="font-size:${f.v}rem">${f.l}</button>`).join('')}</div>
+    <label class="check" style="margin-top:.9rem"><input type="checkbox" id="auto-fit" ${s.autoFit !== false ? 'checked' : ''}> Αυτόματη προσαρμογή στο μέγεθος της οθόνης</label>
+    <div class="hint muted" style="margin-top:.3rem">Σε μεγάλη οθόνη τα γράμματα μεγαλώνουν, σε μικρό laptop μικραίνουν λίγο ώστε να χωράνε όλα. Σε στενό παράθυρο το μενού γίνεται εικονίδια.</div>
   </div>
 
   <div class="panel set-section ${ui._setTab === 'exp' ? '' : 'hidden'}">
@@ -3124,7 +3126,25 @@ async function importFlow(replacing) {
   DB = d; generateRecurring(); applyFont(); await persist(); ui.page = 'home'; render();
   toast(`Φορτώθηκαν ${d.transactions.length} κινήσεις.`);
 }
-function applyFont() { document.documentElement.style.setProperty('--scale', (DB && DB.settings.fontScale) || 1.15); applyTheme(); }
+// Μέγεθος: η επιλογή του χρήστη × αυτόματη προσαρμογή στο μέγεθος του παραθύρου.
+// Βάση: 1440×900 = 1. Μεγάλη οθόνη → μεγαλύτερα, μικρό laptop → λίγο μικρότερα (όχι κάτω από 0,85).
+function screenFit() {
+  if (DB && DB.settings.autoFit === false) return 1;
+  const r = 0.5 * innerWidth / 1440 + 0.5 * innerHeight / 900;
+  return Math.min(1.5, Math.max(0.85, r));
+}
+function applyFont() {
+  const sc = ((DB && DB.settings.fontScale) || 1.15) * screenFit();
+  const root = document.documentElement;
+  root.style.setProperty('--scale', sc.toFixed(3));
+  const px = 16 * sc, w = innerWidth / px, h = innerHeight / px;
+  const set = (c, on) => root.classList.toggle(c, on);
+  set('w-wide', w >= 64); set('w-m', w < 64); set('w-s', w < 50); set('w-xs', w < 34);
+  set('h-m', h < 56); set('h-s', h < 48); set('h-xs', h < 40);
+  applyTheme();
+}
+let fitTimer = null;
+addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(applyFont, 80); });
 // Εμφάνιση: φωτεινή, σκούρα ή αυτόματη (όπως ο υπολογιστής)
 const darkMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 function themePref() {
@@ -3176,6 +3196,7 @@ document.addEventListener('change', ev => {
   else if (t.id === 'year-pick') { ui.yearView = +t.value; render(); }
   else if (t.id === 'fm-date' && form) { syncFormInputs(); renderForm(); }
   else if (t.id === 'd-end' && dlg && dlg.kind === 'leave') { syncLeave(); renderDlg(); }
+  else if (t.id === 'auto-fit') { DB.settings.autoFit = t.checked; applyFont(); persist(); render(); }
   else if (t.id === 'call-me') { DB.settings.callMe = t.value.trim(); persist(); toast(DB.settings.callMe ? `Θα σας λέει «${DB.settings.callMe}».` : 'Χαιρετισμός χωρίς όνομα.'); }
   else if (t.id === 'pin-autolock' && DB.settings.pin) { DB.settings.pin.autoLock = t.checked; persist(); toast(t.checked ? 'Θα κλειδώνει μετά από 15 λεπτά χωρίς χρήση.' : 'Δεν θα κλειδώνει μόνο του.'); }
   else if (t.id === 'persons') { DB.settings.persons = t.value.split(',').map(s => s.trim()).filter(Boolean); persist(); toast('Τα πρόσωπα αποθηκεύτηκαν.'); }

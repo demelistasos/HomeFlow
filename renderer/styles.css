@@ -151,7 +151,7 @@ b, strong { font-weight: 700; }
 
 /* ---------- κύριο μέρος ---------- */
 .main { flex: 1; overflow-y: auto; height: 100vh; }
-#page { max-width: 1240px; margin: 0 auto; padding: 1.8rem 2.2rem 4rem; }
+#page { max-width: 78rem; margin: 0 auto; padding: 1.8rem 2.2rem 4rem; }
 .page-head { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.3rem; }
 .page-head h1 { margin: 0; font-size: 2.3rem; font-weight: 400; letter-spacing: -.03em; font-variation-settings: "FLAR" 100, "VOLM" 0; }
 .page-head .spacer { flex: 1; }
@@ -174,8 +174,8 @@ b, strong { font-weight: 700; }
 .scale .meter i { display: block; height: 100%; border-radius: 999px; min-width: .5rem; }
 .scale .meter i.e { background: var(--track); }
 
-.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
-.cards.four { grid-template-columns: repeat(4, 1fr); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: 1rem; margin-bottom: 1.4rem; }
+.cards.four { grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); }
 .card {
   background: var(--paper); border-radius: var(--r); box-shadow: var(--shadow);
   padding: 1.2rem 1.4rem; border: 1px solid var(--line);
@@ -250,11 +250,9 @@ b, strong { font-weight: 700; }
 .planned-row .p-act { grid-area: act; display: flex; gap: .45rem; justify-content: flex-end; flex-wrap: wrap; }
 .planned-row:last-child { border-bottom: 0; }
 /* σε φαρδιά οθόνη τα κουμπιά μπαίνουν στην ίδια γραμμή */
-@media (min-width: 1180px) {
-  .planned-row { grid-template-columns: 2.6rem 1fr auto auto; grid-template-areas: 'ic nm amt act'; }
-  .planned-row .p-ic { align-self: center; }
-  .planned-row .p-act { justify-content: flex-end; }
-}
+html.w-wide .planned-row { grid-template-columns: 2.6rem 1fr auto auto; grid-template-areas: 'ic nm amt act'; }
+html.w-wide .planned-row .p-ic { align-self: center; }
+html.w-wide .planned-row .p-act { justify-content: flex-end; }
 
 /* ενοίκια */
 .status { display: inline-block; font-weight: 700; font-size: .9rem; padding: .28rem .8rem; border-radius: 999px; white-space: nowrap; }
@@ -412,30 +410,26 @@ table.sheet .zero { color: var(--line-2); }
 }
 
 /* μικρές οθόνες (π.χ. 1366×768) */
-@media (max-height: 940px) {
-  .sidebar { padding-top: .8rem; padding-bottom: .7rem; gap: .5rem; }
-  .brand { padding-bottom: 0; }
-  .nav { gap: .08rem; }
-  .nav button { padding: .3rem .95rem; }
-  .brand-sub { display: none; }
-  .brand-logo { width: 2.4rem; height: 2.4rem; }
-  .search-btn { min-height: 2.6rem; padding-top: .3rem; padding-bottom: .3rem; }
-  .help-btn { width: 2.6rem; height: 2.6rem; }
-  .side-actions { gap: .45rem; }
-  .side-actions .btn.big { min-height: 2.75rem; }
-  .hero h1 { font-size: 3rem; }
-}
-@media (max-height: 800px) {
-  .brand-logo { width: 2.3rem; height: 2.3rem; }
-  .brand-name { font-size: 1.25rem; }
-  .nav button { padding: .2rem .9rem; font-size: .98rem; }
-  .nav button .ni { font-size: 1.12rem; }
-  .side-actions { gap: .4rem; }
-  .side-actions .btn.big { min-height: 2.7rem; font-size: 1.02rem; }
-  .save-state { display: none; }
-  .hero h1 { font-size: 2.6rem; }
-  .greet { margin: .4rem 0 1rem; }
-}
+html.h-m .sidebar { padding-top: .8rem; padding-bottom: .7rem; gap: .5rem; }
+html.h-m .brand { padding-bottom: 0; }
+html.h-m .nav { gap: .08rem; }
+html.h-m .nav button { padding: .3rem .95rem; }
+html.h-m .brand-sub { display: none; }
+html.h-m .brand-logo { width: 2.4rem; height: 2.4rem; }
+html.h-m .search-btn { min-height: 2.6rem; padding-top: .3rem; padding-bottom: .3rem; }
+html.h-m .help-btn { width: 2.6rem; height: 2.6rem; }
+html.h-m .side-actions { gap: .45rem; }
+html.h-m .side-actions .btn.big { min-height: 2.75rem; }
+html.h-m .hero h1 { font-size: 3rem; }
+html.h-s .brand-logo { width: 2.3rem; height: 2.3rem; }
+html.h-s .brand-name { font-size: 1.25rem; }
+html.h-s .nav button { padding: .2rem .9rem; font-size: .98rem; }
+html.h-s .nav button .ni { font-size: 1.12rem; }
+html.h-s .side-actions { gap: .4rem; }
+html.h-s .side-actions .btn.big { min-height: 2.7rem; font-size: 1.02rem; }
+html.h-s .save-state { display: none; }
+html.h-s .hero h1 { font-size: 2.6rem; }
+html.h-s .greet { margin: .4rem 0 1rem; }
 
 /* οθόνη κλειδώματος (PIN) */
 #lock-root { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: grid; place-items: center; overflow-y: auto; }
@@ -524,18 +518,79 @@ kbd { font-family: inherit; font-size: .78rem; font-weight: 700; color: var(--in
 .side-tools .search-btn { flex: 1; min-width: 0; }
 .help-btn { border: 2px solid var(--line-2); background: var(--btn); border-radius: 50%; width: 2.9rem; height: 2.9rem; flex: none; font-size: 1.15rem; color: var(--ink-2); display: grid; place-items: center; padding: 0; }
 .search-btn kbd { display: none; }
-@media (min-height: 700px) { .sidebar { min-width: 0; } }
 .help-btn:hover { border-color: var(--brand); color: var(--ink); }
 
 /* τα κουμπιά «Νέο έξοδο / Νέο έσοδο» μένουν πάντα ορατά· αν δεν χωράει, κυλάει μόνο το μενού */
 .sidebar { overflow: hidden; }
 .nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
-@media (max-height: 680px) {
-  #page { padding-top: 1rem; }
-  .hero h1 { font-size: 2.2rem; }
-  .greet { margin: .3rem 0 .8rem; font-size: 1rem; }
-  .scale { padding: .9rem 1.2rem; }
-  .scale .v { font-size: 1.9rem; }
-  .page-head h1 { font-size: 1.9rem; }
-  .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
-}
+html.h-xs #page { padding-top: 1rem; }
+html.h-xs .hero h1 { font-size: 2.2rem; }
+html.h-xs .greet { margin: .3rem 0 .8rem; font-size: 1rem; }
+html.h-xs .scale { padding: .9rem 1.2rem; }
+html.h-xs .scale .v { font-size: 1.9rem; }
+html.h-xs .page-head h1 { font-size: 1.9rem; }
+html.h-xs .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
+
+
+/* ======== προσαρμογή σε κάθε οθόνη ========
+   Η εφαρμογή βάζει στο <html> κλάσεις ανάλογα με το πόσα «γράμματα» χωράνε:
+   w-m (μεσαίο πλάτος), w-s (στενό), w-xs (πολύ στενό), w-wide (φαρδύ)
+   h-m, h-s, h-xs για το ύψος. Έτσι η διάταξη ταιριάζει σε κάθε ανάλυση και μεγέθυνση. */
+html.w-m .sidebar { width: 13.8rem; flex-basis: 13.8rem; padding-left: .7rem; padding-right: .7rem; }
+html.w-m #page { padding-left: 1.4rem; padding-right: 1.4rem; }
+html.w-m .nav button { gap: .65rem; padding-left: .8rem; padding-right: .8rem; }
+html.w-m .month-title { min-width: 0; }
+html.w-m .grid2 { grid-template-columns: 1fr; }
+html.w-m .page-head h1 { font-size: 2rem; }
+html.w-m .hero h1 { font-size: 2.8rem; }
+
+/* στενό: το μενού γίνεται στήλη με εικονίδια και μικρή λέξη από κάτω */
+html.w-s .sidebar { width: 6.4rem; flex-basis: 6.4rem; padding: .7rem .4rem; gap: .5rem; }
+html.w-s .brand { justify-content: center; padding: 0; }
+html.w-s .brand > div, html.w-s .brand-sub { display: none; }
+html.w-s .side-tools { flex-direction: column; align-items: center; }
+html.w-s .search-btn { width: 3rem; height: 3rem; min-height: 0; padding: 0; justify-content: center; border-radius: 50%; flex: none; }
+html.w-s .search-btn .sb-t { display: none; }
+html.w-s .nav button { flex-direction: column; gap: .1rem; padding: .35rem .2rem; font-size: .72rem; line-height: 1.15; text-align: center; border-radius: 16px; }
+html.w-s .nav button .ni { font-size: 1.35rem; width: auto; }
+html.w-s .side-actions .btn.big { font-size: 1.5rem; min-height: 3rem; padding: 0; }
+html.w-s .side-actions .btn.big .lbl { display: none; }
+html.w-s .save-state { display: none; }
+html.w-s #page { padding: 1rem 1rem 3rem; }
+html.w-s .scale { grid-template-columns: 1fr; }
+html.w-s .scale .v { font-size: 2rem; }
+html.w-s .hero h1 { font-size: 2.3rem; }
+html.w-s .page-head h1 { font-size: 1.7rem; }
+html.w-s .month-title { font-size: 1.4rem; }
+html.w-s .planned-row { grid-template-columns: 2.4rem 1fr; grid-template-areas: 'ic nm' 'ic amt' 'act act'; }
+html.w-s .planned-row .p-act { justify-content: flex-start; }
+html.w-s .panel, html.w-s .card { padding: 1rem 1.1rem; }
+html.w-s .panel { overflow-x: auto; }
+html.w-s .tenant-grid { grid-template-columns: 1fr; }
+html.w-s .theme-pick { grid-template-columns: 1fr 1fr 1fr; }
+html.w-s .cal { gap: .2rem; }
+html.w-s .cal-c { min-height: 4.2rem; padding: .25rem; border-radius: 10px; }
+html.w-s .cal-t { display: none; }
+html.w-s .cal-e { padding: .1rem .2rem; }
+html.w-s .help-list { grid-template-columns: 1fr; }
+html.w-s .modal-back { padding: .5rem; }
+html.w-s .modal { border-radius: 22px; max-height: 98vh; }
+html.w-s .modal-head, html.w-s .modal-body, html.w-s .modal-foot { padding-left: 1rem; padding-right: 1rem; }
+html.w-s .amount-input { width: 100%; max-width: 14rem; font-size: 2rem !important; }
+html.w-s .row { gap: .8rem; }
+html.w-s .row > .field { min-width: 100%; }
+html.w-s .filters input[type=search] { min-width: 0; width: 100%; }
+
+/* πολύ στενό: το μενού πάει κάτω, σαν στο κινητό */
+html.w-xs body { flex-direction: column-reverse; }
+html.w-xs .sidebar { width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; padding: .35rem .4rem; border-right: 0; border-top: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; }
+html.w-xs .brand, html.w-xs .save-state { display: none; }
+html.w-xs .side-tools { flex-direction: row; }
+html.w-xs .nav { flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: 1 1 auto; }
+html.w-xs .nav button { min-width: 4.4rem; }
+html.w-xs .side-actions { flex-direction: row; margin-top: 0; }
+html.w-xs .side-actions .btn.big { width: 3rem; height: 3rem; border-radius: 50%; }
+html.w-xs .main { height: auto; flex: 1; min-height: 0; }
+
+/* τα κουμπιά μέσα σε κάρτες σπάνε σε δύο γραμμές αν δεν χωράνε */
+.card .btn { white-space: normal; text-align: center; max-width: 100%; height: auto; }

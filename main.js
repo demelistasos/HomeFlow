@@ -113,8 +113,8 @@ function createWindow() {
   win = new BrowserWindow({
     // Το ελάχιστο μέγεθος δεν πρέπει να ξεπερνά τον χώρο της οθόνης πάνω από τη γραμμή εργασιών.
     // (Σε laptop με μεγέθυνση 125–150% ο χώρος μπορεί να είναι κάτω από 600 pixel ύψος.)
-    minWidth: Math.min(900, wa.width),
-    minHeight: Math.min(560, wa.height),
+    minWidth: Math.min(520, wa.width),
+    minHeight: Math.min(460, wa.height),
     width: Math.min(1320, wa.width),
     height: Math.min(900, wa.height),
     title: 'HomeFlow',
@@ -141,7 +141,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => { win.show(); win.maximize(); });
   // Αν αλλάξει η οθόνη (π.χ. άλλη ανάλυση ή δεύτερη οθόνη), το ελάχιστο μέγεθος προσαρμόζεται
-  const fitMin = () => { if (!win || win.isDestroyed()) return; const d = screen.getDisplayMatching(win.getBounds()).workAreaSize; win.setMinimumSize(Math.min(900, d.width), Math.min(560, d.height)); };
+  const fitMin = () => { if (!win || win.isDestroyed()) return; const d = screen.getDisplayMatching(win.getBounds()).workAreaSize; win.setMinimumSize(Math.min(520, d.width), Math.min(460, d.height)); };
   screen.on('display-metrics-changed', fitMin);
   win.on('moved', fitMin);
   // Εξωτερικοί σύνδεσμοι ανοίγουν στον browser
