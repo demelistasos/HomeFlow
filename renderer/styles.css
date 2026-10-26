@@ -425,3 +425,19 @@ table.sheet .zero { color: var(--line-2); }
   .hero h1 { font-size: 2.6rem; }
   .greet { margin: .4rem 0 1rem; }
 }
+
+/* οθόνη κλειδώματος (PIN) */
+#lock-root { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: grid; place-items: center; overflow-y: auto; }
+.lock { display: flex; flex-direction: column; align-items: center; gap: .9rem; padding: 2rem; text-align: center; }
+.lock-logo { width: 5rem; height: 5rem; border-radius: 24px; }
+.lock h1 { margin: 0; font-size: 2.2rem; font-weight: 300; letter-spacing: -.03em; font-variation-settings: "FLAR" 100, "VOLM" 0; }
+.lock p { margin: 0; font-size: 1.2rem; color: var(--ink-2); }
+.pin-dots { display: flex; gap: 1.1rem; margin: .4rem 0; }
+.pin-dots i { width: 1.3rem; height: 1.3rem; border-radius: 50%; border: 3px solid var(--brand); }
+.pin-dots i.on { background: var(--brand); }
+.pin-dots.bad i { border-color: var(--exp); }
+.lock-msg { min-height: 1.5rem; color: var(--exp); font-weight: 700; }
+.keypad { display: grid; grid-template-columns: repeat(3, 5.2rem); gap: .8rem; margin-bottom: .6rem; }
+.key { width: 5.2rem; height: 5.2rem; border-radius: 50%; border: 2px solid var(--line-2); background: var(--paper); font-size: 1.9rem; font-weight: 600; color: var(--ink); box-shadow: var(--shadow); }
+.key:hover { border-color: var(--brand); background: var(--brand-soft); }
+.key:active { background: var(--brand); color: var(--on-color); }

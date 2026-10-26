@@ -81,13 +81,15 @@ function persist() {
   DB.savedAt = new Date().toISOString();
   const text = JSON.stringify(DB);
   setSaveState('saving');
-  saveChain = saveChain.then(() => store.save(text)).then(() => setSaveState('ok')).catch(e => { console.error(e); setSaveState('error'); });
+  saveChain = saveChain.then(() => store.save(text)).then(() => { setSaveState('ok'); return refreshBackup(); }).catch(e => { console.error(e); setSaveState('error'); });
   return saveChain;
 }
 function setSaveState(s) {
   const el = $('#save-state');
   if (!el) return;
-  el.textContent = s === 'saving' ? 'Αποθήκευση…' : s === 'error' ? '⚠ Πρόβλημα στην αποθήκευση!' : '✓ Όλα αποθηκευμένα';
+  const b = ui.backup || {};
+  const extra = b.cloud && b.cloud.last ? ' · ☁️' : '';
+  el.textContent = s === 'saving' ? 'Αποθήκευση…' : s === 'error' ? '⚠ Πρόβλημα στην αποθήκευση!' : '✓ Όλα αποθηκευμένα' + extra;
   el.style.color = s === 'error' ? 'var(--exp)' : '';
 }
 
@@ -308,6 +310,7 @@ function render() {
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', b.dataset.page === ui.page));
   const page = $('#page');
   if (!DB) { page.innerHTML = welcomePage(); return; }
+  if (locked) { page.innerHTML = ''; renderLock(); return; }
   const fn = { home: homePage, list: listPage, rent: rentPage, money: moneyPage, recurring: recurringPage, tax: taxPage, people: peoplePage, cars: carsPage, field: fieldPage, year: yearPage, history: historyPage, settings: settingsPage }[ui.page];
   page.innerHTML = fn();
   if (ui.page === 'list') { const q = $('#f-q'); if (q && ui._focusSearch) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); ui._focusSearch = false; } }
@@ -739,6 +742,7 @@ function reminders() {
     if (m <= 2) out.push({ sort: 10 + m, cls: 'wait', icon: '🏁', text: `${esc(catName(r.categoryId))}${r.note ? ' – ' + esc(r.note) : ''}: ${r.total ? 'τελευταία δόση' : 'τελευταία φορά'}`,
       sub: m === 0 ? `αυτόν τον μήνα (${ymLabel(r.until)})` : `τον ${ymLabel(r.until)}`, btn: `<button class="btn small" data-action="goto-page" data-page="recurring">🔁 Πάγια</button>` });
   }
+  out.push(...backupReminders());
   return out.sort((a, b) => a.sort - b.sort);
 }
 function remindersPanel() {
@@ -1421,7 +1425,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderDlg2(d);
+  const r2 = renderPinDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -1546,6 +1550,8 @@ function renderDlg() {
   </div>`;
 }
 function saveDlg() {
+  if (dlg.kind === 'pin') { savePinDlg(); return; }
+  if (dlg.kind === 'ask') { saveAsk(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
@@ -1800,6 +1806,7 @@ function settingsPage() {
     <div class="theme-pick">${[['light', '☀️ Φωτεινή', ['#EEF4F7', '#ffffff', '#0B7A8A']], ['dark', '🌙 Σκούρα', ['#0E1A29', '#162537', '#3CC3D2']], ['auto', '🖥️ Αυτόματα', ['#EEF4F7', '#0E1A29', '#0B7A8A']]].map(([k, l, c]) => `<button class="${themePref() === k ? 'sel' : ''}" data-action="theme" data-v="${k}"><span class="sw" style="background:${c[0]}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>${l}</button>`).join('')}</div>
     <div class="hint muted" style="margin-top:.6rem">«Αυτόματα»: φωτεινή τη μέρα και σκούρα όταν ο υπολογιστής είναι σε σκούρα λειτουργία.</div>
   </div>
+  ${pinPanel()}
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🔠 Μέγεθος γραμμάτων</h2>
     <div class="chips">${FONT_SCALES.map(f => `<button class="chip ${s.fontScale === f.v ? 'sel' : ''}" data-action="font" data-v="${f.v}" style="font-size:${f.v}rem">${f.l}</button>`).join('')}</div>
@@ -1835,6 +1842,8 @@ function settingsPage() {
     ${s.importNote ? `<p class="muted" style="margin-bottom:0">Εισαγωγή από ${esc(s.importedFrom || 'Excel')}. ${esc(s.importNote)}</p>` : ''}
   </div>
 
+  ${backupPanel()}
+
   <div class="panel set-section ${ui._setTab === 'version' ? '' : 'hidden'}">
     <h2>🔄 Έκδοση</h2>
     <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω με κουμπί «Κατέβασμα».</p>
@@ -1842,6 +1851,170 @@ function settingsPage() {
     <span id="upd-msg" class="muted" style="margin-left:.8rem"></span>
   </div>`;
 }
+
+// ======================= αντίγραφα σε cloud και USB =======================
+function agoText(iso) {
+  if (!iso) return 'ποτέ';
+  const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+  const t = new Date(iso);
+  const hm = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  return d <= 0 && t.toDateString() === new Date().toDateString() ? `σήμερα ${hm}` : d <= 1 ? `χθες ${hm}` : `πριν ${d} μέρες (${shortDate(iso.slice(0, 10))})`;
+}
+async function refreshBackup() { if (window.homeflow && window.homeflow.backupStatus) ui.backup = await window.homeflow.backupStatus(); }
+function backupPanel() {
+  if (!store.native) return '';
+  const b = ui.backup || {};
+  const row = (kind, icon, title, help, st) => `<div class="planned-row">
+    <span class="p-ic">${icon}</span>
+    <span class="p-nm"><b>${title}</b>
+      <div class="muted" style="font-size:.92rem">${st ? `${esc(st.dir)}<br>Τελευταίο αντίγραφο: <b class="${st.last && Date.now() - new Date(st.last) < (kind === 'usb' ? 30 : 3) * 86400000 ? 'inc' : 'exp'}">${agoText(st.last)}</b>${!st.present ? ` · <span class="exp">${kind === 'usb' ? 'το USB δεν είναι συνδεδεμένο' : 'ο φάκελος δεν βρέθηκε'}</span>` : ''}` : help}</div></span>
+    <span class="p-amt"></span>
+    <span class="p-act">${st ? `<button class="btn small primary" data-action="bk-now" data-k="${kind}">🛟 Αντίγραφο τώρα</button><button class="btn small" data-action="bk-open" data-k="${kind}">📂 Άνοιγμα</button><button class="btn small" data-action="bk-choose" data-k="${kind}">Αλλαγή</button><button class="btn small danger" data-action="bk-remove" data-k="${kind}">Αφαίρεση</button>`
+      : `<button class="btn small primary" data-action="bk-choose" data-k="${kind}">${kind === 'usb' ? 'Διαλέξτε το USB' : 'Διαλέξτε φάκελο'}</button>`}</span></div>`;
+  return `<div class="panel set-section ${ui._setTab === 'data' ? '' : 'hidden'}">
+    <h2>🛟 Δεύτερο αντίγραφο</h2>
+    <p class="muted" style="margin-top:-.4rem">Τα αντίγραφα στον ίδιο υπολογιστή δεν βοηθούν αν χαλάσει ο δίσκος. Εδώ το HomeFlow κρατάει αντίγραφο και αλλού, μόνο του, σε κάθε αποθήκευση. Κρατιούνται τα αντίγραφα των τελευταίων 30 ημερών.</p>
+    ${row('cloud', '☁️', 'Στο cloud (OneDrive ή Google Drive)', 'Διαλέξτε έναν φάκελο μέσα στο OneDrive ή στο Google Drive. Από εκεί τα αντίγραφα ανεβαίνουν μόνα τους στο internet.', b.cloud)}
+    ${row('usb', '🔌', 'Σε USB', 'Βάλτε ένα USB στον υπολογιστή και διαλέξτε το. Όποτε είναι συνδεδεμένο, το HomeFlow γράφει αντίγραφο. Θα σας θυμίζει να το βάζετε μία φορά τον μήνα.', b.usb)}
+  </div>`;
+}
+function backupReminders() {
+  const out = [], b = ui.backup;
+  if (!b || !store.native) return out;
+  if (b.usb && (!b.usb.last || Date.now() - new Date(b.usb.last) > 30 * 86400000))
+    out.push({ sort: 30, cls: 'wait', icon: '🔌', text: 'Αντίγραφο σε USB', sub: `τελευταίο: ${agoText(b.usb.last)}. Βάλτε το USB στον υπολογιστή.`, btn: '<button class="btn small" data-action="bk-now" data-k="usb">🛟 Αντίγραφο τώρα</button>' });
+  if (b.cloud && (!b.cloud.present || !b.cloud.last || Date.now() - new Date(b.cloud.last) > 3 * 86400000))
+    out.push({ sort: 29, cls: 'late', icon: '☁️', text: 'Το αντίγραφο στο cloud δεν γίνεται', sub: b.cloud.present ? `τελευταίο: ${agoText(b.cloud.last)}` : 'ο φάκελος δεν βρέθηκε · είναι ανοιχτό το OneDrive / Google Drive;', btn: '<button class="btn small" data-action="bk-now" data-k="cloud">🛟 Δοκιμή</button>' });
+  if (!b.cloud && !b.usb && DB.transactions.length > 20)
+    out.push({ sort: 40, cls: 'wait', icon: '🛟', text: 'Δεν υπάρχει δεύτερο αντίγραφο', sub: 'αν χαλάσει ο υπολογιστής, τα στοιχεία χάνονται', btn: '<button class="btn small" data-action="bk-setup">Ρύθμιση</button>' });
+  return out;
+}
+const bkActions = {
+  'bk-choose': async el => { const r = await window.homeflow.backupChoose(el.dataset.k); if (r.canceled) return; ui.backup = r.status; render(); toast(r.ok ? 'Έτοιμο: το αντίγραφο γράφτηκε.' : r.error); },
+  'bk-now': async el => { if (!window.homeflow) return; const r = await window.homeflow.backupNow(el.dataset.k); ui.backup = r.status; render(); toast(r.ok ? 'Το αντίγραφο γράφτηκε ✓' : r.error); },
+  'bk-open': el => window.homeflow.backupOpen(el.dataset.k),
+  'bk-remove': async el => { if (!confirm('Να σταματήσουν τα αντίγραφα εκεί; (Όσα έχουν γραφτεί δεν σβήνονται.)')) return; ui.backup = await window.homeflow.backupRemove(el.dataset.k); render(); },
+  'bk-setup': () => { ui.page = 'settings'; ui.tabs.settings = 'data'; render(); }
+};
+
+// ======================= PIN στο άνοιγμα =======================
+// Το PIN κλειδώνει την οθόνη. Δεν κρυπτογραφεί το αρχείο.
+let locked = false;
+let lockState = { digits: '', error: '', mode: 'pin', code: '' };
+const hexOf = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+async function pinHash(pin, salt) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+  return hexOf(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new TextEncoder().encode(salt), iterations: 150000 }, key, 256));
+}
+const newSalt = () => hexOf(crypto.getRandomValues(new Uint8Array(16)));
+async function checkPin(pin) { const p = DB.settings.pin; return !!p && await pinHash(pin, p.salt) === p.hash; }
+async function checkRecovery(code) { const p = DB.settings.pin; return !!p && await pinHash(code.replace(/\D/g, ''), p.rsalt) === p.rhash; }
+function renderLock() {
+  let root = $('#lock-root');
+  if (!locked) { if (root) root.remove(); return; }
+  if (!root) { root = document.createElement('div'); root.id = 'lock-root'; document.body.appendChild(root); }
+  const s = lockState;
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
+  root.innerHTML = `<div class="lock">
+    <img src="logo.svg" alt="" class="lock-logo">
+    <h1>HomeFlow</h1>
+    ${s.mode === 'pin' ? `<p>Γράψτε το PIN σας</p>
+      <div class="pin-dots ${s.error ? 'bad' : ''}">${[0, 1, 2, 3].map(i => `<i class="${i < s.digits.length ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="lock-msg">${esc(s.error)}</div>
+      <div class="keypad">${keys.map(k => k ? `<button class="key" data-action="lock-key" data-v="${k}">${k}</button>` : '<span></span>').join('')}</div>
+      <button class="btn small" data-action="lock-forgot">Ξέχασα το PIN</button>`
+    : `<p>Γράψτε τον κωδικό επαναφοράς<br><span class="muted" style="font-size:.95rem">(τον 8ψήφιο κωδικό που γράψατε σε χαρτί όταν βάλατε το PIN)</span></p>
+      <input id="lock-code" class="amount-input num" style="width:16rem;text-align:center" inputmode="numeric" maxlength="9" value="${esc(s.code)}">
+      <div class="lock-msg">${esc(s.error)}</div>
+      <div style="display:flex;gap:.6rem"><button class="btn" data-action="lock-back">◀ Πίσω</button><button class="btn primary" data-action="lock-recover">Ξεκλείδωμα</button></div>`}
+  </div>`;
+  if (s.mode === 'code') setTimeout(() => { const i = $('#lock-code'); if (i) i.focus(); }, 30);
+}
+async function lockKey(k) {
+  const s = lockState;
+  if (k === '⌫') { s.digits = s.digits.slice(0, -1); s.error = ''; renderLock(); return; }
+  if (s.digits.length >= 4) return;
+  s.digits += k; s.error = ''; renderLock();
+  if (s.digits.length === 4) {
+    if (await checkPin(s.digits)) { locked = false; lockState = { digits: '', error: '', mode: 'pin', code: '' }; renderLock(); render(); }
+    else { s.error = 'Λάθος PIN. Δοκιμάστε ξανά.'; s.digits = ''; renderLock(); }
+  }
+}
+function lockNow() { if (DB && DB.settings.pin) { locked = true; dlg = null; form = null; renderDlg(); renderForm(); renderLock(); } }
+let lastActivity = Date.now();
+['mousemove', 'keydown', 'click', 'wheel'].forEach(e => document.addEventListener(e, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => { if (!locked && DB && DB.settings.pin && DB.settings.pin.autoLock && Date.now() - lastActivity > 15 * 60 * 1000) lockNow(); }, 30 * 1000);
+function pinPanel() {
+  const p = DB.settings.pin;
+  return `<div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
+    <h2>🔒 PIN στο άνοιγμα</h2>
+    ${p ? `<p style="margin-top:-.3rem">Το HomeFlow ζητάει <b>PIN</b> κάθε φορά που ανοίγει.</p>
+      <label class="check"><input type="checkbox" id="pin-autolock" ${p.autoLock ? 'checked' : ''}> Να κλειδώνει και όταν δεν το χρησιμοποιείτε για 15 λεπτά</label>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem"><button class="btn" data-action="pin-lock">🔒 Κλείδωμα τώρα</button><button class="btn" data-action="pin-set">Αλλαγή PIN</button><button class="btn danger" data-action="pin-off">Αφαίρεση PIN</button></div>`
+    : `<p style="margin-top:-.3rem" class="muted">Αν το βάλετε, το HomeFlow θα ζητάει έναν 4ψήφιο αριθμό κάθε φορά που ανοίγει, ώστε να μη βλέπει κανείς άλλος τα οικονομικά σας.</p>
+      <button class="btn primary" data-action="pin-set">🔒 Βάλτε PIN</button>`}
+  </div>`;
+}
+// Απλό παράθυρο με ένα πεδίο (αντί για prompt(), που δεν λειτουργεί στην εφαρμογή)
+function ask({ title, label, value = '', password = false, numeric = false, hint = '', onOk }) {
+  dlg = { kind: 'ask', title, label, value, password, numeric, hint, onOk, error: '' }; renderDlg();
+  setTimeout(() => { const i = $('#d-ask'); if (i) { i.focus(); i.select(); } }, 30);
+}
+async function saveAsk() {
+  const d = dlg; const v = ($('#d-ask') || {}).value || '';
+  const err = await d.onOk(v.trim());
+  if (err) { d.value = v; d.error = err; renderDlg(); return; }
+  if (dlg === d) { dlg = null; renderDlg(); }
+}
+function renderPinDlg(d) {
+  if (d.kind === 'ask') return { head: 'neutral', title: esc(d.title), body: `<div class="field"><label for="d-ask">${esc(d.label)}</label>
+    <input id="d-ask" ${d.password ? 'type="password"' : 'type="text"'} ${d.numeric ? 'inputmode="numeric" class="amount-input num" style="width:12rem;text-align:center"' : 'style="width:100%;font-size:1.2rem"'} value="${esc(d.value)}">
+    ${d.hint ? `<div class="hint">${esc(d.hint)}</div>` : ''}</div>` };
+  if (d.kind !== 'pin') return null;
+  if (d.step === 'code') return { head: 'neutral', title: '🔒 Γράψτε αυτόν τον κωδικό σε χαρτί', body: `
+    <p style="margin:0;font-size:1.1rem">Αν ξεχάσετε το PIN, με αυτόν τον κωδικό ξεκλειδώνει το HomeFlow. Γράψτε τον και φυλάξτε τον κάπου σίγουρο.</p>
+    <div style="font-size:2.6rem;font-weight:800;letter-spacing:.12em;text-align:center;padding:1rem;border-radius:20px;background:var(--brand-soft);color:var(--brand)" class="num">${d.code.slice(0, 4)} ${d.code.slice(4)}</div>
+    <label class="check"><input type="checkbox" id="d-wrote"> Τον έγραψα σε χαρτί</label>` };
+  return { head: 'neutral', title: DB.settings.pin ? '🔒 Αλλαγή PIN' : '🔒 Νέο PIN', body: `
+    ${DB.settings.pin ? `<div class="field"><label for="d-pold">Το τωρινό PIN</label><input id="d-pold" class="amount-input num" style="width:10rem;text-align:center" type="password" inputmode="numeric" maxlength="4" value="${esc(d.old)}"></div>` : ''}
+    <div class="row">
+      <div class="field"><label for="d-p1">Νέο PIN (4 αριθμοί)</label><input id="d-p1" class="amount-input num" style="width:10rem;text-align:center" type="password" inputmode="numeric" maxlength="4" value="${esc(d.p1)}"></div>
+      <div class="field"><label for="d-p2">Ξανά το ίδιο</label><input id="d-p2" class="amount-input num" style="width:10rem;text-align:center" type="password" inputmode="numeric" maxlength="4" value="${esc(d.p2)}"></div>
+    </div>
+    <div class="hint muted">Διαλέξτε κάτι που θυμάστε, όχι 1234 ή 0000.</div>` };
+}
+async function savePinDlg() {
+  const d = dlg; const v = id => { const e = $('#' + id); return e ? e.value.trim() : ''; };
+  const fail = m => { d.error = m; renderDlg(); };
+  if (d.step === 'code') {
+    if (!$('#d-wrote') || !$('#d-wrote').checked) return fail('Τσεκάρετε «Τον έγραψα σε χαρτί» για να συνεχίσετε.');
+    dlg = null; renderDlg(); toast('Το PIN μπήκε. Θα το ζητάει κάθε φορά που ανοίγει το HomeFlow.'); return;
+  }
+  d.old = v('d-pold'); d.p1 = v('d-p1'); d.p2 = v('d-p2');
+  if (DB.settings.pin && !(await checkPin(d.old))) return fail('Το τωρινό PIN δεν είναι σωστό.');
+  if (!/^\d{4}$/.test(d.p1)) return fail('Το PIN πρέπει να είναι 4 αριθμοί.');
+  if (d.p1 !== d.p2) return fail('Τα δύο PIN δεν είναι ίδια.');
+  if (['0000', '1234', '1111', '4321'].includes(d.p1)) return fail('Αυτό το PIN είναι πολύ εύκολο. Διαλέξτε άλλο.');
+  const salt = newSalt(), rsalt = newSalt();
+  const code = Array.from(crypto.getRandomValues(new Uint32Array(8)), x => x % 10).join('');
+  DB.settings.pin = { salt, hash: await pinHash(d.p1, salt), rsalt, rhash: await pinHash(code, rsalt), autoLock: DB.settings.pin ? !!DB.settings.pin.autoLock : true };
+  persist(); render();
+  dlg = { kind: 'pin', step: 'code', code, error: '' }; renderDlg();
+}
+const pinActions = {
+  'pin-set': () => { dlg = { kind: 'pin', step: 'set', old: '', p1: '', p2: '', error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-pold') || $('#d-p1'); if (i) i.focus(); }, 30); },
+  'pin-off': () => ask({ title: '🔒 Αφαίρεση PIN', label: 'Για να αφαιρεθεί το PIN, γράψτε το τωρινό PIN', password: true, numeric: true,
+    onOk: async p => { if (!(await checkPin(p))) return 'Λάθος PIN.'; delete DB.settings.pin; persist(); render(); toast('Το PIN αφαιρέθηκε.'); } }),
+  'pin-lock': () => lockNow(),
+  'lock-key': el => lockKey(el.dataset.v),
+  'lock-forgot': () => { lockState = { digits: '', error: '', mode: 'code', code: '' }; renderLock(); },
+  'lock-back': () => { lockState = { digits: '', error: '', mode: 'pin', code: '' }; renderLock(); },
+  'lock-recover': async () => {
+    const code = ($('#lock-code') || {}).value || '';
+    if (await checkRecovery(code)) { delete DB.settings.pin; persist(); locked = false; renderLock(); render(); toast('Ξεκλειδώθηκε. Το PIN αφαιρέθηκε. Βάλτε νέο από τις Ρυθμίσεις.'); }
+    else { lockState.error = 'Ο κωδικός δεν είναι σωστός.'; lockState.code = code; renderLock(); }
+  }
+};
 
 // ======================= φόρμα καταχώρησης =======================
 function openForm(type, tx, preset) {
@@ -2070,6 +2243,8 @@ function exportYear(year) {
 
 // ======================= ενέργειες =======================
 const actions = {
+  ...bkActions,
+  ...pinActions,
   'new-expense': () => openForm('expense'),
   'new-income': () => openForm('income'),
   'month-prev': () => { ui.month--; if (ui.month < 1) { ui.month = 12; ui.year--; } render(); },
@@ -2235,13 +2410,8 @@ const actions = {
   'dlg-owner': el => { syncMoney(); dlg.owner = el.dataset.v; renderDlg(); },
   'dlg-cur': el => { syncMoney(); dlg.currency = el.dataset.v; renderDlg(); },
   'dlg-kind': el => { syncMoney(); dlg.kind2 = el.dataset.v; renderDlg(); },
-  'rate-edit': () => {
-    const r = prompt('Ισοτιμία: 1 ευρώ = πόσα δολάρια; (π.χ. 1,16)', String(DB.settings.usdPerEur || 1.16).replace('.', ','));
-    if (r === null) return;
-    const v = parseFloat(r.replace(',', '.'));
-    if (!(v > 0.3 && v < 3)) { alert('Η ισοτιμία δεν φαίνεται σωστή.'); return; }
-    DB.settings.usdPerEur = v; persist(); render();
-  },
+  'rate-edit': () => ask({ title: '💱 Ισοτιμία ευρώ – δολαρίου', label: '1 ευρώ = πόσα δολάρια;', numeric: true, value: String(DB.settings.usdPerEur || 1.16).replace('.', ','), hint: 'Π.χ. 1,16. Τη βρίσκετε σε οποιαδήποτε τράπεζα ή στο Google («ευρώ σε δολάριο»).',
+    onOk: r => { const v = parseFloat(r.replace(',', '.')); if (!(v > 0.3 && v < 3)) return 'Η ισοτιμία δεν φαίνεται σωστή.'; DB.settings.usdPerEur = v; persist(); render(); toast(`Ισοτιμία: 1 € = ${String(v).replace('.', ',')} $`); } }),
   'tenant-leave': el => { dlg = { kind: 'leave', id: el.dataset.id, end: curYM(), error: '' }; renderDlg(); },
   'tenant-unleave': el => {
     const t = tenantById(el.dataset.id); if (!t) return;
@@ -2280,11 +2450,12 @@ const actions = {
   'cat-down': el => moveCat(el.dataset.id, 1),
   'cat-add': el => {
     const type = el.dataset.type;
-    const name = prompt(type === 'expense' ? 'Όνομα νέας κατηγορίας εξόδων:' : 'Όνομα νέας κατηγορίας εσόδων:');
-    if (!name || !name.trim()) return;
-    const order = Math.max(0, ...DB.categories.map(c => c.order)) + 1;
-    DB.categories.push({ id: 'c' + uid(), name: name.trim(), icon: type === 'expense' ? '📦' : '💶', type, color: PALETTE[order % PALETTE.length], budget: null, extra: false, archived: false, order });
-    persist(); render();
+    ask({ title: type === 'expense' ? 'Νέα κατηγορία εξόδων' : 'Νέα κατηγορία εσόδων', label: 'Όνομα', onOk: name => {
+      if (!name) return 'Γράψτε ένα όνομα.';
+      const order = Math.max(0, ...DB.categories.map(c => c.order)) + 1;
+      DB.categories.push({ id: 'c' + uid(), name, icon: type === 'expense' ? '📦' : '💶', type, color: PALETTE[order % PALETTE.length], budget: null, extra: false, archived: false, order });
+      persist(); render(); toast(`Νέα κατηγορία: ${name}`);
+    } });
   },
   'cat-delete': el => {
     const c = catById(el.dataset.id);
@@ -2360,6 +2531,7 @@ applyTheme();
 
 // ======================= συμβάντα =======================
 document.addEventListener('click', ev => {
+  if (locked) { const el = ev.target.closest('[data-action]'); if (el && el.dataset.action.startsWith('lock-') && actions[el.dataset.action]) actions[el.dataset.action](el, ev); return; }
   const nav = ev.target.closest('#nav button');
   if (nav) { if (!DB) return; ui.page = nav.dataset.page; ui.tenantId = null; ui.personId = null; ui.carId = null; if (ui.page === 'year') ui.yearView = ui.year; if (ui.page === 'list') Object.assign(ui.list, { year: ui.year, month: ui.month }); render(); $('.main').scrollTop = 0; return; }
   const el = ev.target.closest('[data-action]');
@@ -2390,6 +2562,7 @@ document.addEventListener('change', ev => {
   else if (t.id === 'year-pick') { ui.yearView = +t.value; render(); }
   else if (t.id === 'fm-date' && form) { syncFormInputs(); renderForm(); }
   else if (t.id === 'd-end' && dlg && dlg.kind === 'leave') { syncLeave(); renderDlg(); }
+  else if (t.id === 'pin-autolock' && DB.settings.pin) { DB.settings.pin.autoLock = t.checked; persist(); toast(t.checked ? 'Θα κλειδώνει μετά από 15 λεπτά χωρίς χρήση.' : 'Δεν θα κλειδώνει μόνο του.'); }
   else if (t.id === 'persons') { DB.settings.persons = t.value.split(',').map(s => s.trim()).filter(Boolean); persist(); toast('Τα πρόσωπα αποθηκεύτηκαν.'); }
   else if (t.dataset.catField) {
     const c = catById(t.dataset.id); if (!c) return;
@@ -2401,6 +2574,12 @@ document.addEventListener('change', ev => {
   }
 });
 document.addEventListener('keydown', ev => {
+  if (locked) {
+    if (lockState.mode === 'pin' && /^[0-9]$/.test(ev.key)) { ev.preventDefault(); lockKey(ev.key); }
+    else if (lockState.mode === 'pin' && ev.key === 'Backspace') { ev.preventDefault(); lockKey('⌫'); }
+    else if (lockState.mode === 'code' && ev.key === 'Enter') { ev.preventDefault(); actions['lock-recover'](); }
+    return;
+  }
   if (dlg) {
     if (ev.key === 'Escape') { ev.preventDefault(); dlg = null; renderDlg(); }
     else if (ev.key === 'Enter' && ev.target.tagName === 'INPUT') { ev.preventDefault(); saveDlg(); }
@@ -2439,7 +2618,9 @@ async function reload() {
   DB = res && validData(res.data) ? normalize(res.data) : null;
   if (DB && generateRecurring()) persist();
   if (window.homeflow) { ui.info = await window.homeflow.info(); $('#brand-version').textContent = 'Έκδοση ' + ui.info.version; }
+  await refreshBackup();
   applyFont();
+  if (DB && DB.settings.pin) { locked = true; renderLock(); }
   render();
 }
 reload();

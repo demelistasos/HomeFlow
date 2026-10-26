@@ -49,6 +49,49 @@ function dailyBackup() {
   while (files.length > KEEP_BACKUPS) fs.unlinkSync(path.join(dir, files.shift()));
 }
 
+// ---------- δεύτερο αντίγραφο: cloud (OneDrive / Google Drive) και USB ----------
+// Γράφεται στον φάκελο «HomeFlow αντίγραφα» της θέσης που διάλεξε ο χρήστης:
+// ένα αρχείο ανά μέρα (κρατάμε 30) και το «homeflow-τελευταίο.json» που ενημερώνεται σε κάθε αποθήκευση.
+const EXTRA_DIR = 'HomeFlow αντίγραφα';
+const KEEP_EXTRA = 30;
+function backupCfg() { return readConfig().backups || {}; }
+function setBackupCfg(kind, val) {
+  const cfg = readConfig(); cfg.backups = cfg.backups || {};
+  if (val === null) delete cfg.backups[kind]; else cfg.backups[kind] = val;
+  writeConfig(cfg);
+}
+function extraBackup(kind, { quiet } = {}) {
+  const b = backupCfg()[kind];
+  if (!b || !b.dir) return { ok: false, error: 'Δεν έχει διαλεχτεί θέση.' };
+  if (!fs.existsSync(b.dir)) return { ok: false, missing: true, error: kind === 'usb' ? 'Δεν βρέθηκε το USB. Βάλτε το στον υπολογιστή και ξαναδοκιμάστε.' : 'Δεν βρέθηκε ο φάκελος. Είναι ανοιχτό το OneDrive / Google Drive;' };
+  const src = dataFile();
+  if (!fs.existsSync(src)) return { ok: false, error: 'Δεν υπάρχουν ακόμα δεδομένα.' };
+  try {
+    const dir = path.join(b.dir, EXTRA_DIR);
+    fs.mkdirSync(dir, { recursive: true });
+    const today = new Date().toISOString().slice(0, 10);
+    fs.copyFileSync(src, path.join(dir, `homeflow-${today}.json`));
+    fs.copyFileSync(src, path.join(dir, 'homeflow-τελευταίο.json'));
+    const files = fs.readdirSync(dir).filter(f => /^homeflow-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+    while (files.length > KEEP_EXTRA) fs.unlinkSync(path.join(dir, files.shift()));
+    setBackupCfg(kind, { ...b, last: new Date().toISOString() });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (quiet ? '' : 'Δεν έγινε το αντίγραφο: ') + e.message };
+  }
+}
+function backupStatus() {
+  const c = backupCfg();
+  const st = k => c[k] ? { dir: c[k].dir, last: c[k].last || null, present: fs.existsSync(c[k].dir) } : null;
+  return { cloud: st('cloud'), usb: st('usb') };
+}
+function cloudGuess() {
+  const home = app.getPath('home');
+  const cands = [process.env.OneDrive, process.env.OneDriveConsumer, path.join(home, 'OneDrive'), 'G:\\My Drive', 'G:\\Ο Δίσκος μου',
+    path.join(home, 'Google Drive'), path.join(home, 'Library', 'CloudStorage')].filter(Boolean);
+  return cands.find(p => { try { return fs.existsSync(p); } catch { return false; } }) || home;
+}
+
 // ---------- παράθυρο ----------
 function createWindow() {
   win = new BrowserWindow({
@@ -57,7 +100,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 680,
     title: 'HomeFlow',
-    backgroundColor: '#f6f4ef',
+    backgroundColor: '#EEF4F7',
     icon: path.join(__dirname, 'build', 'icon.png'),
     show: false,
     webPreferences: {
@@ -97,6 +140,8 @@ ipcMain.handle('data:load', () => {
 ipcMain.handle('data:save', (_e, text) => {
   dailyBackup();
   atomicWrite(dataFile(), text);
+  // δεύτερα αντίγραφα: αθόρυβα, όσα είναι διαθέσιμα τώρα
+  for (const k of ['cloud', 'usb']) if (backupCfg()[k]) extraBackup(k, { quiet: true });
   return { ok: true, path: dataFile() };
 });
 
@@ -158,6 +203,21 @@ ipcMain.handle('data:saveAs', async (_e, { text, defaultName, kind }) => {
   shell.showItemInFolder(res.filePath);
   return { ok: true, path: res.filePath };
 });
+
+ipcMain.handle('backup:status', () => backupStatus());
+ipcMain.handle('backup:now', (_e, kind) => ({ ...extraBackup(kind), status: backupStatus() }));
+ipcMain.handle('backup:remove', (_e, kind) => { setBackupCfg(kind, null); return backupStatus(); });
+ipcMain.handle('backup:choose', async (_e, kind) => {
+  const res = await dialog.showOpenDialog(win, {
+    title: kind === 'usb' ? 'Διαλέξτε το USB για τα αντίγραφα' : 'Διαλέξτε φάκελο στο OneDrive ή στο Google Drive',
+    defaultPath: kind === 'usb' ? (process.platform === 'darwin' ? '/Volumes' : undefined) : cloudGuess(),
+    properties: ['openDirectory', 'createDirectory']
+  });
+  if (res.canceled || !res.filePaths[0]) return { ok: false, canceled: true, status: backupStatus() };
+  setBackupCfg(kind, { dir: res.filePaths[0], last: null });
+  return { ...extraBackup(kind), status: backupStatus() };
+});
+ipcMain.handle('backup:open', (_e, kind) => { const b = backupCfg()[kind]; if (b && fs.existsSync(b.dir)) shell.openPath(path.join(b.dir, EXTRA_DIR)); });
 
 ipcMain.handle('app:print', () => {
   if (win) win.webContents.print({ printBackground: true });
