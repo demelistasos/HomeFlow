@@ -75,11 +75,25 @@ function extraBackup(kind, { quiet } = {}) {
     fs.copyFileSync(src, path.join(dir, 'homeflow-τελευταίο.json'));
     const files = fs.readdirSync(dir).filter(f => /^homeflow-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
     while (files.length > KEEP_EXTRA) fs.unlinkSync(path.join(dir, files.shift()));
+    mirrorDir(attDir(), path.join(dir, ATT_DIR));
     setBackupCfg(kind, { ...b, last: new Date().toISOString() });
     return { ok: true };
   } catch (e) {
     return { ok: false, error: (quiet ? '' : 'Δεν έγινε το αντίγραφο: ') + e.message };
   }
+}
+// συνημμένα: αρχεία δίπλα στα δεδομένα, στον φάκελο «Συνημμένα»
+const ATT_DIR = 'Συνημμένα';
+const attDir = () => path.join(dataDir(), ATT_DIR);
+function mirrorDir(src, dst) {
+  if (!fs.existsSync(src)) return 0;
+  fs.mkdirSync(dst, { recursive: true });
+  let n = 0;
+  for (const f of fs.readdirSync(src)) {
+    const a = path.join(src, f), b = path.join(dst, f);
+    if (fs.statSync(a).isFile() && !fs.existsSync(b)) { fs.copyFileSync(a, b); n++; }
+  }
+  return n;
 }
 function backupStatus() {
   const c = backupCfg();
@@ -172,6 +186,7 @@ ipcMain.handle('data:chooseFolder', async () => {
   } else if (fs.existsSync(oldFile)) {
     fs.copyFileSync(oldFile, newFile);
   }
+  try { mirrorDir(path.join(path.dirname(oldFile), ATT_DIR), path.join(newDir, ATT_DIR)); } catch { /* τίποτα */ }
   writeConfig({ ...readConfig(), dataDir: newDir });
   return { changed: true, path: newFile };
 });
@@ -234,6 +249,42 @@ ipcMain.handle('data:saveXlsx', async (_e, { book, defaultName }) => {
   }
   shell.openPath(res.filePath);
   return { ok: true, path: res.filePath };
+});
+
+ipcMain.handle('att:add', async (_e, title) => {
+  const res = await dialog.showOpenDialog(win, {
+    title: title || 'Επιλέξτε αρχείο',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Έγγραφα και φωτογραφίες', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'heic', 'gif', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'odt', 'txt'] }, { name: 'Όλα τα αρχεία', extensions: ['*'] }]
+  });
+  if (res.canceled || !res.filePaths.length) return { files: [] };
+  const dir = attDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const files = [];
+  for (const src of res.filePaths) {
+    try {
+      const st = fs.statSync(src);
+      if (st.size > 50 * 1024 * 1024) return { files, error: `Το «${path.basename(src)}» είναι πολύ μεγάλο (πάνω από 50 MB).` };
+      const name = path.basename(src);
+      const safe = name.replace(/[\\/:*?"<>|]/g, '_');
+      const file = `${new Date().toISOString().slice(0, 10)}_${Math.random().toString(36).slice(2, 7)}_${safe}`;
+      fs.copyFileSync(src, path.join(dir, file));
+      files.push({ id: file, name, file, size: st.size, added: new Date().toISOString() });
+    } catch (e) { return { files, error: 'Δεν αντιγράφηκε: ' + e.message }; }
+  }
+  return { files };
+});
+ipcMain.handle('att:open', async (_e, file) => {
+  const p = path.join(attDir(), path.basename(String(file)));
+  if (!fs.existsSync(p)) return { error: 'Το αρχείο δεν βρέθηκε στον φάκελο «Συνημμένα».' };
+  const err = await shell.openPath(p);
+  return err ? { error: err } : { ok: true };
+});
+ipcMain.handle('att:remove', async (_e, file) => {
+  const p = path.join(attDir(), path.basename(String(file)));
+  if (!fs.existsSync(p)) return { ok: true };
+  try { await shell.trashItem(p); } catch { try { fs.unlinkSync(p); } catch { /* τίποτα */ } }
+  return { ok: true };
 });
 
 ipcMain.handle('app:print', () => {

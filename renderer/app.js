@@ -112,6 +112,7 @@ function defaultData() {
     taxes: [],
     people: [],
     cars: [],
+    policies: [],
     history: {}
   };
 }
@@ -142,6 +143,7 @@ function normalize(d) {
   d.people = (d.people || []).map(p => Object.assign({ name: '', note: '', entries: [] }, p));
   d.cars = (d.cars || []).map(c => Object.assign({ name: '', since: '', fuelCategoryId: '', sold: '', kteo: '', km: [], services: [] }, c));
   d.field = Object.assign({ waterings: [], payments: [], categoryId: '' }, d.field || {});
+  d.policies = (d.policies || []).map(p => Object.assign({ kind: 'other', name: '', what: '', company: '', number: '', amount: 0, every: 12, next: '', categoryId: '', attachments: [], history: [] }, p));
   if (d.power) d.power.bills = d.power.bills || [];
   d.history = d.history || {};
   addBillRecurring(d);
@@ -372,7 +374,7 @@ function homePage() {
     const pct = tE ? Math.round(v / tE * 100) : 0;
     return `<button class="bar-row" data-action="goto-list" data-cat="${esc(cid)}" data-type="expense">
       <span class="ic">${esc(c.icon || '❔')}</span>
-      <span><span class="nm">${esc(c.name || '')}</span><div class="track"><div class="fill" style="width:${Math.max(2, v / max * 100)}%;background:${esc(c.color || '#888')}"></div></div></span>
+      <span><span class="nm">${esc(c.name || '')}</span>${(() => { const ly = catLastYearAvg(cid, year); if (!ly) return ''; const up = v > ly * 1.25; return ` <small class="ly ${up ? 'up' : ''}">πέρσι ≈ ${eur0(ly)} τον μήνα${up ? ' ▲' : ''}</small>`; })()}<div class="track"><div class="fill" style="width:${Math.max(2, v / max * 100)}%;background:${esc(c.color || '#888')}"></div></div></span>
       <span class="amt num">${eur(v)}<small>${pct}%</small></span></button>`;
   }).join('');
 
@@ -402,6 +404,7 @@ function homePage() {
     <div><div class="k">Μπήκαν</div><div class="v inc num">${eur(tI)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI)}</b></div></div>
     <div><div class="k">Βγήκαν</div><div class="v exp num">${eur(tE)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdE)}</b></div></div>
     <div><div class="k">Έμειναν</div><div class="v num" style="color:${bal < 0 ? 'var(--exp)' : 'var(--ink)'}">${bal < 0 ? '−' + eur(-bal) : eur(bal)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI - ytdE)}</b></div></div>
+    ${compareLine(year, month, tE, ytdE)}
     ${tI || tE ? `<div class="meter" title="Πράσινο: μπήκαν · Κόκκινο: βγήκαν"><i style="flex:${tI / tot};background:var(--inc)"></i><i style="flex:${tE / tot};background:var(--exp)"></i></div>` : ''}
   </div>
 
@@ -417,6 +420,7 @@ function homePage() {
       ...(isCurrent ? [{ k: 'remind', icon: '🔔', label: 'Να θυμηθώ', count: rem.length, alert: rem.some(r => r.cls === 'late') }] : []),
       ...(rentTs.length ? [{ k: 'rent', icon: '🔑', label: 'Ενοίκια', count: rentOpen, alert: rentOpen > 0 }] : []),
       { k: 'planned', icon: '📌', label: 'Προγραμματισμένα', count: plannedTx.length },
+      { k: 'cal', icon: '🗓️', label: 'Ημερολόγιο' },
       { k: 'recent', icon: '🕘', label: 'Τελευταίες' }
     ];
     const [tab, bar] = tabBar('home', items, 'spent');
@@ -424,6 +428,7 @@ function homePage() {
     if (tab === 'spent') body = `<div class="panel"><h2>Πού πήγαν τα χρήματα</h2>${bars ? '<div class="h-hint">Πατήστε μια κατηγορία για να δείτε τι περιέχει.</div>' : ''}${bars || '<div class="empty">Δεν υπάρχουν έξοδα αυτόν τον μήνα ακόμα.</div>'}</div>`;
     else if (tab === 'remind') body = remindersPanel() || '<div class="panel empty">Τίποτα να θυμηθείτε αυτή τη στιγμή ✓</div>';
     else if (tab === 'rent') body = homeRentPanel(s);
+    else if (tab === 'cal') body = calPanel(year, month);
     else if (tab === 'planned') body = plannedTx.length ? `<div class="panel">
         <h2>📌 Προγραμματισμένα</h2>
         <div class="h-hint">Πληρωμές που περιμένουμε. Πατήστε «Έγινε» όταν γίνουν.</div>
@@ -443,7 +448,7 @@ function homePage() {
 function txRow(t) {
   const sign = t.type === 'income' ? '+' : '−';
   const tn = t.tenantId && tenantById(t.tenantId);
-  const sub = [dateLabel(t), tn ? '🔑 ' + tn.name : '', t.person, t.method].filter(Boolean).map(esc).join(' · ');
+  const sub = [dateLabel(t), tn ? '🔑 ' + tn.name : '', t.person, t.method, (t.attachments || []).length ? '📎' : ''].filter(Boolean).map(esc).join(' · ');
   return `<button class="tx" data-action="edit" data-id="${t.id}">
     <span class="ic">${esc(catIcon(t.categoryId))}</span>
     <span><div class="t1">${esc(catName(t.categoryId))}${t.note ? ` <span class="muted" style="font-weight:500">— ${esc(t.note)}</span>` : ''}${t.planned ? '<span class="tag planned">προγραμματισμένο</span>' : ''}</div><div class="t2">${sub}</div></span>
@@ -610,6 +615,7 @@ function tenantPage(t) {
     <div class="card"><div class="label">Από</div><div class="value" style="font-size:1.6rem">${ymLabel(t.start)}</div><div class="sub">${t.end ? 'Έφυγε: ' + ymLabel(t.end) : ''}${t.opening ? `${t.end ? ' · ' : ''}Παλιό υπόλοιπο: ${eur(t.opening)}` : ''}</div></div>
   </div>
   ${t.note ? `<div class="notice">${esc(t.note)}</div>` : ''}
+  ${store.native || (t.attachments || []).length ? `<div class="panel"><h2>📎 Έγγραφα <span class="muted">μισθωτήριο, αποδείξεις κ.λπ.</span></h2>${attBlock('tenant', t.id, t.attachments)}</div>` : ''}
   <div class="sheet-wrap"><table class="data">
     <thead><tr><th>Μήνας</th><th class="r">Ενοίκιο</th><th class="r">Πλήρωσε</th><th>Πότε</th><th>Κατάσταση</th><th class="r">Χρωστάει</th></tr></thead>
     <tbody>${rows.map(r => { const st = tenantMonthStatus(t, r.s); return `<tr style="cursor:default">
@@ -767,6 +773,8 @@ function reminders() {
       sub: m === 0 ? `αυτόν τον μήνα (${ymLabel(r.until)})` : `τον ${ymLabel(r.until)}`, btn: `<button class="btn small" data-action="goto-page" data-page="recurring">🔁 Πάγια</button>` });
   }
   out.push(...backupReminders());
+  // ασφάλειες και τέλη
+  for (const p of (DB.policies || [])) if (p.next) { const dd = daysUntil(p.next); if (dd <= 30) out.push({ sort: dd, cls: dd < 0 ? 'late' : 'wait', icon: polIcon(p), text: `${esc(p.name)}${p.what ? ' – ' + esc(p.what) : ''}${p.amount ? `: <b>${eur(p.amount)}</b>` : ''}`, sub: dd < 0 ? `έληξε ${shortDate(p.next)}` : dd === 0 ? 'σήμερα' : `σε ${dd} μέρες (${shortDate(p.next)})`, btn: `<button class="btn small primary" data-action="pol-pay" data-id="${p.id}">✓ Πληρώθηκε</button>` }); }
   // προθεσμιακές που λήγουν
   for (const a of DB.accounts) if (!a.archived && a.maturity) { const dd = daysUntil(a.maturity); if (dd <= 7 && dd >= -15) out.push({ sort: dd, cls: dd < 0 ? 'late' : 'wait', icon: '🔒', text: `Προθεσμιακή ${esc(a.bank)} · ${esc(a.name)}`, sub: dd < 0 ? `έληξε ${shortDate(a.maturity)}` : dd === 0 ? 'λήγει σήμερα' : `λήγει σε ${dd} ${dd === 1 ? 'μέρα' : 'μέρες'} (${shortDate(a.maturity)})`, btn: `<button class="btn small" data-action="acc-edit" data-id="${a.id}">⚙ Νέα λήξη</button>` }); }
   // συμβόλαια και αναπροσαρμογές ενοικίων
@@ -930,7 +938,8 @@ function carsPage() {
       <button class="btn no-print" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
       <button class="btn no-print" data-action="car-edit" data-id="${c.id}">✎</button>
       <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
-    ${(() => { const [t, b] = tabBar('car', [{ k: 'service', icon: '🔧', label: 'Σέρβις και επισκευές', count: sv.length }, { k: 'km', icon: '📍', label: 'Χιλιόμετρα', count: log.length }], 'service'); ui._carTab = t; return b; })()}
+    ${(() => { const [t, b] = tabBar('car', [{ k: 'service', icon: '🔧', label: 'Σέρβις και επισκευές', count: sv.length }, { k: 'km', icon: '📍', label: 'Χιλιόμετρα', count: log.length }, { k: 'docs', icon: '📎', label: 'Έγγραφα', count: (c.attachments || []).length }], 'service'); ui._carTab = t; return b; })()}
+    ${ui._carTab === 'docs' ? `<div class="panel"><h2>📎 Έγγραφα <span class="muted">άδεια, ασφαλιστήριο, ΚΤΕΟ, αποδείξεις</span></h2>${attBlock('car', c.id, c.attachments)}${!store.native ? '<div class="muted">Τα συνημμένα λειτουργούν μόνο στην εφαρμογή.</div>' : ''}</div>` : ''}
     <div>
       ${ui._carTab !== 'service' ? '' : `<div class="panel"><h2>🔧 Σέρβις και επισκευές</h2>
         ${sv.length ? `<table class="data"><thead><tr><th>Ημερομηνία</th><th class="r">Χλμ</th><th>Τι έγινε</th><th class="r">Επόμενο</th></tr></thead><tbody>${sv.map(s => `<tr data-action="service-edit" data-id="${c.id}" data-s="${s.id}"><td>${shortDate(s.date)}</td><td class="r num">${s.km ? int0.format(s.km) : ''}</td><td>${esc(s.work)}${s.cost ? ` <span class="muted">(${eur(s.cost)})</span>` : ''}</td><td class="r num">${s.nextKm ? int0.format(s.nextKm) : ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Κανένα σέρβις ακόμα.</div>'}</div>`}
@@ -1377,7 +1386,10 @@ function recurringPage() {
     <div class="card inc"><div class="label">Πάγια έσοδα τον μήνα (περίπου)</div><div class="value inc num">${eur(monthlyIn)}</div></div>
   </div>
   ${(() => {
-    const [tab, bar] = tabBar('recurring', [{ k: 'expense', icon: '−', label: 'Πάγια έξοδα', count: exp.length }, { k: 'income', icon: '+', label: 'Πάγια έσοδα', count: inc.length }], 'expense');
+    const pols = DB.policies || [];
+    const polDue = pols.filter(p => p.next && daysUntil(p.next) <= 30).length;
+    const [tab, bar] = tabBar('recurring', [{ k: 'expense', icon: '−', label: 'Πάγια έξοδα', count: exp.length }, { k: 'income', icon: '+', label: 'Πάγια έσοδα', count: inc.length }, { k: 'pol', icon: '🛡️', label: 'Ασφάλειες και τέλη', count: polDue || pols.length, alert: polDue > 0 }], 'expense');
+    if (tab === 'pol') return bar + polPanel();
     const list = tab === 'income' ? inc : exp;
     return bar + `<div class="panel">${list.length ? `<div class="tx-list">${list.map(row).join('')}</div>` : '<div class="empty">Κανένα ακόμα.</div>'}</div>`;
   })()}`;
@@ -1481,7 +1493,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderPinDlg(d) || renderDlg2(d);
+  const r2 = renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -1605,9 +1617,10 @@ function renderDlg() {
         ${d.kind === 'person' && d.id ? '<button class="btn danger" data-action="person-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'car' && d.id ? '<button class="btn danger" data-action="car-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pbill' && d.id ? '<button class="btn danger" data-action="pb-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
-        <button class="btn" data-action="dlg-close">Ακύρωση</button>
-        <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">✓ Αποθήκευση</button>
+        ${d.kind === 'day' || d.kind === 'help' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
+        <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : '✓ Αποθήκευση'}</button>`}
       </div>
     </div>
   </div>`;
@@ -1615,6 +1628,8 @@ function renderDlg() {
 function saveDlg() {
   if (dlg.kind === 'pin') { savePinDlg(); return; }
   if (dlg.kind === 'ask') { saveAsk(); return; }
+  if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
+  if (dlg.kind === 'day' || dlg.kind === 'help') { dlg = null; renderDlg(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
@@ -2084,6 +2099,233 @@ const pinActions = {
   }
 };
 
+// ======================= σύγκριση με πέρσι =======================
+function lastYearMonth(year, month) {
+  const arr = monthlyExpensesFor(year - 1);
+  return arr && arr[month - 1] ? arr[month - 1] : null;
+}
+function pctChange(now_, before) { if (!before) return null; return Math.round((now_ - before) / before * 100); }
+function compareLine(year, month, tE, ytdE) {
+  const ly = lastYearMonth(year, month);
+  const arr = monthlyExpensesFor(year - 1);
+  const lyYtd = arr ? arr.slice(0, month).reduce((a, b) => a + (b || 0), 0) : 0;
+  if (!ly && !lyYtd) return '';
+  const chip = (p) => p == null ? '' : `<b class="${p > 0 ? 'exp' : 'inc'}">${p > 0 ? '▲ +' + p : '▼ −' + Math.abs(p)}%</b>`;
+  return `<div class="cmp">📆 Πέρσι τον ${MONTHS[month - 1].replace(/ς$/, '')} βγήκαν <b class="num">${eur(ly || 0)}</b>${tE ? ` · φέτος ${chip(pctChange(tE, ly))}` : ''}
+    ${lyYtd ? `<span class="cmp-sep">·</span> Ιανουάριος–${MONTHS[month - 1]} ${year - 1}: <b class="num">${eur0(lyYtd)}</b>, φέτος <b class="num">${eur0(ytdE)}</b> ${chip(pctChange(ytdE, lyYtd))}` : ''}</div>`;
+}
+function catLastYearAvg(cid, year) { const t = categoryYearTotal(cid, year - 1); return t ? t / 12 : null; }
+
+// ======================= ημερολόγιο πληρωμών =======================
+function calEvents(year, month) {
+  const s = ymOf(year, month), ev = {};
+  const add = (date, e) => { if (!date || date.slice(0, 7) !== s) return; const d = +date.slice(8, 10) || 1; (ev[d] = ev[d] || []).push(e); };
+  const td = todayStr();
+  for (const t of DB.transactions.filter(t => t.planned && t.date.slice(0, 7) === s))
+    add(t.dayKnown === false ? `${s}-01` : t.date, { icon: catIcon(t.categoryId), text: catName(t.categoryId), amt: t.amount, type: t.type, cls: t.date < td ? 'late' : 'wait', btn: `<button class="btn small primary" data-action="confirm-planned" data-id="${t.id}">✓ Έγινε</button>`, sort: 2 });
+  for (const { t, i, k } of taxInst()) add(i.due, { icon: '🏛️', text: `${t.name} – ${t.person} (δόση ${k + 1})`, amt: i.amount, type: 'expense', cls: i.paid ? 'ok' : i.due < td ? 'late' : 'wait', btn: i.paid ? '' : `<button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button>`, sort: 1 });
+  for (const t of DB.tenants) if (tenantActiveIn(t, s)) {
+    const st = tenantMonthStatus(t, s);
+    add(`${s}-${pad(Math.min(t.dueDay || 1, lastDay(s)))}`, { icon: '🔑', text: `Ενοίκιο ${t.name}`, amt: st.due, type: 'income', cls: st.cls === 'ok' ? 'ok' : st.cls, btn: st.cls === 'ok' ? '' : `<button class="btn small income" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>`, sort: 3 });
+    if (t.leaseEnd) add(t.leaseEnd, { icon: '📄', text: `${t.name}: λήγει το συμβόλαιο`, cls: 'wait', sort: 5 });
+    if (t.adjust) add(t.adjust, { icon: '📈', text: `${t.name}: αναπροσαρμογή ενοικίου`, cls: 'wait', sort: 5 });
+  }
+  for (const c of DB.cars) if (!c.sold && c.kteo) add(c.kteo, { icon: '🚗', text: `${c.name}: ΚΤΕΟ`, cls: c.kteo < td ? 'late' : 'wait', sort: 4 });
+  for (const a of DB.accounts) if (!a.archived && a.maturity) add(a.maturity, { icon: '🔒', text: `Λήγει προθεσμιακή ${a.bank} · ${a.name}`, cls: 'wait', btn: `<button class="btn small" data-action="acc-edit" data-id="${a.id}">⚙</button>`, sort: 4 });
+  for (const p of (DB.policies || [])) add(p.next, { icon: polIcon(p), text: `${p.name}${p.what ? ' – ' + p.what : ''}`, amt: p.amount, type: 'expense', cls: p.next < td ? 'late' : 'wait', btn: `<button class="btn small primary" data-action="pol-pay" data-id="${p.id}">✓ Πληρώθηκε</button>`, sort: 1 });
+  for (const d in ev) ev[d].sort((a, b) => a.sort - b.sort);
+  return ev;
+}
+const CAL_CLS = { ok: 'c-ok', late: 'c-late', wait: 'c-wait', part: 'c-wait' };
+function calPanel(year, month) {
+  const ev = calEvents(year, month), s = ymOf(year, month);
+  const first = new Date(year, month - 1, 1).getDay(); // 0=Κυρ
+  const lead = (first + 6) % 7, days = lastDay(s), td = todayStr();
+  let outE = 0, inE = 0;
+  for (const d in ev) for (const e of ev[d]) if (e.amt && e.cls !== 'ok') { if (e.type === 'income') inE += e.amt; else outE += e.amt; }
+  const cells = [];
+  for (let i = 0; i < lead; i++) cells.push('<div class="cal-c empty"></div>');
+  for (let d = 1; d <= days; d++) {
+    const list = ev[d] || [], ds = `${s}-${pad(d)}`;
+    cells.push(`<div class="cal-c ${ds === td ? 'today' : ''} ${list.length ? 'has' : ''}" ${list.length ? `data-action="cal-day" data-d="${d}"` : ''}>
+      <div class="cal-d">${d}</div>
+      ${list.slice(0, 3).map(e => `<div class="cal-e ${CAL_CLS[e.cls] || ''}"><span>${e.icon}</span><span class="cal-t">${esc(e.text)}</span></div>`).join('')}
+      ${list.length > 3 ? `<div class="cal-more">+ ${list.length - 3} ακόμα</div>` : ''}</div>`);
+  }
+  return `<div class="panel">
+    <h2>🗓️ Ημερολόγιο πληρωμών <span class="muted">${MONTHS[month - 1]} ${year}</span></h2>
+    <div class="h-hint">Πατήστε μια μέρα για να δείτε τι έχει και να το σημειώσετε. <span class="cal-key c-late">έληξε</span> <span class="cal-key c-wait">έρχεται</span> <span class="cal-key c-ok">έγινε</span></div>
+    <div class="cal">${['Δευ', 'Τρί', 'Τετ', 'Πέμ', 'Παρ', 'Σάβ', 'Κυρ'].map(w => `<div class="cal-h">${w}</div>`).join('')}${cells.join('')}</div>
+    <div class="cal-sum">Μένουν να πληρωθούν τον μήνα: <b class="exp num">${eur(outE)}</b> · να εισπραχθούν: <b class="inc num">${eur(inE)}</b></div>
+  </div>`;
+}
+function renderDayDlg(d) {
+  if (d.kind !== 'day') return null;
+  const list = calEvents(d.y, d.m)[d.d] || [];
+  const dt = new Date(d.y, d.m - 1, d.d);
+  return { head: 'neutral', title: `🗓️ ${WEEKDAYS[dt.getDay()]} ${d.d} ${MONTHS[d.m - 1]}`, body: list.length ? list.map(e => `<div class="planned-row"><span class="p-ic">${e.icon}</span><span class="p-nm"><b>${esc(e.text)}</b><div style="font-size:.9rem" class="${e.cls === 'late' ? 'exp' : e.cls === 'ok' ? 'inc' : 'muted'}">${e.cls === 'late' ? 'έληξε / δεν έγινε' : e.cls === 'ok' ? '✓ έγινε' : 'έρχεται'}</div></span><span class="p-amt num ${e.type === 'income' ? 'inc' : 'exp'}">${e.amt ? eur(e.amt) : ''}</span><span class="p-act">${e.btn || ''}</span></div>`).join('') : '<div class="empty">Τίποτα αυτή τη μέρα.</div>' };
+}
+
+// ======================= ασφάλειες και τέλη =======================
+const POL_KINDS = [['home', '🏠', 'Ασφάλεια σπιτιού'], ['car', '🚗', 'Ασφάλεια αυτοκινήτου'], ['fee', '🧾', 'Τέλη κυκλοφορίας'], ['health', '🩺', 'Ασφάλεια υγείας / ζωής'], ['other', '🛡️', 'Άλλο']];
+const polIcon = p => (POL_KINDS.find(k => k[0] === p.kind) || POL_KINDS[4])[1];
+function polPanel() {
+  const ps = (DB.policies || []).slice().sort((a, b) => (a.next || '9').localeCompare(b.next || '9'));
+  const yearly = round2(ps.reduce((a, p) => a + (p.amount || 0) * 12 / (p.every || 12), 0));
+  const row = p => { const dd = p.next ? daysUntil(p.next) : null; return `<div class="planned-row">
+    <span class="p-ic">${polIcon(p)}</span>
+    <span class="p-nm"><b>${esc(p.name)}</b>${p.what ? ` – ${esc(p.what)}` : ''}
+      <div class="muted" style="font-size:.92rem">${[p.company, p.number ? 'αρ. ' + p.number : '', p.every === 12 ? 'μία φορά τον χρόνο' : p.every === 1 ? 'κάθε μήνα' : `κάθε ${p.every} μήνες`].filter(Boolean).map(esc).join(' · ')}</div>
+      <div style="font-size:.95rem">${p.next ? `Επόμενη πληρωμή: <b class="${dd < 0 ? 'exp' : dd <= 30 ? 'warn-t' : ''}">${shortDate(p.next)}</b>${dd < 0 ? ' (έληξε)' : dd <= 30 ? ` (σε ${dd} μέρες)` : ''}` : '<span class="muted">Χωρίς ημερομηνία</span>'}</div>
+      ${attBlock('policy', p.id, p.attachments)}</span>
+    <span class="p-amt num exp">${p.amount ? eur(p.amount) : ''}</span>
+    <span class="p-act"><button class="btn small" data-action="pol-edit" data-id="${p.id}">✎ Αλλαγή</button><button class="btn small primary" data-action="pol-pay" data-id="${p.id}">✓ Πληρώθηκε</button></span>
+  </div>`; };
+  return `<div class="panel">
+    <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.4rem"><h2 style="margin:0">🛡️ Ασφάλειες και τέλη</h2><div class="spacer" style="flex:1"></div><button class="btn primary no-print" data-action="pol-new">+ Νέα ασφάλεια / τέλος</button></div>
+    <div class="h-hint" style="margin:0 0 .8rem">Γράψτε κάθε ασφάλεια και τα τέλη κυκλοφορίας με την ημερομηνία της επόμενης πληρωμής. Θα σας θυμίζει έναν μήνα πριν. Όταν πληρώσετε, πατήστε «✓ Πληρώθηκε»: μπαίνει στα έξοδα και η ημερομηνία πάει μόνη της στην επόμενη φορά.${ps.length ? ` Σύνολο τον χρόνο: <b class="num">${eur(yearly)}</b>.` : ''}</div>
+    ${ps.length ? ps.map(row).join('') : '<div class="empty">Δεν έχετε γράψει ακόμα ασφάλειες ή τέλη. Πατήστε «+ Νέα ασφάλεια / τέλος».</div>'}
+  </div>`;
+}
+function polDefaultCat(kind) {
+  const find = re => (DB.categories.find(c => c.type === 'expense' && !c.archived && re.test(c.name)) || {}).id;
+  return kind === 'car' || kind === 'fee' ? find(/αυτοκίν.*(σέρβις|τέλη)|τέλη/i) || find(/αυτοκίν/i) || '' : kind === 'health' ? find(/ασφάλει/i) || '' : find(/ασφάλει/i) || '';
+}
+function renderPolDlg(d) {
+  if (d.kind === 'pol') {
+    const cats = DB.categories.filter(c => c.type === 'expense' && !c.archived).sort((a, b) => a.name.localeCompare(b.name, 'el'));
+    return { head: 'neutral', title: d.id ? '🛡️ Ασφάλεια / τέλος' : '🛡️ Νέα ασφάλεια / τέλος', body: `
+      <div class="field"><div class="flabel">Τι είναι;</div><div class="chips">${POL_KINDS.map(([k, i, l]) => `<button class="chip ${d.pk === k ? 'sel' : ''}" data-action="dlg-pk" data-v="${k}">${i} ${l}</button>`).join('')}</div></div>
+      <div class="row">
+        <div class="field"><label for="d-polname">Όνομα</label><input id="d-polname" type="text" style="width:100%" value="${esc(d.name)}"></div>
+        <div class="field"><label for="d-polwhat">Για ποιο; <span class="muted" style="font-weight:500">(π.χ. Kia, Κατεχάκη, Νίκος)</span></label><input id="d-polwhat" type="text" style="width:100%" value="${esc(d.what)}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-polco">Εταιρεία <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><input id="d-polco" type="text" style="width:100%" value="${esc(d.company)}"></div>
+        <div class="field"><label for="d-polnum">Αριθμός συμβολαίου <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><input id="d-polnum" type="text" style="width:100%" value="${esc(d.number)}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-amount">Ποσό κάθε φορά</label><div class="amount-wrap"><input id="d-amount" class="num" style="width:10rem" inputmode="decimal" value="${esc(d.amountStr)}"><span style="font-weight:700">€</span></div></div>
+        <div class="field"><label for="d-polnext">Επόμενη πληρωμή</label><input id="d-polnext" type="date" value="${esc(d.next)}"></div>
+      </div>
+      <div class="field"><div class="flabel">Πόσο συχνά;</div><div class="chips">${[[12, 'Μία φορά τον χρόνο'], [6, 'Κάθε 6 μήνες'], [3, 'Κάθε 3 μήνες'], [1, 'Κάθε μήνα']].map(([n, l]) => `<button class="chip ${d.every === n ? 'sel' : ''}" data-action="dlg-pevery" data-v="${n}">${l}</button>`).join('')}</div></div>
+      <div class="field"><label for="d-polcat">Στα έξοδα μπαίνει στην κατηγορία</label><select id="d-polcat" style="width:100%"><option value="">—</option>${cats.map(c => `<option value="${esc(c.id)}" ${d.cat === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select></div>` };
+  }
+  if (d.kind === 'polpay') {
+    const p = DB.policies.find(x => x.id === d.pid);
+    return { head: 'expense', title: `✓ Πληρωμή: ${esc(p.name)}${p.what ? ' – ' + esc(p.what) : ''}`, body: `
+      <div class="field"><label for="d-amount">Ποσό</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}"><span class="amount-eur">€</span></div></div>
+      <div class="field"><label for="d-date">Πότε πληρώθηκε</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
+      <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα${p.categoryId ? ` (${esc(catName(p.categoryId))})` : ''}</label>
+      <div class="hint">Η επόμενη πληρωμή θα γίνει <b>${p.next ? shortDate(nextPolDate(p)) : '—'}</b>.</div>` };
+  }
+  return null;
+}
+function nextPolDate(p) { if (!p.next) return ''; const d = new Date(p.next + 'T12:00'); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (p.every || 12)); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function savePolDlg() {
+  const d = dlg; const v = id => { const e = $('#' + id); return e ? e.value.trim() : ''; };
+  const fail = m => { d.error = m; renderDlg(); };
+  if (d.kind === 'pol') {
+    Object.assign(d, { name: v('d-polname'), what: v('d-polwhat'), company: v('d-polco'), number: v('d-polnum'), amountStr: v('d-amount'), next: v('d-polnext'), cat: v('d-polcat') });
+    if (!d.name) return fail('Γράψτε όνομα (π.χ. «Ασφάλεια αυτοκινήτου»).');
+    const amt = d.amountStr ? parseAmount(d.amountStr) : null;
+    if (d.amountStr && (amt === null || isNaN(amt))) return fail('Το ποσό δεν είναι σωστό.');
+    DB.policies = DB.policies || [];
+    const rec = { kind: d.pk, name: d.name, what: d.what, company: d.company, number: d.number, amount: amt || 0, every: d.every, next: d.next || '', categoryId: d.cat || '' };
+    if (d.id) Object.assign(DB.policies.find(x => x.id === d.id), rec); else DB.policies.push({ id: 'pl' + uid(), attachments: [], ...rec });
+    dlg = null; renderDlg(); persist(); render(); toast('Αποθηκεύτηκε.'); return;
+  }
+  if (d.kind === 'polpay') {
+    const p = DB.policies.find(x => x.id === d.pid);
+    d.amountStr = v('d-amount'); d.date = v('d-date'); d.addExpense = $('#d-addexp') ? $('#d-addexp').checked : false;
+    const amt = parseAmount(d.amountStr);
+    if (!amt || isNaN(amt)) return fail('Γράψτε το ποσό.');
+    if (d.addExpense) {
+      if (!p.categoryId) return fail('Η ασφάλεια δεν έχει κατηγορία εξόδων. Πατήστε «✎ Αλλαγή» και διαλέξτε κατηγορία, ή βγάλτε το τσεκ.');
+      DB.transactions.push({ id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: p.categoryId, note: `${p.name}${p.what ? ' – ' + p.what : ''}`, person: '', method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() });
+    }
+    p.history = p.history || []; p.history.push({ date: d.date, amount: amt });
+    p.amount = amt; if (p.next) p.next = nextPolDate(p);
+    dlg = null; renderDlg(); persist(); render(); toast(`Πληρώθηκε: ${p.name} – ${eur(amt)}${p.next ? ` · επόμενη ${shortDate(p.next)}` : ''}`);
+  }
+}
+const polActions = {
+  'pol-new': () => { dlg = { kind: 'pol', id: null, pk: 'car', name: 'Ασφάλεια αυτοκινήτου', what: '', company: '', number: '', amountStr: '', next: '', every: 12, cat: polDefaultCat('car'), error: '' }; renderDlg(); },
+  'pol-edit': el => { const p = DB.policies.find(x => x.id === el.dataset.id); dlg = { kind: 'pol', id: p.id, pk: p.kind, name: p.name, what: p.what, company: p.company, number: p.number, amountStr: p.amount ? numFmt.format(p.amount).replace(/\./g, '') : '', next: p.next, every: p.every || 12, cat: p.categoryId, error: '' }; renderDlg(); },
+  'pol-pay': el => { const p = DB.policies.find(x => x.id === el.dataset.id); dlg = { kind: 'polpay', pid: p.id, amountStr: p.amount ? numFmt.format(p.amount).replace(/\./g, '') : '', date: todayStr(), addExpense: !!p.categoryId, error: '' }; renderDlg(); },
+  'pol-delete': () => { if (!confirm('Να διαγραφεί αυτή η ασφάλεια / τέλος; (Ό,τι έχει μπει στα έξοδα μένει.)')) return; DB.policies = DB.policies.filter(p => p.id !== dlg.id); dlg = null; renderDlg(); persist(); render(); },
+  'dlg-pk': el => { const v = id => { const e = $('#' + id); return e ? e.value.trim() : ''; }; const k = el.dataset.v; const old = POL_KINDS.find(x => x[0] === dlg.pk); Object.assign(dlg, { what: v('d-polwhat'), company: v('d-polco'), number: v('d-polnum'), amountStr: v('d-amount'), next: v('d-polnext') });
+    const nm = v('d-polname'); dlg.name = !nm || (old && nm === old[2]) ? (POL_KINDS.find(x => x[0] === k) || [])[2] : nm; dlg.pk = k; dlg.cat = polDefaultCat(k) || dlg.cat; if (k === 'fee') dlg.every = 12; renderDlg(); },
+  'dlg-pevery': el => { const v = id => { const e = $('#' + id); return e ? e.value.trim() : ''; }; Object.assign(dlg, { name: v('d-polname'), what: v('d-polwhat'), company: v('d-polco'), number: v('d-polnum'), amountStr: v('d-amount'), next: v('d-polnext'), cat: v('d-polcat') }); dlg.every = +el.dataset.v; renderDlg(); },
+  'cal-day': el => { dlg = { kind: 'day', y: ui.year, m: ui.month, d: +el.dataset.d, error: '' }; renderDlg(); }
+};
+
+// ======================= συνημμένα αρχεία =======================
+const ATT_ICON = n => /\.pdf$/i.test(n) ? '📄' : /\.(jpe?g|png|heic|gif|webp)$/i.test(n) ? '🖼️' : /\.(docx?|odt)$/i.test(n) ? '📝' : /\.(xlsx?|ods|csv)$/i.test(n) ? '📊' : '📎';
+function attOwner(kind, id) { return kind === 'tenant' ? tenantById(id) : kind === 'car' ? DB.cars.find(c => c.id === id) : kind === 'policy' ? (DB.policies || []).find(p => p.id === id) : kind === 'person' ? DB.people.find(p => p.id === id) : kind === 'tx' ? DB.transactions.find(t => t.id === id) : null; }
+function attBlock(kind, id, list) {
+  list = list || [];
+  if (!store.native && !list.length) return '';
+  return `<div class="att no-print">${list.map(a => `<span class="att-chip"><button class="att-open" data-action="att-open" data-file="${esc(a.file)}" title="Άνοιγμα">${ATT_ICON(a.name)} ${esc(a.name)}</button><button class="att-x" data-action="att-del" data-kind="${kind}" data-id="${esc(id || '')}" data-file="${esc(a.file)}" title="Αφαίρεση">✕</button></span>`).join('')}
+    ${store.native ? `<button class="btn small" data-action="att-add" data-kind="${kind}" data-id="${esc(id || '')}">📎 Επισύναψη αρχείου</button>` : ''}</div>`;
+}
+async function attPick(title) {
+  if (!window.homeflow || !window.homeflow.attAdd) { toast('Τα συνημμένα λειτουργούν μόνο στην εφαρμογή.'); return []; }
+  const r = await window.homeflow.attAdd(title);
+  if (r && r.error) toast(r.error);
+  return (r && r.files) || [];
+}
+const attActions = {
+  'att-add': async el => {
+    const kind = el.dataset.kind;
+    if (kind === 'form') { if (!form) return; syncFormInputs(); const files = await attPick('Επιλέξτε αρχείο (π.χ. απόδειξη, λογαριασμός)'); if (!files.length) return; form.attachments = [...(form.attachments || []), ...files]; renderForm(); return; }
+    const o = attOwner(kind, el.dataset.id); if (!o) return;
+    const files = await attPick('Επιλέξτε αρχείο για επισύναψη'); if (!files.length) return;
+    o.attachments = [...(o.attachments || []), ...files]; persist(); render(); toast(files.length === 1 ? `Επισυνάφθηκε: ${files[0].name}` : `Επισυνάφθηκαν ${files.length} αρχεία`);
+  },
+  'att-open': async el => { if (!window.homeflow) return; const r = await window.homeflow.attOpen(el.dataset.file); if (r && r.error) toast(r.error); },
+  'att-del': async el => {
+    const kind = el.dataset.kind, file = el.dataset.file;
+    if (!confirm('Να αφαιρεθεί αυτό το αρχείο; (Θα πάει στον Κάδο ανακύκλωσης.)')) return;
+    if (kind === 'form') { if (!form) return; syncFormInputs(); form.attachments = (form.attachments || []).filter(a => a.file !== file); renderForm(); }
+    else { const o = attOwner(kind, el.dataset.id); if (o) { o.attachments = (o.attachments || []).filter(a => a.file !== file); persist(); render(); } }
+    if (window.homeflow && window.homeflow.attRemove) window.homeflow.attRemove(file);
+  }
+};
+
+// ======================= βοήθεια «Πώς κάνω…;» =======================
+const HELP = [
+  ['➖', 'Πώς γράφω ένα έξοδο;', ['Πατήστε το κόκκινο «− Νέο έξοδο» κάτω αριστερά (ή Ctrl+E).', 'Γράψτε το ποσό. Μπορείτε να γράψετε και πρόσθεση, π.χ. 50+39+12,5.', 'Διαλέξτε για τι είναι (κατηγορία). Αν δεν τη βλέπετε, πατήστε «Όλες οι κατηγορίες».', 'Αν θέλετε, γράψτε σημείωση και αλλάξτε την ημερομηνία.', 'Πατήστε «✓ Αποθήκευση». Αποθηκεύεται μόνο του, δεν χρειάζεται τίποτα άλλο.']],
+  ['➕', 'Πώς γράφω ένα έσοδο;', ['Πατήστε το πράσινο «+ Νέο έσοδο» (ή Ctrl+I).', 'Γράψτε το ποσό και διαλέξτε κατηγορία, π.χ. Σύνταξη.', 'Για ενοίκιο είναι καλύτερα να πάτε στα Ενοίκια και να πατήσετε «💶 Πλήρωσε» στον ενοικιαστή.']],
+  ['✎', 'Πώς διορθώνω ή σβήνω μια κίνηση;', ['Βρείτε την κίνηση: στις «Κινήσεις» ή με την αναζήτηση (Ctrl+K), γράφοντας π.χ. το ποσό.', 'Πατήστε πάνω της. Ανοίγει το ίδιο παράθυρο με την καταχώρηση.', 'Αλλάξτε ό,τι θέλετε και πατήστε «✓ Αποθήκευση», ή «🗑 Διαγραφή» για να τη σβήσετε.', 'Αμέσως μετά από κάθε αλλαγή εμφανίζεται κάτω το κουμπί «Αναίρεση», αν κάνατε λάθος.']],
+  ['🔑', 'Πώς γράφω ότι πλήρωσε ένας ενοικιαστής;', ['Πηγαίνετε στα «Ενοίκια».', 'Στην κάρτα του ενοικιαστή πατήστε «💶 Πλήρωσε».', 'Ελέγξτε το ποσό και την ημερομηνία και πατήστε «✓ Αποθήκευση».', 'Μπαίνει στα έσοδα (μόνο το δικό μας μερίδιο, αν το ακίνητο είναι μισό) και η εφαρμογή βρίσκει μόνη της αν χρωστάει.']],
+  ['🚪', 'Τι κάνω όταν φεύγει ή έρχεται ενοικιαστής;', ['Όταν φεύγει: στα «Ενοίκια» πατήστε «🚪 Ξενοικιάστηκε» και διαλέξτε τον τελευταίο μήνα που πληρώνει.', 'Όταν έρχεται νέος: πατήστε «+ Νέος ενοικιαστής», γράψτε όνομα, ακίνητο και ενοίκιο.', 'Αν είναι στο ισόγειο, πηγαίνετε και στην καρτέλα «⚡ ΔΕΗ ισογείου» → «⚙️ Ρυθμίσεις» και διαλέξτε τον.']],
+  ['💰', 'Πώς ενημερώνω το υπόλοιπο ενός λογαριασμού;', ['Δείτε το υπόλοιπο στο e-banking ή στο βιβλιάριο.', 'Πηγαίνετε στα «Χρήματα» και διαλέξτε την καρτέλα με το είδος (π.χ. Τρεχούμενοι).', 'Στον λογαριασμό πατήστε «✎ Νέο υπόλοιπο», γράψτε το ποσό και αποθηκεύστε.', 'Γρήγορα: Ctrl+K, γράψτε το όνομα της τράπεζας και πατήστε Enter.']],
+  ['🏛️', 'Πώς σημειώνω ότι πλήρωσα δόση εφορίας;', ['Πηγαίνετε στην «Εφορία» (ή πατήστε «✓ Πλήρωσα» στο «Να θυμηθώ»).', 'Στη δόση πατήστε «✓ Πλήρωσα».', 'Ελέγξτε ποσό και ημερομηνία. Αν η πληρωμή είναι ήδη γραμμένη στα έξοδα, βγάλτε το τσεκ «Να μπει και στα έξοδα».']],
+  ['📌', 'Τι είναι τα «Προγραμματισμένα» και το «✓ Έγινε»;', ['Είναι πληρωμές που περιμένουμε κάθε μήνα (πάγια): ΔΕΗ, σύνταξη, τηλέφωνο κ.λπ.', 'Δεν μετράνε στα σύνολα μέχρι να γίνουν.', 'Όταν γίνει η πληρωμή, πατήστε «✓ Έγινε». Για τη ΔΕΗ και όσα αλλάζουν ποσό, σας ρωτάει πόσο ήταν.']],
+  ['🔁', 'Πώς βάζω ένα νέο πάγιο;', ['Πηγαίνετε στα «Πάγια» και πατήστε «+ Πάγιο έξοδο» ή «+ Πάγιο έσοδο».', 'Γράψτε ποσό, κατηγορία, κάθε πότε και ποια μέρα.', 'Αν το ποσό αλλάζει κάθε φορά, τσεκάρετε «Το ποσό αλλάζει κάθε φορά».', 'Αν είναι δόσεις με τέλος, γράψτε και τον τελευταίο μήνα και πόσες δόσεις είναι.']],
+  ['🛡️', 'Πώς γράφω μια ασφάλεια ή τα τέλη κυκλοφορίας;', ['Πηγαίνετε στα «Πάγια» → καρτέλα «🛡️ Ασφάλειες και τέλη».', 'Πατήστε «+ Νέα ασφάλεια / τέλος», διαλέξτε τι είναι και γράψτε ποσό και επόμενη πληρωμή.', 'Θα σας θυμίσει έναν μήνα πριν. Όταν πληρώσετε, πατήστε «✓ Πληρώθηκε».']],
+  ['🗓️', 'Πώς βλέπω τι έχω να πληρώσω τον μήνα;', ['Στον «Μήνα» πατήστε την καρτέλα «🗓️ Ημερολόγιο».', 'Κάθε μέρα δείχνει τι πληρώνεται ή εισπράττεται: κόκκινο = έληξε, κίτρινο = έρχεται, πράσινο = έγινε.', 'Πατήστε μια μέρα για να το σημειώσετε.']],
+  ['🚗', 'Πώς γράφω χιλιόμετρα ή σέρβις;', ['Πηγαίνετε στα «Αυτοκίνητα».', 'Πατήστε «📍 Χιλιόμετρα» και γράψτε τι δείχνει ο μετρητής (μία φορά τον μήνα αρκεί).', 'Μετά από σέρβις πατήστε «🔧 Σέρβις», γράψτε τι έγινε και πότε είναι το επόμενο.']],
+  ['📎', 'Πώς επισυνάπτω απόδειξη ή συμβόλαιο;', ['Σε μια κίνηση, έναν ενοικιαστή, ένα αυτοκίνητο ή μια ασφάλεια πατήστε «📎 Επισύναψη αρχείου».', 'Διαλέξτε το αρχείο (PDF ή φωτογραφία). Αντιγράφεται στον φάκελο του HomeFlow.', 'Πατήστε πάνω του για να το ανοίξετε. Τα συνημμένα μπαίνουν και στα αντίγραφα ασφαλείας.']],
+  ['📊', 'Πώς βγάζω Excel ή τυπώνω;', ['Πατήστε «📊 Excel» πάνω δεξιά σε όποια σελίδα είστε (ή Ctrl+P).', 'Διαλέξτε πού θα αποθηκευτεί. Ανοίγει μόνο του στο Excel, στο φύλλο της σελίδας.', 'Από το Excel μπορείτε να το τυπώσετε (Αρχείο → Εκτύπωση).']],
+  ['🔍', 'Πώς βρίσκω κάτι γρήγορα;', ['Πατήστε «🔍 Αναζήτηση» πάνω αριστερά ή Ctrl+K.', 'Γράψτε ό,τι θυμάστε: όνομα, ποσό, κατηγορία, ρύθμιση.', 'Με τα βελάκια διαλέγετε και με Enter ανοίγει.']],
+  ['🛟', 'Τι γίνεται αν χαλάσει ο υπολογιστής;', ['Αν έχετε ρυθμίσει «Δεύτερο αντίγραφο» (Ρυθμίσεις → Τα δεδομένα μου), τα στοιχεία είναι στο OneDrive ή στο USB.', 'Στον νέο υπολογιστή βάλτε το HomeFlow, πατήστε «Άνοιγμα αρχείου HomeFlow» και διαλέξτε το «homeflow-τελευταίο.json» από τον φάκελο «HomeFlow αντίγραφα».']],
+  ['🔒', 'Ξέχασα το PIN. Τι κάνω;', ['Στην οθόνη του PIN πατήστε «Ξέχασα το PIN».', 'Γράψτε τον 8ψήφιο κωδικό επαναφοράς που γράψατε σε χαρτί όταν βάλατε το PIN.', 'Μετά βάλτε νέο PIN από τις Ρυθμίσεις.']],
+  ['🔄', 'Πώς βάζω νέα έκδοση;', ['Όταν βγαίνει νέα έκδοση, εμφανίζεται κίτρινη μπάρα πάνω πάνω με «Κατέβασμα».', 'Κλείστε το HomeFlow, κατεβάστε το zip και βάλτε το νέο στη θέση του παλιού.', 'Τα στοιχεία σας δεν χάνονται, γιατί δεν είναι μέσα στο πρόγραμμα.']]
+];
+function renderHelpDlg(d) {
+  if (d.kind !== 'help') return null;
+  if (d.topic != null) { const h = HELP[d.topic]; return { head: 'neutral', title: `${h[0]} ${esc(h[1])}`, body: `<ol class="help-steps">${h[2].map(s => `<li>${esc(s)}</li>`).join('')}</ol><div><button class="btn" data-action="help-list">◀ Όλες οι ερωτήσεις</button></div>` }; }
+  return { head: 'neutral', title: '❓ Πώς κάνω…;', body: `<div class="help-list">${HELP.map((h, i) => `<button class="help-q" data-action="help-topic" data-i="${i}"><span>${h[0]}</span>${esc(h[1])}</button>`).join('')}</div>` };
+}
+function openHelp(topic) { if (locked || !DB) return; pal = null; renderPal(); if (form) return; dlg = { kind: 'help', topic: topic == null ? null : topic, error: '' }; renderDlg(); }
+const helpActions = {
+  'help-open': () => openHelp(),
+  'help-topic': el => { dlg.topic = +el.dataset.i; renderDlg(); },
+  'help-list': () => { dlg.topic = null; renderDlg(); }
+};
+
 // ======================= αναζήτηση παντού (Ctrl+K) =======================
 const IS_MAC = /Mac/i.test(navigator.platform || navigator.userAgent);
 const MOD = IS_MAC ? '⌘' : 'Ctrl';
@@ -2120,6 +2362,9 @@ const COMMANDS = [
   ['🚗', 'Αυτοκίνητα', 'σερβισ χιλιομετρα κτεο', () => goTo('cars'), `${MOD}+8`],
   ['🌱', 'Χωράφι', 'ποτισμα', () => goTo('field'), `${MOD}+9`],
   ['💧', 'Πότισα (χωράφι)', 'ποτισμα ωρεσ', () => { goTo('field'); actions['water-new'](); }],
+  ['🗓️', 'Ημερολόγιο πληρωμών', 'ημερολογιο πληρωμεσ μηνασ', () => goTo('home', { tab: ['home', 'cal'] })],
+  ['🛡️', 'Ασφάλειες και τέλη κυκλοφορίας', 'ασφαλεια τελη κυκλοφοριασ', () => goTo('recurring', { tab: ['recurring', 'pol'] })],
+  ['❓', 'Βοήθεια: Πώς κάνω…;', 'βοηθεια οδηγιεσ πωσ', () => openHelp(), 'F1'],
   ['📅', 'Η χρονιά', 'ετοσ πινακασ excel', () => goTo('year')],
   ['📈', 'Ιστορικό χρόνων', 'παλια χρονια', () => goTo('history')],
   ['📊', 'Συγκεντρωτικό Excel', 'εκτυπωση excel αρχειο', () => { pal = null; renderPal(); exportSummary(); }, `${MOD}+P`],
@@ -2144,10 +2389,12 @@ function searchAll(q) {
     const hs = skel(text); return sk.every(t => t.length >= 3 && hs.includes(t));
   };
   const out = [];
-  if (!toks.length) return COMMANDS.filter((_, i) => [0, 1, 3, 6, 20].includes(i)).map(c => ({ group: 'Γρήγορα', icon: c[0], title: c[1], kbd: c[4], run: c[3] }));
+  if (!toks.length) return COMMANDS.filter(c => ['Νέο έξοδο', 'Νέο έσοδο', 'Να θυμηθώ', 'Ημερολόγιο πληρωμών', 'Ενοίκια', 'Συγκεντρωτικό Excel', 'Βοήθεια: Πώς κάνω…;'].includes(c[1])).map(c => ({ group: 'Γρήγορα', icon: c[0], title: c[1], kbd: c[4], run: c[3] }));
   for (const c of COMMANDS) if (hit(c[1] + ' ' + c[2])) out.push({ group: 'Σελίδες και ενέργειες', icon: c[0], title: c[1], kbd: c[4], run: c[3] });
   for (const t of DB.tenants) if (hit(`${t.name} ${t.property} ενοικιαστησ ενοικιο`)) { const b = tenantLedger(t).balance; out.push({ group: 'Ενοικιαστές', icon: '🏠', title: t.name, sub: `${t.property || ''}${t.end && t.end < curYM() ? ' · έφυγε' : ''}`, amt: b > 0.005 ? `χρωστάει ${eur(b)}` : '✓', run: () => goTo('rent', { ui: { tenantId: t.id } }) }); }
   for (const p of DB.people) if (hit(`${p.name} ${p.note} οφειλη`)) out.push({ group: 'Οφειλές', icon: '🤝', title: p.name, amt: eur(Math.abs(personBalance(p))), run: () => goTo('people', { ui: { personId: p.id } }) });
+  for (const p of (DB.policies || [])) if (hit(`${p.name} ${p.what} ${p.company} ${p.number} ασφαλεια τελη`)) out.push({ group: 'Ασφάλειες και τέλη', icon: polIcon(p), title: `${p.name}${p.what ? ' – ' + p.what : ''}`, sub: p.next ? `επόμενη ${shortDate(p.next)}` : '', amt: p.amount ? eur(p.amount) : '', run: () => goTo('recurring', { tab: ['recurring', 'pol'] }) });
+  HELP.forEach((h, i) => { if (hit(`${h[1]} ${h[2].join(' ')} βοηθεια πωσ`)) out.push({ group: 'Βοήθεια', icon: '❓', title: h[1], run: () => openHelp(i) }); });
   for (const c of DB.cars) if (hit(`${c.name} αυτοκινητο`)) out.push({ group: 'Αυτοκίνητα', icon: '🚗', title: c.name, sub: carKm(c) ? `${int0.format(carKm(c).km)} km` : '', run: () => goTo('cars', { ui: { carId: c.id } }) });
   for (const a of DB.accounts) if (!a.archived && hit(`${a.bank} ${a.name} ${a.owner} ${kindLabel(a.kind)[1]} λογαριασμοσ`)) { const lb = lastBal(a); out.push({ group: 'Λογαριασμοί', icon: kindLabel(a.kind)[2], title: `${a.bank ? a.bank + ' · ' : ''}${a.name}`, sub: a.owner, amt: lb ? money(lb.balance, a.currency) : '', run: () => goTo('money', { tab: ['money', a.kind], after: () => actions['acc-update']({ dataset: { id: a.id } }) }) }); }
   for (const t of DB.taxes) if (hit(`${t.name} ${t.person} εφορια`)) { const y = +((t.installments[0] || {}).due || String(now.getFullYear())).slice(0, 4); out.push({ group: 'Εφορία', icon: '🏛️', title: `${t.name} – ${t.person}`, sub: `${t.installments.filter(i => i.paid).length} από ${t.installments.length} πληρωμένες`, run: () => goTo('tax', { tab: ['tax', t.id], ui: { taxYear: y } }) }); }
@@ -2183,7 +2430,7 @@ function renderPal(keepInput) {
 }
 function shortcutsPanel() {
   const rows = [[`${MOD} + K`, 'Αναζήτηση παντού (ή το πλήκτρο /)'], [`${MOD} + E`, 'Νέο έξοδο'], [`${MOD} + I`, 'Νέο έσοδο'], [`${MOD} + P`, 'Συγκεντρωτικό Excel'],
-    [`${MOD} + 1 … 9`, 'Οι σελίδες με τη σειρά του μενού'], [`${MOD} + 0`, 'Ρυθμίσεις'], ['← →', 'Προηγούμενος / επόμενος μήνας (στον «Μήνα»)'], ['Enter', 'Αποθήκευση σε παράθυρο'], ['Esc', 'Κλείσιμο παραθύρου']];
+    [`${MOD} + 1 … 9`, 'Οι σελίδες με τη σειρά του μενού'], [`${MOD} + 0`, 'Ρυθμίσεις'], ['F1', 'Βοήθεια: «Πώς κάνω…;»'], ['← →', 'Προηγούμενος / επόμενος μήνας (στον «Μήνα»)'], ['Enter', 'Αποθήκευση σε παράθυρο'], ['Esc', 'Κλείσιμο παραθύρου']];
   return `<div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>⌨️ Συντομεύσεις πληκτρολογίου</h2>
     <table class="data" style="max-width:40rem"><tbody>${rows.map(r => `<tr style="cursor:default"><td style="width:11rem"><kbd>${r[0]}</kbd></td><td>${r[1]}</td></tr>`).join('')}</tbody></table>
@@ -2254,6 +2501,7 @@ function renderForm() {
           <label for="fm-note">Σημείωση <span class="muted" style="font-weight:500">(προαιρετικά)</span></label>
           ${notes.length ? `<div class="chips" style="margin-bottom:.5rem">${notes.map(n => `<button class="chip ${n === f.note ? 'sel' : ''}" data-action="form-note" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
           <input id="fm-note" type="text" style="width:100%" value="${esc(f.note)}" placeholder="π.χ. λαϊκή, βενζίνη, φαρμακείο">
+          ${attBlock('form', null, f.attachments)}
         </div>
         <div class="row">
           <div class="field">
@@ -2327,7 +2575,8 @@ function saveForm() {
     ...(sh !== 100 ? { rentAmount: amt } : {}),
     id: f.id || uid(), date: f.date, dayKnown: f.dayKnown !== false, type: f.type, amount: sh !== 100 ? round2(amt * sh / 100) : amt, categoryId: f.categoryId,
     note: f.note || '', person: f.person || '', method: f.method || '', planned: !!f.planned,
-    source: f.source || 'app', created: f.created || new Date().toISOString()
+    source: f.source || 'app', created: f.created || new Date().toISOString(),
+    ...((f.attachments || []).length ? { attachments: f.attachments } : {})
   };
   const added = [rec];
   if (f.id) {
@@ -2597,6 +2846,9 @@ const actions = {
   'pal-close': (el, ev) => { if (ev && ev.target !== el) return; pal = null; renderPal(); },
   'pal-go': el => { const r = pal && pal.res && pal.res[+el.dataset.i]; if (r) r.run(); },
   ...bkActions,
+  ...polActions,
+  ...attActions,
+  ...helpActions,
   ...pinActions,
   'new-expense': () => openForm('expense'),
   'new-income': () => openForm('income'),
@@ -2951,6 +3203,7 @@ document.addEventListener('keydown', ev => {
     else if (ev.key === 'Enter') { ev.preventDefault(); const r = pal.res && pal.res[pal.sel]; if (r) r.run(); }
     return;
   }
+  if (ev.key === 'F1' && DB && !form) { ev.preventDefault(); openHelp(); return; }
   const mod = ev.ctrlKey || ev.metaKey;
   if (mod && !ev.altKey && DB) {
     const c = ev.code;
