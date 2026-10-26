@@ -8,3 +8,6 @@ dist/
 homeflow-data*.json
 HomeFlow-*.json
 *.csv
+tests/node_modules
+tests/package.json
+tests/package-lock.json

@@ -2411,7 +2411,13 @@ function searchAll(q) {
   txs.sort((a, b) => b.date.localeCompare(a.date));
   for (const t of txs.slice(0, 40)) out.push({ group: `Κινήσεις (${txs.length})`, icon: catIcon(t.categoryId), title: `${catName(t.categoryId)}${t.note ? ' – ' + t.note : ''}`, sub: `${dateLabel(t)}${t.planned ? ' · προγραμματισμένο' : ''}`, amt: `<span class="${t.type === 'income' ? 'inc' : 'exp'}">${t.type === 'income' ? '+' : '−'} ${eur(t.amount)}</span>`, run: () => { pal = null; renderPal(); openForm(t.type, t); } });
   if (txs.length > 40) out.push({ group: `Κινήσεις (${txs.length})`, icon: '📋', title: `Όλες οι ${txs.length} κινήσεις με «${q}»`, run: () => { Object.assign(ui.list, { year: 0, month: 0, cat: '', type: 'all', q, limit: 200 }); goTo('list', { tab: ['list', 'all'] }); } });
-  return out;
+  // Πρώτα οι ομάδες που έχουν κάτι με όνομα που ταιριάζει ακριβώς (π.χ. ο ενοικιαστής πριν από το «Νέος ενοικιαστής»)
+  const nq = normS(q).trim();
+  const score = r => { const t = normS(r.title); return t === nq ? 0 : t.startsWith(nq) ? 1 : t.includes(nq) ? 2 : 3; };
+  const gBest = {};
+  out.forEach(r => { gBest[r.group] = Math.min(gBest[r.group] == null ? 9 : gBest[r.group], score(r)); });
+  const gOrder = [...new Set(out.map(r => r.group))];
+  return out.map((r, i) => ({ r, i })).sort((a, b) => (gBest[a.r.group] - gBest[b.r.group]) || (gOrder.indexOf(a.r.group) - gOrder.indexOf(b.r.group)) || (score(a.r) - score(b.r)) || (a.i - b.i)).map(x => x.r);
 }
 function openSearch() { if (!DB || locked) return; if (form) return; if (dlg) { dlg = null; renderDlg(); } pal = { q: '', sel: 0 }; renderPal(); }
 function renderPal(keepInput) {

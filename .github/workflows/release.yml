@@ -18,7 +18,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Πρώτα οι δοκιμές. Αν αποτύχει έστω και μία, ΔΕΝ φτιάχνεται νέα έκδοση.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Εγκατάσταση εργαλείων δοκιμής
+        run: |
+          cd tests
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund playwright@1
+          npx playwright install --with-deps chromium
+      - name: Μικρές δοκιμές
+        run: node tests/unit.test.js
+      - name: Δοκιμή οθόνης (όλες οι σελίδες, 3 μεγέθη, φωτεινή και σκούρα)
+        run: node tests/ui.test.js
+
   build:
+    needs: test
     strategy:
       fail-fast: true
       matrix:
