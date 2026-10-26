@@ -41,6 +41,7 @@ function homePage() {
     <h1>${MONTHS[month - 1]} <span class="yr">${year}</span></h1>
     <div class="spacer"></div>
     ${isCurrent ? '' : '<button class="btn no-print" data-action="month-today">Σήμερα</button>'}
+    <button class="btn no-print" data-action="month-pdf" title="Μία σελίδα με τη σύνοψη του μήνα, για αρχείο ή για τον λογιστή">📄 PDF μήνα</button>
     <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
     <div class="month-nav no-print">
       <button class="btn" data-action="month-prev" title="Προηγούμενος μήνας">‹</button>

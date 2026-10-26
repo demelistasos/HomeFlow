@@ -43,6 +43,7 @@ const COMMANDS = [
   ['❓', 'Βοήθεια: Πώς κάνω…;', 'βοηθεια οδηγιεσ πωσ', () => openHelp(), 'F1'],
   ['📅', 'Η χρονιά', 'ετοσ πινακασ excel', () => goTo('year')],
   ['📈', 'Ιστορικό χρόνων', 'παλια χρονια', () => goTo('history')],
+  ['📄', 'PDF μήνα (σύνοψη για αρχείο ή λογιστή)', 'εκτυπωση pdf συνοψη μηνα λογιστησ', () => { pal = null; renderPal(); exportMonthPdf(); }],
   ['📊', 'Συγκεντρωτικό Excel', 'εκτυπωση excel αρχειο', () => { pal = null; renderPal(); exportSummary(); }, `${MOD}+P`],
   ['⚙️', 'Ρυθμίσεις', 'ρυθμισεισ', () => goTo('settings', { tab: ['settings', 'general'] }), `${MOD}+0`],
   ['🌙', 'Σκούρα / φωτεινή εμφάνιση', 'dark mode σκουρο θεμα εμφανιση', () => goTo('settings', { tab: ['settings', 'general'] })],

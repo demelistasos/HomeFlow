@@ -143,6 +143,12 @@ function normalize(d) {
   d.people = (d.people || []).map(p => Object.assign({ name: '', note: '', entries: [] }, p));
   d.cars = (d.cars || []).map(c => Object.assign({ name: '', since: '', fuelCategoryId: '', sold: '', kteo: '', km: [], services: [] }, c));
   d.field = Object.assign({ waterings: [], payments: [], categoryId: '' }, d.field || {});
+  // Το χωράφι έχει τη δική του κατηγορία εξόδων (για να φαίνεται χωριστά στα έξοδα και στο Excel)
+  if (!d.field.categoryId || !d.categories.some(c => c.id === d.field.categoryId)) {
+    let c = d.categories.find(x => x.type === 'expense' && /χωράφ/i.test(x.name));
+    if (!c) { c = { id: 'c_field', name: 'Χωράφι – πότισμα', icon: '🌳', type: 'expense', color: '#65a30d', budget: null, extra: false, archived: false, order: d.categories.length }; d.categories.push(c); }
+    d.field.categoryId = c.id;
+  }
   d.policies = (d.policies || []).map(p => Object.assign({ kind: 'other', name: '', what: '', company: '', number: '', amount: 0, every: 12, next: '', categoryId: '', attachments: [], history: [] }, p));
   if (d.power) d.power.bills = d.power.bills || [];
   d.history = d.history || {};

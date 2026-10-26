@@ -85,12 +85,32 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       check(await page.evaluate(() => JSON.parse(localStorage.getItem('homeflow-data')).policies.length) === 2, 'νέα ασφάλεια αποθηκεύεται');
       // χωράφι, ΔΕΗ
       await goto('field'); await page.click('[data-action="water-new"]'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(60);
+      await page.click('[data-action="field-pay"]'); await page.waitForTimeout(60); await page.fill('#d-amount', '170'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+      check(await page.evaluate(() => { const d = JSON.parse(localStorage.getItem('homeflow-data')); const c = d.categories.find(c => c.id === d.field.categoryId); const t = d.transactions[d.transactions.length - 1]; return !!c && /Χωράφι/.test(c.name) && t.categoryId === c.id && t.amount === 170; }), 'η πληρωμή του χωραφιού μπαίνει στη δική του κατηγορία');
       await goto('rent'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="power"]').click()); await page.click('[data-action="pb-new"]');
       await page.fill('#d-pfrom', '2030-01-01'); await page.fill('#d-pto', '2030-02-01'); await page.fill('#d-pkwh', '200'); await page.fill('#d-penergy', '60'); await page.fill('#d-pfees', '40'); await page.fill('#d-pr1', '1100'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(60);
       check(await page.evaluate(() => JSON.parse(localStorage.getItem('homeflow-data')).power.bills.length) === 2, 'λογαριασμός ΔΕΗ μοιράζεται και αποθηκεύεται');
       // βοήθεια, ημερολόγιο
       await page.keyboard.press('F1'); await page.waitForTimeout(60); await page.click('[data-action="help-topic"] >> nth=0'); await page.keyboard.press('Escape');
       await goto('home'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="cal"]').click()); await page.click('.cal-c.has >> nth=0'); await page.waitForTimeout(60); await page.keyboard.press('Escape');
+      // PDF μήνα: μία σελίδα Α4
+      const pop = page.waitForEvent('popup').catch(() => null);
+      await page.click('[data-action="month-pdf"]'); const pw = await pop; if (pw) await pw.close();
+      const html = await page.evaluate(() => window.__lastReport);
+      check(!!html && /Μπήκαν/.test(html) && /Ενοίκια/.test(html) && /Εκκρεμότητες/.test(html) && /Εταιρεία Β/.test(html), 'το PDF του μήνα έχει έσοδα, έξοδα, ενοίκια και εκκρεμότητες');
+      { const rp = await browser.newPage(); await rp.setContent(html.replace('fonts/Commissioner.ttf', url.replace('index.html', 'fonts/Commissioner.ttf'))); await rp.waitForTimeout(150);
+        const pdf = await rp.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true }); const pages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+        check(pages === 1, `το PDF του μήνα είναι μία σελίδα (βγήκε ${pages})`);
+        // και με πολλά δεδομένα χωράει πάλι σε μία σελίδα
+        await page.evaluate(() => { const L = 'με πολύ μεγάλο όνομα που δεν χωράει σε μία γραμμή του πίνακα '; for (let i = 0; i < 16; i++) DB.categories.push({ id: 'zc' + i, name: 'Κατηγορία ' + (i % 3 ? '' : L) + i, icon: '📦', type: i % 2 ? 'income' : 'expense', color: '#000', archived: false, order: 90 + i }); for (let i = 0; i < 60; i++) DB.transactions.push({ id: 'z' + i, date: todayStr(), dayKnown: true, type: '', amount: 10 + i, categoryId: DB.categories[i % DB.categories.length].id, note: i % 5 ? '' : L, planned: i % 4 === 0, created: '' }); DB.transactions.filter(t => /^z\d/.test(t.id)).forEach(t => { t.type = catById(t.categoryId).type; }); for (let i = 0; i < 18; i++) DB.tenants.push({ ...DB.tenants[0], id: 'tz' + i, name: 'Ενοικιαστής ' + (i % 2 ? L : '') + i, property: L }); window.__lastReport = monthReportHtml(ui.year, ui.month, ''); });
+        await rp.setContent(await page.evaluate(() => window.__lastReport)); await rp.waitForTimeout(100);
+        const pdf2 = await rp.pdf({ format: 'A4', preferCSSPageSize: true, printBackground: true }); const p2 = (pdf2.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+        check(p2 === 1, `το PDF του μήνα με πολλά δεδομένα μένει μία σελίδα (βγήκε ${p2})`);
+        check(/και άλλοι \d+ ενοικιαστές/.test(await page.evaluate(() => window.__lastReport)), 'το PDF του μήνα με πολλά δεδομένα δείχνει «και άλλοι» αντί να χαλάει');
+        if (process.env.HF_PDF) { fs.writeFileSync(process.env.HF_PDF, pdf); fs.writeFileSync(process.env.HF_PDF.replace(/(\.pdf)?$/i, '-heavy.pdf'), pdf2); }
+        await rp.close();
+        await page.evaluate(() => { DB.transactions = DB.transactions.filter(t => !/^z\d/.test(t.id)); DB.tenants = DB.tenants.filter(t => !/^tz/.test(t.id)); DB.categories = DB.categories.filter(c => !/^zc/.test(c.id)); });
+      }
       // Excel
       await page.click('[data-action="print"]'); await page.waitForTimeout(100);
       const book = await page.evaluate(() => window.__lastBook);

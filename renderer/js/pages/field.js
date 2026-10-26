@@ -41,7 +41,7 @@ function fieldPage() {
     <button class="btn primary no-print" data-action="water-new">💧 Πότισα</button>
     <button class="btn expense no-print" data-action="field-pay">💶 Πλήρωσα το πότισμα</button>
     <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
-  <div class="h-hint" style="margin:-.6rem 0 1rem">Κάθε φορά που ποτίζετε, πατάτε «Πότισα» και γράφετε τις ώρες. Στο τέλος της σεζόν πατάτε «Πλήρωσα» και το ποσό μπαίνει στα έξοδα.</div>
+  <div class="h-hint" style="margin:-.6rem 0 1rem">Κάθε φορά που ποτίζετε, πατάτε «Πότισα» και γράφετε τις ώρες. Στο τέλος της σεζόν πατάτε «Πλήρωσα» και το ποσό μπαίνει στα έξοδα, στη δική του κατηγορία «${esc(catName(fieldCatId()))}».</div>
   <div class="cards">
     <div class="card bal"><div class="label">Ώρες πότισμα ${y}</div><div class="value num">${hrs(cur.hours)}</div><div class="sub">${cur.ws.length} ποτίσματα</div></div>
     <div class="card exp"><div class="label">Θα κοστίσει περίπου</div><div class="value exp num">${eur(est)}</div><div class="sub">${rate ? `με ${numFmt.format(rate)} € την ώρα (όσο πέρσι)` : 'Δεν υπάρχει προηγούμενη πληρωμή'}</div></div>

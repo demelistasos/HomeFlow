@@ -1,14 +1,27 @@
 name: Build HomeFlow (Windows και Mac)
 
 # Σε κάθε αλλαγή στο main φτιάχνεται νέα έκδοση (0.1.<αριθμός>).
-# Ανεβαίνει ΜΙΑ έκδοση (v0.1.N) με δύο αρχεία:
-#   HomeFlow-Windows-0.1.N.zip  και  HomeFlow-Mac-0.1.N.zip
+# Ανεβαίνει ΜΙΑ έκδοση (v0.1.N) με τα αρχεία:
+#   HomeFlow-Windows-0.1.N.zip, HomeFlow-Mac-0.1.N.zip και SHA256SUMS.txt
+#
+# Το Mac χτίζεται ταυτόχρονα σε ΔΥΟ διαφορετικά είδη Mac του GitHub (Apple Silicon και Intel),
+# γιατί συχνά τα Apple Silicon δεν είναι διαθέσιμα. Και τα δύο φτιάχνουν το ίδιο «universal» zip,
+# οπότε αρκεί να πετύχει ένα. Αν δεν πετύχει κανένα, τα Windows βγαίνουν κανονικά χωρίς Mac.
+#
+# Αν μια έκδοση βγήκε χωρίς Mac: Actions → «Build HomeFlow» → Run workflow και γράψτε την
+# έκδοση (π.χ. 0.1.24) στο «mac_for_version». Θα χτιστεί μόνο το Mac από τον κώδικα εκείνης
+# της έκδοσης και θα προστεθεί στην υπάρχουσα έκδοση (μαζί με νέο SHA256SUMS.txt).
 on:
   push:
     branches: [main]
     paths-ignore:
       - '**.md'
   workflow_dispatch:
+    inputs:
+      mac_for_version:
+        description: 'Μόνο Mac για υπάρχουσα έκδοση (π.χ. 0.1.24). Αφήστε κενό για νέα κανονική έκδοση.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -17,12 +30,20 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  # Ο αριθμός έκδοσης: κανονικά 0.1.<αριθμός εκτέλεσης>, ή αυτός που δόθηκε για «μόνο Mac».
+  V: ${{ inputs.mac_for_version || format('0.1.{0}', github.run_number) }}
+  # Για «μόνο Mac» χτίζεται ο κώδικας της υπάρχουσας έκδοσης (tag v0.1.N). Αλλιώς ο τρέχων.
+  SRC_REF: ${{ inputs.mac_for_version && format('v{0}', inputs.mac_for_version) || github.sha }}
+
 jobs:
   # Πρώτα οι δοκιμές. Αν αποτύχει έστω και μία, ΔΕΝ φτιάχνεται νέα έκδοση.
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SRC_REF }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -37,65 +58,89 @@ jobs:
       - name: Δοκιμή οθόνης (όλες οι σελίδες, 3 μεγέθη, φωτεινή και σκούρα)
         run: node tests/ui.test.js
 
-  build:
+  build-windows:
     needs: test
-    strategy:
-      # Αν το GitHub δεν έχει ελεύθερο Mac, η έκδοση για Windows βγαίνει κανονικά χωρίς αυτό.
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: --win
-            optional: false
-          - os: macos-latest
-            target: --mac
-            optional: true
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.optional }}
+    if: ${{ !inputs.mac_for_version }}
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-
+        with:
+          ref: ${{ env.SRC_REF }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Εγκατάσταση
         run: npm install
-
       - name: Αριθμός έκδοσης
         shell: bash
-        run: npm version "0.1.${{ github.run_number }}" --no-git-tag-version --allow-same-version
-
+        run: npm version "$V" --no-git-tag-version --allow-same-version
       - name: Build
-        run: npx electron-builder ${{ matrix.target }} --publish never
+        run: npx electron-builder --win --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-
       - uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
+          name: dist-windows
           if-no-files-found: error
-          path: dist/HomeFlow-*.zip
+          path: dist/HomeFlow-Windows-*.zip
+
+  build-mac:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest = Apple Silicon (macOS 26), macos-15-intel = Intel (υπάρχει ως το φθινόπωρο 2027).
+        # Και τα δύο φτιάχνουν το ίδιο universal zip (τρέχει σε Intel και Apple Silicon Mac).
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    # Αν το GitHub δεν δώσει Mac (ή αποτύχει το build), η έκδοση βγαίνει χωρίς αυτό.
+    continue-on-error: true
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SRC_REF }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Εγκατάσταση
+        run: npm install
+      - name: Αριθμός έκδοσης
+        shell: bash
+        run: npm version "$V" --no-git-tag-version --allow-same-version
+      - name: Build
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-mac-${{ matrix.os }}
+          if-no-files-found: error
+          path: dist/HomeFlow-Mac-*.zip
 
   release:
-    needs: [test, build]
-    if: ${{ always() && needs.test.result == 'success' }}
+    needs: [test, build-windows, build-mac]
+    if: ${{ always() && !inputs.mac_for_version && needs.test.result == 'success' && needs.build-windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: out
-          merge-multiple: true
+          pattern: dist-*
+          path: in
 
       - name: Δημοσίευση στα Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ls -la out
-          V="0.1.${{ github.run_number }}"
-          # Τα Windows είναι υποχρεωτικά. Το Mac μπαίνει μόνο αν χτίστηκε.
-          test -f "out/HomeFlow-Windows-$V.zip" || { echo "Λείπει το zip των Windows"; exit 1; }
+          find in -type f -ls
+          mkdir out
+          W="HomeFlow-Windows-$V.zip"; M="HomeFlow-Mac-$V.zip"
+          # Τα Windows είναι υποχρεωτικά.
+          cp "in/dist-windows/$W" out/ || { echo "Λείπει το zip των Windows"; exit 1; }
+          # Το Mac μπαίνει μόνο αν χτίστηκε (αρκεί ένα από τα δύο, είναι ίδια universal zip).
+          MAC=$(ls in/dist-mac-*/"$M" 2>/dev/null | head -n 1 || true)
+          if [ -n "$MAC" ]; then cp "$MAC" out/; echo "Mac από: $MAC"; else echo "::warning::Δεν χτίστηκε Mac. Τρέξτε ξανά με mac_for_version=$V"; fi
           FILES=$(cd out && ls HomeFlow-*-"$V".zip)
           # «αποτύπωμα» κάθε zip, για να ελέγχει η εφαρμογή ότι κατέβηκε σωστά
           (cd out && sha256sum $FILES > SHA256SUMS.txt && cat SHA256SUMS.txt)
@@ -105,3 +150,30 @@ jobs:
             --target "${{ github.sha }}" \
             --latest \
             --notes "Windows: κατεβάστε το HomeFlow-Windows-$V.zip, αποσυμπιέστε το και ανοίξτε το HomeFlow.exe (οδηγίες στο «ΔΙΑΒΑΣΕ ΜΕ.txt»). Mac: κατεβάστε το HomeFlow-Mac-$V.zip και βάλτε το HomeFlow στις Εφαρμογές. Αν έχετε παλιά έκδοση, βάλτε τη νέα στη θέση της. Τα στοιχεία σας δεν χάνονται."
+
+  # Μόνο με «Run workflow» + mac_for_version: προσθέτει το Mac zip σε υπάρχουσα έκδοση.
+  attach-mac:
+    needs: [test, build-mac]
+    if: ${{ always() && inputs.mac_for_version && needs.test.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-mac-*
+          path: in
+
+      - name: Προσθήκη του Mac στην έκδοση
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          find in -type f -ls
+          M="HomeFlow-Mac-$V.zip"
+          MAC=$(ls in/dist-mac-*/"$M" 2>/dev/null | head -n 1 || true)
+          [ -n "$MAC" ] || { echo "Δεν χτίστηκε Mac (το GitHub δεν έδωσε Mac). Δοκιμάστε ξανά αργότερα."; exit 1; }
+          mkdir out && cp "$MAC" out/
+          # Το υπάρχον SHA256SUMS.txt κρατά τη γραμμή των Windows. Αλλάζει μόνο η γραμμή του Mac.
+          gh release download "v$V" --repo "$REPO" --pattern SHA256SUMS.txt --dir old
+          (grep -v "  $M\$" old/SHA256SUMS.txt || true) > out/SHA256SUMS.txt
+          (cd out && sha256sum "$M" >> SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release upload "v$V" "out/$M" out/SHA256SUMS.txt --repo "$REPO" --clobber

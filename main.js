@@ -259,6 +259,37 @@ ipcMain.handle('data:saveXlsx', async (_e, { book, defaultName }) => {
   return { ok: true, path: res.filePath };
 });
 
+// Σύνοψη μήνα σε PDF: η σελίδα φτιάχνεται στο παράθυρο, εδώ γίνεται PDF σε κρυφό παράθυρο
+ipcMain.handle('data:savePdf', async (_e, { html, defaultName }) => {
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Αποθήκευση PDF',
+    defaultPath: path.join(app.getPath('documents'), String(defaultName || 'HomeFlow.pdf').replace(/[\\/:*?"<>|]/g, '_')),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  });
+  if (res.canceled || !res.filePath) return { ok: false };
+  // Η γραμματοσειρά μπαίνει μέσα στη σελίδα (data:), ώστε να φορτώνει σίγουρα και μέσα από το app.asar
+  // και από φακέλους με ελληνικά ή κενά στο όνομα, χωρίς τους περιορισμούς του file://.
+  let font = '';
+  try { font = 'data:font/ttf;base64,' + fs.readFileSync(path.join(__dirname, 'renderer', 'fonts', 'Commissioner.ttf')).toString('base64'); } catch { /* τυπώνει με τη γραμματοσειρά του συστήματος */ }
+  const tmp = path.join(app.getPath('temp'), `homeflow-report-${process.pid}-${Date.now()}.html`);
+  let pdfWin = null;
+  try {
+    fs.writeFileSync(tmp, String(html).split('__FONT__').join(font), 'utf8');
+    pdfWin = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+    await pdfWin.loadFile(tmp);
+    await new Promise(r => setTimeout(r, 250)); // λίγος χρόνος για να εφαρμοστεί η γραμματοσειρά
+    const pdf = await pdfWin.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
+    fs.writeFileSync(res.filePath, pdf);
+  } catch (e) {
+    return { ok: false, error: e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'EACCES' ? 'Το αρχείο είναι ανοιχτό σε άλλο πρόγραμμα ή ο φάκελος δεν επιτρέπει αποθήκευση. Κλείστε το ή διαλέξτε άλλο φάκελο.' : 'Δεν αποθηκεύτηκε: ' + e.message };
+  } finally {
+    if (pdfWin && !pdfWin.isDestroyed()) pdfWin.destroy();
+    try { fs.unlinkSync(tmp); } catch { /* τίποτα */ }
+  }
+  shell.openPath(res.filePath);
+  return { ok: true, path: res.filePath };
+});
+
 ipcMain.handle('att:add', async (_e, title) => {
   const res = await dialog.showOpenDialog(win, {
     title: title || 'Επιλέξτε αρχείο',
