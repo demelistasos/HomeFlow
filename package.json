@@ -20,6 +20,7 @@
     "productName": "HomeFlow",
     "files": [
       "main.js",
+      "xlsx.js",
       "preload.js",
       "renderer/**/*",
       "package.json"

@@ -390,7 +390,7 @@ function homePage() {
     <h1>${MONTHS[month - 1]} <span class="yr">${year}</span></h1>
     <div class="spacer"></div>
     ${isCurrent ? '' : '<button class="btn no-print" data-action="month-today">Σήμερα</button>'}
-    <button class="btn no-print" data-action="print" title="Εκτύπωση">🖨️</button>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
     <div class="month-nav no-print">
       <button class="btn" data-action="month-prev" title="Προηγούμενος μήνας">‹</button>
       <button class="btn" data-action="month-next" title="Επόμενος μήνας">›</button>
@@ -476,8 +476,8 @@ function listPage() {
   const shown = rows.slice(0, f.limit);
   return `
   <div class="page-head"><h1>Κινήσεις</h1><div class="spacer"></div>
-    <button class="btn no-print" data-action="export-csv">📊 Αποθήκευση για Excel</button>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+    <button class="btn no-print" data-action="export-csv">📄 Μόνο αυτές οι κινήσεις</button>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   ${(() => { ui.tabs.list = f.type; return tabBar('list', [{ k: 'all', icon: '📋', label: 'Όλες' }, { k: 'expense', icon: '−', label: 'Έξοδα' }, { k: 'income', icon: '+', label: 'Έσοδα' }], 'all')[1]; })()}
   <div class="filters no-print">
     <select id="f-year" title="Χρονιά">${years.map(y => `<option value="${y}" ${y === f.year ? 'selected' : ''}>${y}</option>`).join('')}<option value="0" ${!f.year ? 'selected' : ''}>Όλες οι χρονιές</option></select>
@@ -565,7 +565,7 @@ function rentPage() {
   return `
   <div class="page-head"><h1>Ενοίκια</h1><div class="spacer"></div>
     <button class="btn primary no-print" data-action="tenant-new">+ Νέος ενοικιαστής</button>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   ${DB.tenants.length ? `
   <div class="cards">
     <div class="card bal"><div class="label">Ενοίκια ${MONTHS[+s.slice(5) - 1]}</div><div class="value num">${eur(expect)}</div><div class="sub">όσα πρέπει να μπουν αυτόν τον μήνα</div></div>
@@ -601,7 +601,7 @@ function tenantPage(t) {
     <button class="btn income no-print" data-action="tenant-pay" data-id="${t.id}">💶 Πλήρωσε</button>
     <button class="btn no-print" data-action="tenant-edit" data-id="${t.id}">✎ Στοιχεία</button>
     ${t.end && t.end < curYM() ? `<button class="btn no-print" data-action="tenant-unleave" data-id="${t.id}">↩ Δεν έφυγε</button>` : `<button class="btn no-print" data-action="tenant-leave" data-id="${t.id}">🚪 Ξενοικιάστηκε</button>`}
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
   </div>
   <div class="cards">
     <div class="card ${led.balance > 0.005 ? 'exp' : 'inc'}"><div class="label">Σήμερα</div><div class="value num" style="font-size:1.6rem;margin-top:.4rem">${balanceText(led.balance)}</div></div>
@@ -703,7 +703,7 @@ function moneyPage() {
   return `
   <div class="page-head"><h1>Χρήματα</h1><div class="spacer"></div>
     <button class="btn primary no-print" data-action="acc-new">+ Νέος λογαριασμός</button>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   ${accs.length ? `
   <div class="cards">
     <div class="card bal"><div class="label">Όλα μαζί σε ευρώ</div><div class="value num">${eur0(t.all)}</div><div class="sub">${t0.all ? `Από 1 Ιανουαρίου: <b class="${diffYear < 0 ? 'exp' : 'inc'}">${diffYear >= 0 ? '+' : '−'}${eur0(Math.abs(diffYear))}</b>` : ''}</div></div>
@@ -813,7 +813,7 @@ function taxPage() {
     <div class="month-nav"><button class="btn" data-action="taxyear-prev">◀</button><div class="month-title" style="min-width:11rem">Εφορία ${year}</div><button class="btn" data-action="taxyear-next">▶</button></div>
     <div class="spacer"></div>
     <button class="btn primary no-print" data-action="tax-new">+ Νέα οφειλή</button>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
   </div>
   <div class="cards">
     <div class="card inc"><div class="label">Δόσεις που πληρώθηκαν</div><div class="value num">${eur(paid)}</div><div class="sub">Όλα τα έξοδα εφορίας ${year}: ${eur(spent)}</div></div>
@@ -860,7 +860,7 @@ function peoplePage() {
       <button class="btn expense no-print" data-action="pentry-new" data-id="${p.id}" data-dir="out">− Πληρώσαμε για αυτούς</button>
       <button class="btn income no-print" data-action="pentry-new" data-id="${p.id}" data-dir="in">+ Μας έδωσαν</button>
       <button class="btn no-print" data-action="person-edit" data-id="${p.id}">✎</button>
-      <button class="btn no-print" data-action="print">🖨️</button></div>
+      <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
     <div class="cards" style="grid-template-columns:1fr 2fr"><div class="card bal"><div class="label">Σήμερα</div><div class="value" style="font-size:1.6rem;margin-top:.4rem">${personBalText(personBalance(p))}</div></div>
       <div class="card"><div class="label">Σημείωση</div><div style="margin-top:.4rem">${esc(p.note || '—')}</div></div></div>
     <div class="sheet-wrap"><table class="data"><thead><tr><th>Ημερομηνία</th><th>Τι</th><th class="r">Πληρώσαμε εμείς</th><th class="r">Μας έδωσαν</th><th class="r">Υπόλοιπο</th></tr></thead>
@@ -907,7 +907,7 @@ function carsPage() {
       <button class="btn primary no-print" data-action="car-km" data-id="${c.id}">📍 Χιλιόμετρα</button>
       <button class="btn no-print" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
       <button class="btn no-print" data-action="car-edit" data-id="${c.id}">✎</button>
-      <button class="btn no-print" data-action="print">🖨️</button></div>
+      <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
     ${(() => { const [t, b] = tabBar('car', [{ k: 'service', icon: '🔧', label: 'Σέρβις και επισκευές', count: sv.length }, { k: 'km', icon: '📍', label: 'Χιλιόμετρα', count: log.length }], 'service'); ui._carTab = t; return b; })()}
     <div>
       ${ui._carTab !== 'service' ? '' : `<div class="panel"><h2>🔧 Σέρβις και επισκευές</h2>
@@ -1064,7 +1064,7 @@ function fieldPage() {
   <div class="page-head"><h1>🌱 Χωράφι</h1><div class="spacer"></div>
     <button class="btn primary no-print" data-action="water-new">💧 Πότισα</button>
     <button class="btn expense no-print" data-action="field-pay">💶 Πλήρωσα το πότισμα</button>
-    <button class="btn no-print" data-action="print">🖨️</button></div>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   <div class="h-hint" style="margin:-.6rem 0 1rem">Κάθε φορά που ποτίζετε, πατάτε «Πότισα» και γράφετε τις ώρες. Στο τέλος της σεζόν πατάτε «Πλήρωσα» και το ποσό μπαίνει στα έξοδα.</div>
   <div class="cards">
     <div class="card bal"><div class="label">Ώρες πότισμα ${y}</div><div class="value num">${hrs(cur.hours)}</div><div class="sub">${cur.ws.length} ποτίσματα</div></div>
@@ -1703,8 +1703,7 @@ function yearPage() {
       <button class="btn" data-action="year-next">▶</button>
     </div>
     <div class="spacer"></div>
-    <button class="btn no-print" data-action="export-year">📊 Για Excel</button>
-    <button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button>
+    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
   </div>
   <div class="cards four">
     <div class="card inc"><div class="label">Έσοδα ${year}</div><div class="value inc num">${eur0(totI)}</div></div>
@@ -1790,7 +1789,7 @@ function historyPage() {
     svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="${rows.length > 16 ? 12 : 14}" style="fill:var(--ink-2)">${rows.length > 16 ? "'" + String(r.y).slice(2) : r.y}</text>`;
   });
   return `
-  <div class="page-head"><h1>Ιστορικό χρόνων</h1><div class="spacer"></div><button class="btn no-print" data-action="print">🖨️ Εκτύπωση</button></div>
+  <div class="page-head"><h1>Ιστορικό χρόνων</h1><div class="spacer"></div><button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   ${(() => { const [t, b] = tabBar('history', [{ k: 'table', icon: '📋', label: 'Πίνακας' }, { k: 'chart', icon: '📊', label: 'Γράφημα' }], 'table'); ui._histTab = t; return b; })()}
   <div class="panel ${ui._histTab === 'chart' ? '' : 'hidden'}">
     <h2>Έσοδα και έξοδα ανά χρονιά</h2>
@@ -2253,6 +2252,178 @@ async function saveText(text, name, kind) {
   const blob = new Blob([(kind === 'csv' ? '﻿' : '') + text], { type: kind === 'csv' ? 'text/csv' : 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
 }
+// ======================= συγκεντρωτικό Excel =======================
+const XL = {
+  h: v => ({ v, s: 'head' }), m: v => (v ? { v: round2(v), s: 'money' } : null), mz: v => ({ v: round2(v || 0), s: 'money' }), mb: v => ({ v: round2(v || 0), s: 'moneyB' }),
+  b: v => ({ v, s: 'bold' }), tt: v => ({ v, s: 'totalTxt' }), title: v => ({ v, s: 'title' }), sub: v => ({ v, s: 'sub' }),
+  d: s => { if (!s) return null; const [y, m, d] = s.split('-').map(Number); return { v: (Date.UTC(y, m - 1, d || 1) - Date.UTC(1899, 11, 30)) / 86400000, s: 'date' }; },
+  n: v => (v == null ? null : { v, s: 'num' })
+};
+function xlHeadRows(title, sub) { return [[XL.title(title)], [XL.sub(sub || `HomeFlow · ${shortDate(todayStr())}`)], []]; }
+function catSheet(year, type) {
+  const a = yearAgg(year), data = type === 'expense' ? a.exp : a.inc, pl = type === 'expense' ? a.expPl : a.incPl;
+  const rows = xlHeadRows(`${type === 'expense' ? 'Έξοδα' : 'Έσοδα'} ${year} ανά κατηγορία`, 'Τα ποσά των προγραμματισμένων (που δεν έχουν γίνει ακόμα) δεν μετράνε.');
+  rows.push([XL.h('Κατηγορία'), ...MONTHS_SHORT.map(XL.h), XL.h('Σύνολο'), ...(type === 'expense' ? [XL.h('Πρόβλεψη'), XL.h('Διαφορά')] : [])]);
+  const tot = Array(12).fill(0);
+  for (const c of DB.categories.filter(c => c.type === type).sort((x, y) => x.order - y.order)) {
+    const arr = data[c.id];
+    if (!arr && !(pl[c.id])) continue;
+    const vals = arr || Array(12).fill(0);
+    vals.forEach((v, i) => { tot[i] += v; });
+    const sum = vals.reduce((x, y) => x + y, 0);
+    rows.push([`${c.icon} ${c.name}${c.extra ? ' (έκτακτο)' : ''}`, ...vals.map(XL.m), XL.mz(sum), ...(type === 'expense' ? [c.budget ? XL.mz(c.budget) : null, c.budget ? { v: round2(c.budget - sum), s: c.budget - sum < 0 ? 'moneyR' : 'moneyG' } : null] : [])]);
+  }
+  rows.push([XL.tt('Σύνολο'), ...tot.map(XL.mb), XL.mb(tot.reduce((x, y) => x + y, 0)), ...(type === 'expense' ? [XL.mb(DB.categories.filter(c => c.type === 'expense').reduce((x, c) => x + (c.budget || 0), 0)), null] : [])]);
+  return { name: `${type === 'expense' ? 'Έξοδα' : 'Έσοδα'} ${year}`, rows, widths: [34, ...Array(12).fill(11), 13, 13, 12], freeze: 4, landscape: true };
+}
+function buildSummaryBook(year, focus) {
+  const sheets = [];
+  const a = yearAgg(year);
+  // 1. Σύνοψη
+  {
+    const rows = xlHeadRows(`Σύνοψη ${year}`);
+    rows.push([XL.h('Μήνας'), XL.h('Έσοδα'), XL.h('Έξοδα'), XL.h('Έμειναν'), XL.h('Έξοδα χωρίς έκτακτα')]);
+    let ti = 0, te = 0, tn = 0;
+    for (let m = 0; m < 12; m++) {
+      ti += a.mInc[m]; te += a.mExp[m]; tn += a.mExpNoExtra[m];
+      rows.push([MONTHS[m], XL.m(a.mInc[m]), XL.m(a.mExp[m]), a.mInc[m] || a.mExp[m] ? { v: round2(a.mInc[m] - a.mExp[m]), s: 'money' } : null, XL.m(a.mExpNoExtra[m])]);
+    }
+    rows.push([XL.tt('Σύνολο'), XL.mb(ti), XL.mb(te), XL.mb(ti - te), XL.mb(tn)]);
+    rows.push([], [XL.b('Με μια ματιά (σήμερα)')]);
+    const mt = moneyTotals(todayStr());
+    const owed = DB.tenants.reduce((x, t) => x + Math.max(0, tenantLedger(t).balance), 0);
+    const taxLeft = taxInst().filter(x => !x.i.paid && +x.i.due.slice(0, 4) === year).reduce((x, y) => x + y.i.amount, 0);
+    const taxLate = taxInst().filter(x => !x.i.paid && x.i.due < todayStr()).length;
+    rows.push(['Όλα τα χρήματα (σε €)', XL.mz(mt.all)]);
+    rows.push(['Ενοίκια που χρωστάνε', XL.mz(owed)]);
+    rows.push([`Εφορία: μένουν για το ${year}`, XL.mz(taxLeft), taxLate ? `${taxLate} ληξιπρόθεσμες δόσεις` : '']);
+    for (const p of DB.people) { const b = personBalance(p); rows.push([`${p.name}: ${b >= 0 ? 'μας χρωστάνε' : 'τους χρωστάμε'}`, XL.mz(Math.abs(b))]); }
+    const rem = reminders();
+    if (rem.length) { rows.push([], [XL.b('Να θυμηθώ')]); for (const r of rem) rows.push([r.text.replace(/<[^>]+>/g, ''), r.sub.replace(/<[^>]+>/g, '')]); }
+    sheets.push({ name: `Σύνοψη ${year}`, rows, widths: [52, 16, 16, 16, 20], freeze: 4, key: 'home' });
+  }
+  sheets.push({ ...catSheet(year, 'expense'), key: 'year' });
+  sheets.push({ ...catSheet(year, 'income'), key: 'year-inc' });
+  // Κινήσεις
+  {
+    const rows = xlHeadRows(`Κινήσεις ${year}`, 'Όλες οι καταχωρήσεις της χρονιάς. Μπορείτε να τις φιλτράρετε από το Excel (Δεδομένα → Φίλτρο).');
+    rows.push(['Ημερομηνία', 'Μήνας', 'Κατηγορία', 'Σημείωση', 'Ποιος', 'Τρόπος', 'Έσοδο', 'Έξοδο', 'Κατάσταση'].map(XL.h));
+    for (const t of DB.transactions.filter(t => yOf(t) === year).sort((x, y) => x.date.localeCompare(y.date)))
+      rows.push([t.dayKnown === false ? null : XL.d(t.date), MONTHS[mOf(t) - 1], catName(t.categoryId), t.note || '', t.person || '', t.method || '',
+        t.type === 'income' ? XL.mz(t.amount) : null, t.type === 'expense' ? XL.mz(t.amount) : null, t.planned ? 'προγραμματισμένο' : '']);
+    sheets.push({ name: `Κινήσεις ${year}`, rows, widths: [12, 12, 30, 34, 10, 11, 13, 13, 17], freeze: 4, key: 'list', landscape: true });
+  }
+  // Ενοίκια
+  if (DB.tenants.length) {
+    const rows = xlHeadRows(`Ενοίκια ${year}`, 'Πληρωμές ανά μήνα (όλο το ποσό που έδωσε ο ενοικιαστής) και τι χρωστάει σήμερα.');
+    rows.push(['Ενοικιαστής', 'Ακίνητο', 'Ενοίκιο', 'Δικό μας %', ...MONTHS_SHORT, 'Πλήρωσε', 'Χρωστάει σήμερα'].map(XL.h));
+    for (const t of DB.tenants) {
+      const pays = tenantPayments(t).filter(p => yOf(p) === year);
+      const pm = Array(12).fill(0); pays.forEach(p => { pm[mOf(p) - 1] += paidOf(p); });
+      const b = tenantLedger(t).balance;
+      rows.push([`${t.name}${t.end && t.end < curYM() ? ' (έφυγε)' : ''}`, t.property || '', XL.mz(currentRent(t)), { v: shareOf(t) / 100, s: 'pct' }, ...pm.map(XL.m), XL.mz(pm.reduce((x, y) => x + y, 0)), { v: round2(b), s: b > 0.005 ? 'moneyR' : 'moneyG' }]);
+    }
+    sheets.push({ name: 'Ενοίκια', rows, widths: [26, 14, 12, 10, ...Array(12).fill(10), 13, 15], freeze: 4, key: 'rent', landscape: true });
+    const dr = declRows(year);
+    const r2 = xlHeadRows(`Ενοίκια για τη δήλωση ${year}`, 'Ενοίκιο × μήνες που ήταν νοικιασμένο, όπως στο παλιό Excel.');
+    r2.push(['Ενοικιαστής', 'Ακίνητο', 'Ενοίκιο τον μήνα', 'Μήνες', 'Ενοίκια χρονιάς', 'Δικό μας %', 'Δικό μας ποσό', 'Εισπράχθηκαν'].map(XL.h));
+    for (const r of dr) r2.push([r.t.name, r.t.property || '', r.rents.map(x => eur(x)).join(' → '), XL.n(r.months), XL.mz(r.contract), { v: r.share / 100, s: 'pct' }, XL.mz(r.ours), XL.mz(r.received)]);
+    r2.push([XL.tt('Σύνολο'), null, null, null, XL.mb(dr.reduce((x, r) => x + r.contract, 0)), null, XL.mb(dr.reduce((x, r) => x + r.ours, 0)), XL.mb(dr.reduce((x, r) => x + r.received, 0))]);
+    sheets.push({ name: `Δήλωση ${year}`, rows: r2, widths: [26, 14, 20, 8, 15, 11, 15, 15], freeze: 4, key: 'decl' });
+  }
+  // Χρήματα
+  if (DB.accounts.length) {
+    const rows = xlHeadRows('Χρήματα', `Τελευταίο υπόλοιπο κάθε λογαριασμού. Ισοτιμία: 1 € = ${String(DB.settings.usdPerEur).replace('.', ',')} $`);
+    rows.push(['Είδος', 'Τράπεζα', 'Λογαριασμός', 'Ποιανού', 'Νόμισμα', 'Υπόλοιπο', 'Ημερομηνία', 'Σε €'].map(XL.h));
+    let tot = 0;
+    for (const [k, l] of KINDS) for (const ac of DB.accounts.filter(x => x.kind === k && !x.archived).sort((x, y) => x.order - y.order)) {
+      const lb = lastBal(ac); const e = lb ? toEur(lb.balance, ac.currency) : 0; tot += e;
+      rows.push([l, ac.bank, ac.name, ac.owner, ac.currency === 'USD' ? '$' : '€', lb ? { v: lb.balance, s: 'num' } : null, lb ? XL.d(lb.date) : null, XL.mz(e)]);
+    }
+    rows.push([XL.tt('Σύνολο σε €'), null, null, null, null, null, null, XL.mb(tot)]);
+    sheets.push({ name: 'Χρήματα', rows, widths: [24, 14, 22, 14, 9, 15, 12, 15], freeze: 4, key: 'money' });
+  }
+  // Εφορία
+  if (DB.taxes.length) {
+    const rows = xlHeadRows(`Εφορία ${year}`);
+    rows.push(['Οφειλή', 'Ποιος', 'Δόση', 'Λήξη', 'Ποσό', 'Κατάσταση', 'Πληρώθηκε'].map(XL.h));
+    for (const t of DB.taxes) t.installments.forEach((i, k) => { if (+i.due.slice(0, 4) !== year) return; rows.push([t.name, t.person, `${k + 1} / ${t.installments.length}`, XL.d(i.due), XL.mz(i.amount), i.paid ? 'Πληρώθηκε' : i.due < todayStr() ? 'ΕΛΗΞΕ' : 'Θα πληρωθεί', i.paidDate ? XL.d(i.paidDate) : null]); });
+    const ins = taxInst().filter(x => +x.i.due.slice(0, 4) === year);
+    rows.push([XL.tt('Πληρώθηκαν'), null, null, null, XL.mb(ins.filter(x => x.i.paid).reduce((s, x) => s + x.i.amount, 0))]);
+    rows.push([XL.tt('Μένουν'), null, null, null, XL.mb(ins.filter(x => !x.i.paid).reduce((s, x) => s + x.i.amount, 0))]);
+    sheets.push({ name: `Εφορία ${year}`, rows, widths: [36, 10, 8, 12, 13, 14, 12], freeze: 4, key: 'tax' });
+  }
+  // Πάγια
+  if (DB.recurring.length) {
+    const rows = xlHeadRows('Πάγια');
+    rows.push(['Τύπος', 'Κατηγορία', 'Σημείωση', 'Ποσό', 'Πόσο συχνά', 'Επόμενο', 'Τελευταίο', 'Κατάσταση'].map(XL.h));
+    for (const r of DB.recurring) { const nd = nextDue(r); rows.push([r.type === 'income' ? 'Έσοδο' : 'Έξοδο', catName(r.categoryId), r.note || '', XL.mz(r.amount), freqText(r), r.active && nd ? ymLabel(nd) : '', r.until ? ymLabel(r.until) + (r.total ? ` (${r.total} δόσεις)` : '') : '', !r.active ? 'σταματημένο' : recEnded(r) ? 'τελείωσε' : r.variable ? 'ποσό κατά προσέγγιση' : '']); }
+    sheets.push({ name: 'Πάγια', rows, widths: [9, 28, 30, 12, 30, 16, 24, 20], freeze: 4, key: 'recurring', landscape: true });
+  }
+  // Οφειλές
+  for (const p of DB.people) {
+    const rows = xlHeadRows(`Οφειλές: ${p.name}`, p.note || '');
+    rows.push(['Ημερομηνία', 'Τι', 'Πληρώσαμε εμείς', 'Μας έδωσαν', 'Υπόλοιπο'].map(XL.h));
+    let run = 0;
+    for (const e of p.entries.slice().sort((x, y) => x.date.localeCompare(y.date))) { run = round2(run + (e.dir === 'out' ? e.amount : -e.amount)); rows.push([XL.d(e.date), e.text, e.dir === 'out' ? XL.mz(e.amount) : null, e.dir === 'in' ? XL.mz(e.amount) : null, XL.mz(run)]); }
+    rows.push([XL.tt(run >= 0 ? 'Μας χρωστάνε' : 'Τους χρωστάμε'), null, null, null, XL.mb(Math.abs(run))]);
+    sheets.push({ name: `Οφειλές ${p.name}`, rows, widths: [12, 50, 16, 14, 14], freeze: 4, key: 'people' });
+  }
+  // Αυτοκίνητα
+  if (DB.cars.length) {
+    const rows = xlHeadRows('Αυτοκίνητα');
+    rows.push(['Αυτοκίνητο', 'Χιλιόμετρα', 'Ημερομηνία', 'Επόμενο σέρβις (km)', 'Μένουν km', `Χλμ ${year}`, 'ΚΤΕΟ'].map(XL.h));
+    for (const c of DB.cars) { const k = carKm(c), st = carService(c); rows.push([c.name + (c.sold ? ' (πουλήθηκε)' : ''), k ? XL.n(k.km) : null, k ? XL.d(k.date) : null, st ? XL.n(st.next) : null, st ? { v: st.left, s: st.left < 0 ? 'moneyR' : 'num' } : null, XL.n(carYearKm(c, year)), c.kteo ? XL.d(c.kteo) : null]); }
+    rows.push([], [XL.b('Σέρβις')], ['Αυτοκίνητο', 'Ημερομηνία', 'Χλμ', 'Τι έγινε', 'Κόστος', 'Επόμενο (km)'].map(XL.h));
+    for (const c of DB.cars) for (const s of c.services.slice().sort((x, y) => y.date.localeCompare(x.date))) rows.push([c.name, XL.d(s.date), XL.n(s.km || null), s.work, XL.m(s.cost), XL.n(s.nextKm)]);
+    sheets.push({ name: 'Αυτοκίνητα', rows, widths: [24, 13, 12, 34, 13, 14, 12], freeze: 0, key: 'cars' });
+  }
+  // Χωράφι
+  if (DB.field && (DB.field.waterings.length || DB.field.payments.length)) {
+    const rows = xlHeadRows('Χωράφι – πότισμα');
+    rows.push(['Χρονιά', 'Ποτίσματα', 'Ώρες', 'Πληρώσαμε', '€ την ώρα'].map(XL.h));
+    const ys = [...new Set([...DB.field.waterings.map(w => +w.date.slice(0, 4)), ...DB.field.payments.map(p => p.year)])].sort((x, y) => y - x);
+    for (const y of ys) { const r = fieldYear(y); rows.push([XL.n(y), XL.n(r.ws.length), XL.n(r.hours), r.paid ? XL.mz(r.paid) : 'απλήρωτο', r.paid && r.hours ? XL.mz(r.paid / r.hours) : null]); }
+    rows.push([], [XL.b(`Ποτίσματα ${year}`)], ['Ημερομηνία', 'Ώρες'].map(XL.h));
+    for (const w of fieldYear(year).ws) rows.push([XL.d(w.date), XL.n(w.hours)]);
+    sheets.push({ name: 'Χωράφι', rows, widths: [12, 12, 10, 14, 12], freeze: 0, key: 'field' });
+  }
+  // Ιστορικό
+  {
+    const hr = historyRows();
+    const rows = xlHeadRows('Ιστορικό χρόνων');
+    rows.push(['Χρονιά', 'Έσοδα', 'Έξοδα', 'Διαφορά', 'Πηγή'].map(XL.h));
+    for (const r of hr) rows.push([XL.n(r.y), XL.m(r.i), XL.m(r.e), r.i != null && r.e != null ? XL.mz(r.i - r.e) : null, r.src === 'Excel' ? 'Σύνολα από το παλιό Excel' : 'Καταχωρήσεις HomeFlow']);
+    sheets.push({ name: 'Ιστορικό', rows, widths: [9, 15, 15, 15, 30], freeze: 4, key: 'history' });
+  }
+  const want = { home: 'home', list: 'list', year: 'year', rent: 'rent', money: 'money', tax: 'tax', recurring: 'recurring', people: 'people', cars: 'cars', field: 'field', history: 'history' }[focus] || 'home';
+  const idx = sheets.findIndex(s => s.key === (focus === 'rent' && ui.tabs.rent === 'decl' ? 'decl' : want));
+  sheets.forEach((s, i) => { s.active = i === (idx < 0 ? 0 : idx); delete s.key; });
+  return { title: `HomeFlow ${year}`, sheets };
+}
+function excelYearFor(page) {
+  return page === 'home' ? ui.year : page === 'year' ? ui.yearView : page === 'list' ? (ui.list.year || now.getFullYear()) : page === 'tax' ? (ui.taxYear || now.getFullYear()) : page === 'rent' && ui.declYear ? ui.declYear : now.getFullYear();
+}
+async function exportSummary() {
+  const year = excelYearFor(ui.page);
+  const book = buildSummaryBook(year, ui.page);
+  const name = `HomeFlow-${year}-${todayStr()}.xlsx`;
+  if (window.homeflow && window.homeflow.saveXlsx) {
+    const r = await window.homeflow.saveXlsx(book, name);
+    if (r && r.ok) toast('Το Excel αποθηκεύτηκε και ανοίγει…'); else if (r && r.error) toast(r.error);
+  } else { window.__lastBook = book; toast('Στον browser δεν φτιάχνεται Excel (μόνο στην εφαρμογή).'); }
+}
+async function exportTxXlsx(list, title, name) {
+  const rows = xlHeadRows(title);
+  rows.push(['Ημερομηνία', 'Μήνας', 'Κατηγορία', 'Σημείωση', 'Ποιος', 'Τρόπος', 'Έσοδο', 'Έξοδο', 'Κατάσταση'].map(XL.h));
+  let ti = 0, te = 0;
+  for (const t of list) { if (t.type === 'income') ti += t.amount; else te += t.amount; rows.push([t.dayKnown === false ? null : XL.d(t.date), `${MONTHS[mOf(t) - 1]} ${yOf(t)}`, catName(t.categoryId), t.note || '', t.person || '', t.method || '', t.type === 'income' ? XL.mz(t.amount) : null, t.type === 'expense' ? XL.mz(t.amount) : null, t.planned ? 'προγραμματισμένο' : '']); }
+  rows.push([XL.tt('Σύνολο'), null, null, null, null, null, XL.mb(ti), XL.mb(te)]);
+  const book = { title, sheets: [{ name: 'Κινήσεις', rows, widths: [12, 15, 30, 34, 10, 11, 13, 13, 17], freeze: 4, landscape: true, active: true }] };
+  if (window.homeflow && window.homeflow.saveXlsx) { const r = await window.homeflow.saveXlsx(book, name); if (r && r.ok) toast('Το Excel αποθηκεύτηκε και ανοίγει…'); }
+  else { window.__lastBook = book; toast('Στον browser δεν φτιάχνεται Excel (μόνο στην εφαρμογή).'); }
+}
+
 function exportTx(list, name) {
   const head = ['Ημερομηνία', 'Μήνας', 'Τύπος', 'Κατηγορία', 'Ποσό', 'Σημείωση', 'Ποιος', 'Τρόπος', 'Προγραμματισμένο'];
   const lines = [head.join(';')].concat(list.map(t => [
@@ -2316,9 +2487,9 @@ const actions = {
     persist(); render();
     toast(`Καταχωρήθηκε: ${eur(t.amount)} – ${catName(t.categoryId)}`, () => { Object.assign(t, before); persist(); render(); });
   },
-  print: () => { if (window.homeflow) window.homeflow.print(); else window.print(); },
-  'export-csv': () => exportTx(filteredList(), `HomeFlow-κινήσεις-${ui.list.year || 'όλα'}${ui.list.month ? '-' + pad(ui.list.month) : ''}.csv`),
-  'export-csv-all': () => exportTx(DB.transactions.slice().sort((a, b) => a.date.localeCompare(b.date)), 'HomeFlow-όλες-οι-κινήσεις.csv'),
+  print: () => exportSummary(),
+  'export-csv': () => exportTxXlsx(filteredList().slice().sort((a, b) => a.date.localeCompare(b.date)), `Κινήσεις ${ui.list.month ? MONTHS[ui.list.month - 1] + ' ' : ''}${ui.list.year || ''}`, `HomeFlow-κινήσεις-${ui.list.year || 'όλα'}${ui.list.month ? '-' + pad(ui.list.month) : ''}.xlsx`),
+  'export-csv-all': () => exportTxXlsx(DB.transactions.slice().sort((a, b) => a.date.localeCompare(b.date)), 'Όλες οι κινήσεις', 'HomeFlow-όλες-οι-κινήσεις.xlsx'),
   'export-year': () => exportYear(ui.yearView),
   // φόρμα
   'modal-back': (el, ev) => { if (ev.target === el) { if (form) { if (confirmCloseForm()) { form = null; renderForm(); } } else $('#modal-root').innerHTML = ''; } },

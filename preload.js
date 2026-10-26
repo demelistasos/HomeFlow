@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('homeflow', {
   importFile: () => ipcRenderer.invoke('data:importFile'),
   saveAs: (text, defaultName, kind) => ipcRenderer.invoke('data:saveAs', { text, defaultName, kind }),
   print: () => ipcRenderer.invoke('app:print'),
+  saveXlsx: (book, defaultName) => ipcRenderer.invoke('data:saveXlsx', { book, defaultName }),
   backupStatus: () => ipcRenderer.invoke('backup:status'),
   backupNow: kind => ipcRenderer.invoke('backup:now', kind),
   backupChoose: kind => ipcRenderer.invoke('backup:choose', kind),

@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { buildXlsx } = require('./xlsx');
 
 const DATA_FILE = 'homeflow-data.json';
 const BACKUP_DIR = 'Αντίγραφα ασφαλείας';
@@ -218,6 +219,22 @@ ipcMain.handle('backup:choose', async (_e, kind) => {
   return { ...extraBackup(kind), status: backupStatus() };
 });
 ipcMain.handle('backup:open', (_e, kind) => { const b = backupCfg()[kind]; if (b && fs.existsSync(b.dir)) shell.openPath(path.join(b.dir, EXTRA_DIR)); });
+
+ipcMain.handle('data:saveXlsx', async (_e, { book, defaultName }) => {
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Αποθήκευση Excel',
+    defaultPath: path.join(app.getPath('documents'), defaultName),
+    filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+  });
+  if (res.canceled || !res.filePath) return { ok: false };
+  try {
+    fs.writeFileSync(res.filePath, buildXlsx(book));
+  } catch (e) {
+    return { ok: false, error: e.code === 'EBUSY' || e.code === 'EPERM' ? 'Το αρχείο είναι ανοιχτό στο Excel. Κλείστε το και ξαναδοκιμάστε.' : 'Δεν αποθηκεύτηκε: ' + e.message };
+  }
+  shell.openPath(res.filePath);
+  return { ok: true, path: res.filePath };
+});
 
 ipcMain.handle('app:print', () => {
   if (win) win.webContents.print({ printBackground: true });
