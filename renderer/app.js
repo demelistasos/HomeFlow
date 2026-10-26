@@ -40,6 +40,13 @@ function dateLabel(t) {
   return `${WEEKDAYS[d.getDay()].slice(0, 3)} ${d.getDate()} ${MONTHS_SHORT[m - 1]} ${y}`;
 }
 
+// Σύντομη ημερομηνία για πίνακες: «Πέμ 1/10» (το έτος φαίνεται ήδη στα φίλτρα)
+function tableDate(t) {
+  if (t.dayKnown === false) return `${MONTHS[mOf(t) - 1]}`;
+  const d = new Date(t.date + 'T12:00:00');
+  return `${WEEKDAYS[d.getDay()].slice(0, 3)} ${d.getDate()}/${d.getMonth() + 1}${yOf(t) !== ui.list.year ? '/' + String(yOf(t)).slice(2) : ''}`;
+}
+
 // Ποσό: δέχεται «45,50», «1.234,56» και αθροίσματα όπως «50+39+12,5»
 function parseAmount(raw) {
   let s = String(raw || '').replace(/€/g, '').replace(/\s+/g, '');
@@ -108,6 +115,21 @@ function defaultData() {
     history: {}
   };
 }
+// Μία φορά: πάγια λογαριασμών που επαναλαμβάνονται (από το Excel του 2026)
+function addBillRecurring(d) {
+  d.settings.migrations = d.settings.migrations || [];
+  if (d.settings.migrations.includes('bills-2026')) return;
+  d.settings.migrations.push('bills-2026');
+  const has = id => d.categories.some(c => c.id === id);
+  const mk = (id, cat, amount, from, every, note, variable) => ({ id, type: 'expense', categoryId: cat, amount, day: 1, every, note, person: '', method: '', active: true, skip: [], from, until: '', total: null, variable });
+  const add = [
+    has('e25') && mk('r_dei', 'e25', 150, '2026-09', 1, 'λογαριασμός', true),
+    has('e26') && mk('r_ote', 'e26', 34.88, '2026-09', 1, '', false),
+    has('e27') && mk('r_eydap', 'e27', 75, '2026-11', 4, 'λογαριασμός', true),
+    has('e29') && mk('r_koin', 'e29', 100, '2026-09', 1, '2 × 50 €', true)
+  ].filter(r => r && !d.recurring.some(x => x.id === r.id || (x.categoryId === r.categoryId && x.active)));
+  d.recurring.push(...add);
+}
 function normalize(d) {
   d.settings = Object.assign({ persons: [], methods: ['Μετρητά', 'Τράπεζα', 'Κάρτα'], fontScale: 1.15 }, d.settings || {});
   d.categories = (d.categories || []).map((c, i) => Object.assign({ color: PALETTE[i % PALETTE.length], budget: null, extra: false, archived: false, order: i }, c));
@@ -122,6 +144,7 @@ function normalize(d) {
   d.field = Object.assign({ waterings: [], payments: [], categoryId: '' }, d.field || {});
   if (d.power) d.power.bills = d.power.bills || [];
   d.history = d.history || {};
+  addBillRecurring(d);
   return d;
 }
 
@@ -358,7 +381,7 @@ function homePage() {
   const hr = new Date().getHours();
   const hello = hr < 12 ? 'Καλημέρα' : hr < 18 ? 'Καλό απόγευμα' : 'Καλησπέρα';
   const who = (DB.settings.persons || [])[0] || '';
-  const voc = who.replace(/ος$/, 'ο').replace(/ης$/, 'η').replace(/ας$/, 'α');
+  const voc = DB.settings.callMe != null ? DB.settings.callMe : who.replace(/ος$/, 'ο').replace(/ης$/, 'η').replace(/ας$/, 'α');
   const msg = !tI && !tE ? (isCurrent ? 'Δεν έχει γραφτεί τίποτα αυτόν τον μήνα ακόμα.' : 'Δεν υπάρχουν κινήσεις αυτόν τον μήνα.')
     : bal < 0 ? `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} βγήκαν περισσότερα απ’ όσα μπήκαν.` : `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} έμειναν ${eur(bal)}.`;
   const tot = Math.max(tI, tE) || 1;
@@ -407,7 +430,7 @@ function homePage() {
         ${plannedTx.map(t => `<div class="planned-row">
           <span class="p-ic">${esc(catIcon(t.categoryId))}</span>
           <span class="p-nm"><b>${esc(catName(t.categoryId))}</b>${t.recurringId ? ' <span class="tag">🔁 πάγιο</span>' : ''}${t.note ? `<div class="muted" style="font-size:.9rem">${esc(t.note)}</div>` : ''}</span>
-          <span class="p-amt num ${t.type === 'income' ? 'inc' : 'exp'}">${t.type === 'income' ? '+' : '−'} ${eur(t.amount)}</span>
+          <span class="p-amt num ${t.type === 'income' ? 'inc' : 'exp'}">${t.type === 'income' ? '+' : '−'} ${(DB.recurring.find(r => r.id === t.recurringId) || {}).variable ? '≈ ' : ''}${eur(t.amount)}</span>
           <span class="p-act"><button class="btn small" data-action="edit" data-id="${t.id}">✎ Αλλαγή</button><button class="btn small primary" data-action="confirm-planned" data-id="${t.id}">✓ Έγινε</button></span>
         </div>`).join('')}</div>` : '<div class="panel empty">Δεν υπάρχουν προγραμματισμένα αυτόν τον μήνα.</div>';
     else body = `<div class="panel"><h2>Τελευταίες καταχωρήσεις</h2>
@@ -471,7 +494,7 @@ function listPage() {
   ${rows.length ? `<div class="sheet-wrap"><table class="data">
     <thead><tr><th>Ημερομηνία</th><th>Κατηγορία</th><th>Σημείωση</th><th>Ποιος</th><th>Τρόπος</th><th class="r">Ποσό</th></tr></thead>
     <tbody>${shown.map(t => `<tr data-action="edit" data-id="${t.id}">
-      <td>${esc(dateLabel(t))}</td>
+      <td style="white-space:nowrap">${esc(tableDate(t))}</td>
       <td><span style="font-size:1.2rem">${esc(catIcon(t.categoryId))}</span> ${esc(catName(t.categoryId))}</td>
       <td>${esc(t.note)}${t.planned ? '<span class="tag planned">προγραμματισμένο</span>' : ''}</td>
       <td>${esc(t.tenantId && tenantById(t.tenantId) ? '🔑 ' + tenantById(t.tenantId).name : t.person)}</td><td>${esc(t.method)}</td>
@@ -743,6 +766,13 @@ function reminders() {
       sub: m === 0 ? `αυτόν τον μήνα (${ymLabel(r.until)})` : `τον ${ymLabel(r.until)}`, btn: `<button class="btn small" data-action="goto-page" data-page="recurring">🔁 Πάγια</button>` });
   }
   out.push(...backupReminders());
+  // υπόλοιπα λογαριασμών πάνω από 2 μήνες παλιά
+  const accs = DB.accounts.filter(a => !a.archived && a.history.length);
+  if (accs.length) {
+    const lastDate = accs.map(a => lastBal(a).date).sort().pop();
+    const days = -daysUntil(lastDate);
+    if (days > 60) out.push({ sort: 35, cls: 'wait', icon: '💰', text: 'Ενημερώστε τα υπόλοιπα των λογαριασμών', sub: `η τελευταία ενημέρωση ήταν ${shortDate(lastDate)}`, btn: '<button class="btn small" data-action="goto-page" data-page="money">💰 Χρήματα</button>' });
+  }
   return out.sort((a, b) => a.sort - b.sort);
 }
 function remindersPanel() {
@@ -1305,7 +1335,7 @@ function recurringPage() {
       <span><div class="t1">${esc(catName(r.categoryId))}${r.note ? ` <span class="muted" style="font-weight:500">— ${esc(r.note)}</span>` : ''}${!r.active ? ' <span class="tag">σταματημένο</span>' : ''}</div>
         <div class="t2">${esc(freqText(r))}${r.active && nd ? ` · επόμενο: <b>${ymLabel(nd)}</b>` : ''}${r.person ? ' · ' + esc(r.person) : ''}</div>
         ${r.until ? `<div class="t2">${recEnded(r) ? `<b class="inc">Τελείωσε ✓</b> (τελευταία ${r.total ? 'δόση' : 'φορά'}: ${ymLabel(r.until)})` : `${r.total && instNo(r, nd || curYM()) ? `Δόση <b>${instNo(r, nd || curYM())} από ${r.total}</b> · ` : ''}τελευταία ${r.total ? 'δόση' : 'φορά'}: <b>${ymLabel(r.until)}</b>${r.total ? ` · μένουν ${r.total - instNo(r, nd || curYM()) + 1} (${eur((r.total - instNo(r, nd || curYM()) + 1) * r.amount)})` : ''}`}</div>` : ''}</span>
-      <span class="amt num ${r.type === 'income' ? 'inc' : 'exp'}">${r.type === 'income' ? '+' : '−'} ${eur(r.amount)}</span>
+      <span class="amt num ${r.type === 'income' ? 'inc' : 'exp'}">${r.type === 'income' ? '+' : '−'} ${r.variable ? '≈ ' : ''}${eur(r.amount)}</span>
       <span style="display:flex;gap:.4rem">
         <button class="btn small" data-action="rec-edit" data-id="${r.id}">✎ Αλλαγή</button>
         ${r.active ? `<button class="btn small" data-action="rec-stop" data-id="${r.id}">Σταμάτημα</button>` : `<button class="btn small" data-action="rec-resume" data-id="${r.id}">▶ Συνέχεια</button><button class="btn small danger" data-action="rec-delete" data-id="${r.id}">🗑</button>`}
@@ -1344,8 +1374,8 @@ function chipsHtml(values, sel, action, emptyLabel) {
   return `<div class="chips">${values.map(v => `<button class="chip ${sel === v ? 'sel' : ''}" data-action="${action}" data-v="${esc(v)}">${v === '' ? emptyLabel : esc(v)}</button>`).join('')}</div>`;
 }
 function openRecDialog(type, r) {
-  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, until: r.until || '', totalStr: r.total ? String(r.total) : '', error: '' }
-    : { kind: 'rec', id: null, type, amountStr: '', categoryId: '', note: '', day: new Date().getDate(), every: 1, from: curYM(), person: '', method: '', until: '', totalStr: '', error: '' };
+  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, until: r.until || '', totalStr: r.total ? String(r.total) : '', variable: !!r.variable, error: '' }
+    : { kind: 'rec', id: null, type, amountStr: '', categoryId: '', note: '', day: new Date().getDate(), every: 1, from: curYM(), person: '', method: '', until: '', totalStr: '', variable: false, error: '' };
   renderDlg();
   setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30);
 }
@@ -1365,6 +1395,7 @@ function syncDlg() {
     if (v('d-from')) dlg.from = v('d-from');
     if (v('d-until') !== undefined) dlg.until = v('d-until');
     if (v('d-total') !== undefined) dlg.totalStr = v('d-total').trim();
+    { const vc = $('#d-variable'); if (vc) dlg.variable = vc.checked; }
   } else {
     for (const [id, k] of [['d-name', 'name'], ['d-prop', 'property'], ['d-rent', 'rentStr'], ['d-share', 'shareStr'], ['d-opening', 'openingStr'], ['d-tnote', 'note']]) if (v(id) !== undefined) dlg[k] = v(id).trim();
     if (v('d-start')) dlg.start = v('d-start');
@@ -1435,6 +1466,7 @@ function renderDlg() {
     body = `
       <div class="field"><label for="d-amount">Πόσα χρήματα κάθε φορά;</label>
         <div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" autocomplete="off" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">€</span><span id="d-calc" class="amount-calc">${calcHint(d.amountStr, amt)}</span></div></div>
+      <label class="check"><input type="checkbox" id="d-variable" ${d.variable ? 'checked' : ''}> Το ποσό αλλάζει κάθε φορά (π.χ. ΔΕΗ). Θα ρωτάει πόσο ήταν όταν πατάτε «✓ Έγινε».</label>
       <div class="field"><div class="flabel">Για τι;</div>${catGrid(d.type, d.categoryId, 'dlg-cat')}</div>
       <div class="field"><label for="d-note">Σημείωση <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><input id="d-note" type="text" style="width:100%" value="${esc(d.note)}" placeholder="π.χ. δόση δανείου"></div>
       <div class="row">
@@ -1576,7 +1608,7 @@ function saveDlg() {
     const total = d.totalStr ? parseInt(d.totalStr, 10) : null;
     if (d.totalStr && !(total >= 1)) return fail('Οι δόσεις πρέπει να είναι αριθμός.');
     if (total && !d.until) return fail('Για τις δόσεις, διαλέξτε και τον μήνα της τελευταίας δόσης.');
-    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method, until: d.until || '', total: total || null };
+    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method, until: d.until || '', total: total || null, variable: !!d.variable };
     if (d.id) {
       const r = DB.recurring.find(x => x.id === d.id);
       Object.assign(r, fields);
@@ -1805,6 +1837,11 @@ function settingsPage() {
     <h2>🎨 Εμφάνιση</h2>
     <div class="theme-pick">${[['light', '☀️ Φωτεινή', ['#EEF4F7', '#ffffff', '#0B7A8A']], ['dark', '🌙 Σκούρα', ['#0E1A29', '#162537', '#3CC3D2']], ['auto', '🖥️ Αυτόματα', ['#EEF4F7', '#0E1A29', '#0B7A8A']]].map(([k, l, c]) => `<button class="${themePref() === k ? 'sel' : ''}" data-action="theme" data-v="${k}"><span class="sw" style="background:${c[0]}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>${l}</button>`).join('')}</div>
     <div class="hint muted" style="margin-top:.6rem">«Αυτόματα»: φωτεινή τη μέρα και σκούρα όταν ο υπολογιστής είναι σε σκούρα λειτουργία.</div>
+  </div>
+  <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
+    <h2>👋 Πώς να σας λέει;</h2>
+    <p class="muted" style="margin-top:-.4rem">Το όνομα στον χαιρετισμό της αρχικής οθόνης («Καλημέρα, …»). Αφήστε το κενό για χαιρετισμό χωρίς όνομα.</p>
+    <input type="text" id="call-me" value="${esc(DB.settings.callMe != null ? DB.settings.callMe : ((DB.settings.persons || [])[0] || '').replace(/ος$/, 'ο').replace(/ης$/, 'η').replace(/ας$/, 'α'))}" placeholder="π.χ. Νίκο" style="width:18rem;border:2px solid var(--line-2);border-radius:14px;padding:.6rem .9rem;background:var(--paper);font-size:1.1rem">
   </div>
   ${pinPanel()}
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
@@ -2266,6 +2303,12 @@ const actions = {
   edit: el => { const t = DB.transactions.find(x => x.id === el.dataset.id); if (t) openForm(t.type, t); },
   'confirm-planned': el => {
     const t = DB.transactions.find(x => x.id === el.dataset.id); if (!t) return;
+    const rec = t.recurringId && DB.recurring.find(r => r.id === t.recurringId);
+    if (rec && rec.variable) {
+      return ask({ title: `${catIcon(t.categoryId)} ${catName(t.categoryId)}: πόσο ήταν;`, label: 'Το ποσό αυτή τη φορά', numeric: true, value: numFmt.format(t.amount).replace(/\./g, ''),
+        hint: `Το ${rec.note || 'ποσό'} αλλάζει κάθε φορά. Γράψτε όσο ήταν στον λογαριασμό.`,
+        onOk: v => { const a = parseAmount(v); if (!a || isNaN(a) || a <= 0) return 'Γράψτε το ποσό.'; const before = { ...t }; t.amount = a; t.planned = false; const td = todayStr(); if (td.slice(0, 7) === t.date.slice(0, 7)) { t.date = td; t.dayKnown = true; } persist(); render(); toast(`Καταχωρήθηκε: ${eur(a)} – ${catName(t.categoryId)}`, () => { Object.assign(t, before); persist(); render(); }); } });
+    }
     const before = { ...t };
     t.planned = false;
     const td = todayStr();
@@ -2562,6 +2605,7 @@ document.addEventListener('change', ev => {
   else if (t.id === 'year-pick') { ui.yearView = +t.value; render(); }
   else if (t.id === 'fm-date' && form) { syncFormInputs(); renderForm(); }
   else if (t.id === 'd-end' && dlg && dlg.kind === 'leave') { syncLeave(); renderDlg(); }
+  else if (t.id === 'call-me') { DB.settings.callMe = t.value.trim(); persist(); toast(DB.settings.callMe ? `Θα σας λέει «${DB.settings.callMe}».` : 'Χαιρετισμός χωρίς όνομα.'); }
   else if (t.id === 'pin-autolock' && DB.settings.pin) { DB.settings.pin.autoLock = t.checked; persist(); toast(t.checked ? 'Θα κλειδώνει μετά από 15 λεπτά χωρίς χρήση.' : 'Δεν θα κλειδώνει μόνο του.'); }
   else if (t.id === 'persons') { DB.settings.persons = t.value.split(',').map(s => s.trim()).filter(Boolean); persist(); toast('Τα πρόσωπα αποθηκεύτηκαν.'); }
   else if (t.dataset.catField) {

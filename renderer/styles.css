@@ -249,6 +249,12 @@ b, strong { font-weight: 700; }
 .planned-row .p-amt { grid-area: amt; font-weight: 700; }
 .planned-row .p-act { grid-area: act; display: flex; gap: .45rem; justify-content: flex-end; flex-wrap: wrap; }
 .planned-row:last-child { border-bottom: 0; }
+/* σε φαρδιά οθόνη τα κουμπιά μπαίνουν στην ίδια γραμμή */
+@media (min-width: 1180px) {
+  .planned-row { grid-template-columns: 2.6rem 1fr auto auto; grid-template-areas: 'ic nm amt act'; }
+  .planned-row .p-ic { align-self: center; }
+  .planned-row .p-act { justify-content: flex-end; }
+}
 
 /* ενοίκια */
 .status { display: inline-block; font-weight: 700; font-size: .9rem; padding: .28rem .8rem; border-radius: 999px; white-space: nowrap; }
@@ -407,11 +413,12 @@ table.sheet .zero { color: var(--line-2); }
 
 /* μικρές οθόνες (π.χ. 1366×768) */
 @media (max-height: 940px) {
-  .sidebar { padding-top: .9rem; gap: .6rem; }
-  .brand { padding-bottom: .2rem; }
-  .nav { gap: .12rem; }
-  .nav button { padding: .4rem .95rem; }
-  .side-actions .btn.big { min-height: 3rem; }
+  .sidebar { padding-top: .8rem; padding-bottom: .7rem; gap: .5rem; }
+  .brand { padding-bottom: 0; }
+  .nav { gap: .08rem; }
+  .nav button { padding: .34rem .95rem; }
+  .side-actions { gap: .5rem; }
+  .side-actions .btn.big { min-height: 2.9rem; }
   .hero h1 { font-size: 3rem; }
 }
 @media (max-height: 800px) {
