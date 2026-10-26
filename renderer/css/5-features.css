@@ -121,3 +121,9 @@ html.h-xs .scale { padding: .9rem 1.2rem; }
 html.h-xs .scale .v { font-size: 1.9rem; }
 html.h-xs .page-head h1 { font-size: 1.9rem; }
 html.h-xs .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
+
+/* Ενιαία εικονίδια */
+.ic-svg{width:1.15em;height:1.15em;vertical-align:-0.2em;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;display:inline-block}
+.ic-svg .f{fill:currentColor;stroke:none}
+.nav .ic-svg{width:1.3em;height:1.3em}
+h1 .ic-svg,h2 .ic-svg{color:var(--brand)}
