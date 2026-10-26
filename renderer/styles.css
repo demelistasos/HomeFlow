@@ -526,3 +526,16 @@ kbd { font-family: inherit; font-size: .78rem; font-weight: 700; color: var(--in
 .search-btn kbd { display: none; }
 @media (min-height: 700px) { .sidebar { min-width: 0; } }
 .help-btn:hover { border-color: var(--brand); color: var(--ink); }
+
+/* τα κουμπιά «Νέο έξοδο / Νέο έσοδο» μένουν πάντα ορατά· αν δεν χωράει, κυλάει μόνο το μενού */
+.sidebar { overflow: hidden; }
+.nav { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+@media (max-height: 680px) {
+  #page { padding-top: 1rem; }
+  .hero h1 { font-size: 2.2rem; }
+  .greet { margin: .3rem 0 .8rem; font-size: 1rem; }
+  .scale { padding: .9rem 1.2rem; }
+  .scale .v { font-size: 1.9rem; }
+  .page-head h1 { font-size: 1.9rem; }
+  .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
+}

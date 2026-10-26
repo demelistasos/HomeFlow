@@ -1,5 +1,5 @@
 // HomeFlow – κύρια διεργασία Electron
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { buildXlsx } = require('./xlsx');
@@ -109,11 +109,14 @@ function cloudGuess() {
 
 // ---------- παράθυρο ----------
 function createWindow() {
+  const wa = screen.getPrimaryDisplay().workAreaSize;
   win = new BrowserWindow({
-    width: 1320,
-    height: 900,
-    minWidth: 1000,
-    minHeight: 680,
+    // Το ελάχιστο μέγεθος δεν πρέπει να ξεπερνά τον χώρο της οθόνης πάνω από τη γραμμή εργασιών.
+    // (Σε laptop με μεγέθυνση 125–150% ο χώρος μπορεί να είναι κάτω από 600 pixel ύψος.)
+    minWidth: Math.min(900, wa.width),
+    minHeight: Math.min(560, wa.height),
+    width: Math.min(1320, wa.width),
+    height: Math.min(900, wa.height),
     title: 'HomeFlow',
     backgroundColor: '#EEF4F7',
     icon: path.join(__dirname, 'build', 'icon.png'),
@@ -136,7 +139,11 @@ function createWindow() {
     Menu.setApplicationMenu(null);
   }
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.once('ready-to-show', () => { win.maximize(); win.show(); });
+  win.once('ready-to-show', () => { win.show(); win.maximize(); });
+  // Αν αλλάξει η οθόνη (π.χ. άλλη ανάλυση ή δεύτερη οθόνη), το ελάχιστο μέγεθος προσαρμόζεται
+  const fitMin = () => { if (!win || win.isDestroyed()) return; const d = screen.getDisplayMatching(win.getBounds()).workAreaSize; win.setMinimumSize(Math.min(900, d.width), Math.min(560, d.height)); };
+  screen.on('display-metrics-changed', fitMin);
+  win.on('moved', fitMin);
   // Εξωτερικοί σύνδεσμοι ανοίγουν στον browser
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
 }
