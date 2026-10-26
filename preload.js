@@ -20,5 +20,7 @@ contextBridge.exposeInMainWorld('homeflow', {
   backupRemove: kind => ipcRenderer.invoke('backup:remove', kind),
   backupOpen: kind => ipcRenderer.invoke('backup:open', kind),
   checkUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  justUpdated: () => ipcRenderer.invoke('update:justUpdated'),
   onUpdate: cb => ipcRenderer.on('update:status', (_e, s) => cb(s))
 });

@@ -21,6 +21,7 @@
     "files": [
       "main.js",
       "xlsx.js",
+      "updater.js",
       "preload.js",
       "renderer/**/*",
       "package.json"

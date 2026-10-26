@@ -594,3 +594,11 @@ html.w-xs .main { height: auto; flex: 1; min-height: 0; }
 
 /* τα κουμπιά μέσα σε κάρτες σπάνε σε δύο γραμμές αν δεν χωράνε */
 .card .btn { white-space: normal; text-align: center; max-width: 100%; height: auto; }
+
+/* μπάρα ενημέρωσης */
+.update-banner { flex-wrap: wrap; text-align: center; }
+.update-banner.bad { background: var(--exp-soft); color: var(--exp); }
+.update-banner .btn { background: #fff; color: #3b2a00; }
+.update-banner .btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+.upd-bar { display: inline-block; width: 12rem; height: .7rem; border-radius: 999px; background: rgba(0, 0, 0, .12); overflow: hidden; vertical-align: middle; }
+.upd-bar i { display: block; height: 100%; background: var(--brand); border-radius: 999px; transition: width .2s; }

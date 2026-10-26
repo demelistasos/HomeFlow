@@ -68,7 +68,9 @@ jobs:
         run: |
           ls -la out
           V="0.1.${{ github.run_number }}"
-          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" "out/HomeFlow-Mac-$V.zip" \
+          # «αποτύπωμα» κάθε zip, για να ελέγχει η εφαρμογή ότι κατέβηκε σωστά
+          (cd out && sha256sum "HomeFlow-Windows-$V.zip" "HomeFlow-Mac-$V.zip" > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          gh release create "v$V" "out/HomeFlow-Windows-$V.zip" "out/HomeFlow-Mac-$V.zip" "out/SHA256SUMS.txt" \
             --repo "${{ github.repository }}" \
             --title "HomeFlow $V" \
             --target "${{ github.sha }}" \

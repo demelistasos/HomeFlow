@@ -1493,7 +1493,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderDlg2(d);
+  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -1620,12 +1620,13 @@ function renderDlg() {
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
         ${d.kind === 'day' || d.kind === 'help' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
-        <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : '✓ Αποθήκευση'}</button>`}
+        <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : d.kind === 'upd' ? '⬇️ Ενημέρωση τώρα' : '✓ Αποθήκευση'}</button>`}
       </div>
     </div>
   </div>`;
 }
 function saveDlg() {
+  if (dlg.kind === 'upd') { saveUpdDlg(); return; }
   if (dlg.kind === 'pin') { savePinDlg(); return; }
   if (dlg.kind === 'ask') { saveAsk(); return; }
   if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
@@ -1931,7 +1932,7 @@ function settingsPage() {
 
   <div class="panel set-section ${ui._setTab === 'version' ? '' : 'hidden'}">
     <h2>🔄 Έκδοση</h2>
-    <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω με κουμπί «Κατέβασμα».</p>
+    <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω. Η ενημέρωση γίνεται <b>μόνο όταν πατήσετε «Ενημέρωση τώρα»</b>: το HomeFlow κατεβάζει τη νέα έκδοση, κλείνει και ξανανοίγει μόνο του. Τα στοιχεία σας δεν αλλάζουν.</p>
     <button class="btn" data-action="check-updates">Έλεγχος για νέα έκδοση</button>
     <span id="upd-msg" class="muted" style="margin-left:.8rem"></span>
   </div>`;
@@ -2314,7 +2315,7 @@ const HELP = [
   ['🔍', 'Πώς βρίσκω κάτι γρήγορα;', ['Πατήστε «🔍 Αναζήτηση» πάνω αριστερά ή Ctrl+K.', 'Γράψτε ό,τι θυμάστε: όνομα, ποσό, κατηγορία, ρύθμιση.', 'Με τα βελάκια διαλέγετε και με Enter ανοίγει.']],
   ['🛟', 'Τι γίνεται αν χαλάσει ο υπολογιστής;', ['Αν έχετε ρυθμίσει «Δεύτερο αντίγραφο» (Ρυθμίσεις → Τα δεδομένα μου), τα στοιχεία είναι στο OneDrive ή στο USB.', 'Στον νέο υπολογιστή βάλτε το HomeFlow, πατήστε «Άνοιγμα αρχείου HomeFlow» και διαλέξτε το «homeflow-τελευταίο.json» από τον φάκελο «HomeFlow αντίγραφα».']],
   ['🔒', 'Ξέχασα το PIN. Τι κάνω;', ['Στην οθόνη του PIN πατήστε «Ξέχασα το PIN».', 'Γράψτε τον 8ψήφιο κωδικό επαναφοράς που γράψατε σε χαρτί όταν βάλατε το PIN.', 'Μετά βάλτε νέο PIN από τις Ρυθμίσεις.']],
-  ['🔄', 'Πώς βάζω νέα έκδοση;', ['Όταν βγαίνει νέα έκδοση, εμφανίζεται κίτρινη μπάρα πάνω πάνω με «Κατέβασμα».', 'Κλείστε το HomeFlow, κατεβάστε το zip και βάλτε το νέο στη θέση του παλιού.', 'Τα στοιχεία σας δεν χάνονται, γιατί δεν είναι μέσα στο πρόγραμμα.']]
+  ['🔄', 'Πώς βάζω νέα έκδοση;', ['Όταν βγαίνει νέα έκδοση, εμφανίζεται κίτρινη μπάρα πάνω πάνω: «Υπάρχει νέα έκδοση».', 'Πατήστε «⬇️ Ενημέρωση τώρα» και μετά πάλι «Ενημέρωση τώρα» στο παράθυρο που ανοίγει.', 'Περιμένετε λίγο: το HomeFlow κατεβάζει τη νέα έκδοση, κλείνει και ξανανοίγει μόνο του.', 'Τα στοιχεία σας δεν αλλάζουν. Πριν από κάθε ενημέρωση κρατιέται και αντίγραφο ασφαλείας.', 'Αν πατήσετε «Αργότερα», θα σας ξαναρωτήσει την επόμενη φορά που θα ανοίξετε το HomeFlow.']]
 ];
 function renderHelpDlg(d) {
   if (d.kind !== 'help') return null;
@@ -3087,7 +3088,7 @@ const actions = {
   'check-updates': async () => {
     const m = $('#upd-msg');
     if (!window.homeflow) { m.textContent = 'Μόνο στην εγκατεστημένη εφαρμογή.'; return; }
-    m.textContent = 'Έλεγχος…';
+    m.textContent = 'Έλεγχος…'; updLater = false;
     const r = await window.homeflow.checkUpdates();
     if (r.status === 'dev') m.textContent = 'Δοκιμαστική λειτουργία – δεν ελέγχεται.';
     else if (r.status === 'error') m.textContent = 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).';
@@ -3254,20 +3255,80 @@ document.addEventListener('keydown', ev => {
   if (ui.page === 'home' && ev.key === 'ArrowRight') actions['month-next']();
 });
 
-// ενημερώσεις εφαρμογής
-if (window.homeflow) {
-  window.homeflow.onUpdate(s => {
-    const b = $('#update-banner');
-    const m = $('#upd-msg');
-    if (s.status === 'manual') {
-      const how = s.platform === 'darwin'
-        ? 'Κατεβάστε το zip, ανοίξτε το και βάλτε το νέο HomeFlow στις Εφαρμογές στη θέση του παλιού.'
-        : 'Κλείστε το HomeFlow, κατεβάστε το zip και βάλτε τον νέο φάκελο στη θέση του παλιού.';
-      b.innerHTML = `🎉 Υπάρχει νέα έκδοση ${esc(s.version)}. <button class="btn small" data-action="open-url" data-url="${esc(s.url)}">Κατέβασμα</button> <span style="font-weight:500">${how} Τα στοιχεία σας δεν χάνονται.</span>`;
-      b.classList.remove('hidden');
+// ενημερώσεις εφαρμογής: πάντα με ερώτηση, ποτέ αυτόματα
+let updInfo = null, updLater = false;
+function updBanner(html, cls) {
+  const b = $('#update-banner'); if (!b) return;
+  if (!html) { b.classList.add('hidden'); return; }
+  b.className = 'update-banner' + (cls ? ' ' + cls : ''); b.innerHTML = html;
+}
+const UPD_WHY = {
+  programfiles: 'Το HomeFlow είναι στον φάκελο «Program Files», όπου δεν μπορεί να γράψει μόνο του. Μεταφέρετέ το π.χ. στα Έγγραφα και η επόμενη ενημέρωση θα γίνει με ένα κλικ.',
+  readonly: 'Ο φάκελος του HomeFlow δεν επιτρέπει αλλαγές, οπότε η ενημέρωση γίνεται με το χέρι.',
+  translocated: 'Το Mac τρέχει το HomeFlow από προσωρινή θέση. Βάλτε το στις Εφαρμογές και ανοίξτε το από εκεί· η επόμενη ενημέρωση θα γίνει με ένα κλικ.',
+  noassets: 'Η νέα έκδοση δεν έχει ακόμα αρχεία για αυτόματη ενημέρωση.'
+};
+function showUpdate(s) {
+  const m = $('#upd-msg');
+  if (s.status === 'manual') {
+    updInfo = s;
+    if (m) m.innerHTML = `Υπάρχει νέα έκδοση <b>${esc(s.version)}</b>. ${s.canAuto ? '<button class="btn small primary" data-action="update-now">⬇️ Ενημέρωση τώρα</button>' : ''}`;
+    if (updLater) return;
+    if (s.canAuto) updBanner(`🎉 Υπάρχει νέα έκδοση <b>${esc(s.version)}</b> του HomeFlow. <button class="btn small primary" data-action="update-now">⬇️ Ενημέρωση τώρα</button> <button class="btn small" data-action="update-later">Αργότερα</button>`);
+    else {
+      const how = s.platform === 'darwin' ? 'Κατεβάστε το zip, ανοίξτε το και βάλτε το νέο HomeFlow στις Εφαρμογές στη θέση του παλιού.' : 'Κλείστε το HomeFlow, κατεβάστε το zip και βάλτε τον νέο φάκελο στη θέση του παλιού.';
+      updBanner(`🎉 Υπάρχει νέα έκδοση ${esc(s.version)}. <button class="btn small" data-action="open-url" data-url="${esc(s.url)}">Κατέβασμα</button> <span style="font-weight:500">${how} Τα στοιχεία σας δεν χάνονται. ${UPD_WHY[s.reason] ? esc(UPD_WHY[s.reason]) : ''}</span> <button class="btn small" data-action="update-later">✕</button>`);
     }
-    if (m) m.textContent = { manual: `Υπάρχει νέα έκδοση ${s.version}.`, checking: 'Έλεγχος…', latest: 'Έχετε την πιο νέα έκδοση ✓', downloading: 'Κατεβαίνει νέα έκδοση…', progress: `Κατέβασμα ${s.percent || 0}%…`, ready: `Η έκδοση ${s.version} είναι έτοιμη.`, error: 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει ίντερνετ).' }[s.status] || '';
-  });
+    return;
+  }
+  const msg = {
+    checking: 'Έλεγχος…', latest: 'Έχετε την πιο νέα έκδοση ✓', error: 'Δεν έγινε έλεγχος (ίσως δεν υπάρχει internet).',
+    downloading: `⬇️ Κατεβαίνει η έκδοση ${s.version}…`, progress: `⬇️ Κατεβαίνει η έκδοση ${s.version}… <b>${s.percent || 0}%</b>`,
+    verifying: '🔎 Έλεγχος ότι το αρχείο κατέβηκε σωστά…', installing: '📦 Ετοιμάζεται η νέα έκδοση…', restarting: '🔄 Το HomeFlow κλείνει και ξανανοίγει στη νέα έκδοση…'
+  }[s.status];
+  if (['downloading', 'progress', 'verifying', 'installing', 'restarting'].includes(s.status)) {
+    updBanner(`${msg} <span style="font-weight:500">Μην κλείσετε τον υπολογιστή.</span>${s.status === 'progress' ? `<span class="upd-bar"><i style="width:${s.percent || 0}%"></i></span>` : ''}`);
+    if (m) m.innerHTML = msg;
+    return;
+  }
+  if (s.status === 'install-error') {
+    updBanner(`⚠ Η ενημέρωση δεν έγινε: ${esc(s.message)} <span style="font-weight:500">Η τωρινή έκδοση συνεχίζει κανονικά και τα στοιχεία σας είναι εντάξει.</span> <button class="btn small" data-action="update-now">Δοκιμή ξανά</button> <button class="btn small" data-action="open-url" data-url="${esc(s.url || '')}">Κατέβασμα με το χέρι</button>`, 'bad');
+    if (m) m.textContent = 'Η ενημέρωση δεν έγινε.';
+    return;
+  }
+  if (m && msg) m.innerHTML = msg;
+}
+if (window.homeflow) window.homeflow.onUpdate(showUpdate);
+const updActions = {
+  'update-later': () => { updLater = true; updBanner(''); },
+  'update-now': () => {
+    if (!updInfo || !updInfo.canAuto) return;
+    dlg = { kind: 'upd', error: '' }; renderDlg();
+  }
+};
+function renderUpdDlg(d) {
+  if (d.kind !== 'upd') return null;
+  return { head: 'neutral', title: `⬇️ Ενημέρωση στην έκδοση ${esc(updInfo.version)}`, body: `
+    <p style="margin:0;font-size:1.15rem">Το HomeFlow θα κατεβάσει τη νέα έκδοση, θα <b>κλείσει</b> και θα <b>ξανανοίξει μόνο του</b> σε λίγα δευτερόλεπτα.</p>
+    <ul style="margin:0;font-size:1.05rem;line-height:1.6">
+      <li>Τα στοιχεία σας <b>δεν αλλάζουν</b>. Πριν από την ενημέρωση κρατιέται και αντίγραφο ασφαλείας.</li>
+      <li>Αν κάτι δεν πάει καλά, μένει η τωρινή έκδοση.</li>
+      ${DB && DB.settings.pin ? '<li>Μετά την επανεκκίνηση θα σας ζητήσει το PIN.</li>' : ''}
+    </ul>` };
+}
+Object.assign(actions, updActions);
+async function saveUpdDlg() {
+  dlg = null; renderDlg();
+  try { await persist(); } catch (e) { /* τίποτα */ }
+  updBanner('⬇️ Ξεκινάει η ενημέρωση…');
+  const r = await window.homeflow.installUpdate();
+  if (r && !r.ok && r.error) toast(r.error);
+}
+async function checkJustUpdated() {
+  if (!window.homeflow || !window.homeflow.justUpdated) return;
+  const r = await window.homeflow.justUpdated();
+  if (r && r.to) toast(`✓ Το HomeFlow ενημερώθηκε στην έκδοση ${r.to}.`);
+  else if (r && r.failed) updBanner('⚠ Η τελευταία ενημέρωση δεν ολοκληρώθηκε και έμεινε η προηγούμενη έκδοση. Τα στοιχεία σας είναι εντάξει. Δοκιμάστε ξανά αργότερα ή κατεβάστε τη νέα έκδοση με το χέρι.', 'bad');
 }
 
 async function reload() {
@@ -3277,6 +3338,7 @@ async function reload() {
   if (DB && generateRecurring()) persist();
   if (window.homeflow) { ui.info = await window.homeflow.info(); $('#brand-version').textContent = 'Έκδοση ' + ui.info.version; }
   await refreshBackup();
+  checkJustUpdated();
   applyFont();
   if (DB && DB.settings.pin) { locked = true; renderLock(); }
   render();

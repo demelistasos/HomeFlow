@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu, screen } = require('el
 const path = require('path');
 const fs = require('fs');
 const { buildXlsx } = require('./xlsx');
+const upd = require('./updater');
 
 const DATA_FILE = 'homeflow-data.json';
 const BACKUP_DIR = 'Αντίγραφα ασφαλείας';
@@ -299,9 +300,10 @@ ipcMain.handle('app:print', () => {
 });
 
 // ---------- ενημερώσεις ----------
-// Δεν εγκαθίσταται τίποτα αυτόματα. Η εφαρμογή απλώς κοιτάει στο GitHub
-// αν υπάρχει νεότερη έκδοση και δείχνει ειδοποίηση με κουμπί «Κατέβασμα».
-// Κάθε έκδοση (tag "v0.1.N") έχει ένα zip για Windows και ένα για Mac.
+// Η εφαρμογή κοιτάει στο GitHub αν υπάρχει νεότερη έκδοση και ΡΩΤΑΕΙ τον χρήστη.
+// Μόνο αν πατήσει «Ενημέρωση τώρα» κατεβαίνει και μπαίνει η νέα έκδοση (βλ. updater.js).
+// Κάθε έκδοση (tag "v0.1.N") έχει ένα zip για Windows, ένα για Mac και το SHA256SUMS.txt.
+let pending = null;
 const REPO = 'demelistasos/HomeFlow';
 const TAG = /^v(\d[\d.]*)$/;
 function send(status, extra = {}) {
@@ -325,10 +327,14 @@ async function checkUpdates() {
     for (const rel of await r.json()) {
       const m = !rel.draft && TAG.exec(rel.tag_name);
       if (!m) continue;
-      if (!best || newer(m[1], best.version)) best = { version: m[1], url: rel.html_url };
+      if (!best || newer(m[1], best.version)) best = { version: m[1], url: rel.html_url, rel };
     }
-    if (best && newer(best.version, app.getVersion())) send('manual', best);
-    else send('latest');
+    if (best && newer(best.version, app.getVersion())) {
+      const assets = upd.pickAssets(best.rel, process.platform, best.version);
+      const target = upd.installTarget(process.execPath, process.platform);
+      pending = assets && target.ok ? { version: best.version, url: best.url, assets, target } : null;
+      send('manual', { version: best.version, url: best.url, canAuto: !!pending, reason: !assets ? 'noassets' : target.reason, dir: target.dir });
+    } else send('latest');
   } catch (e) {
     send('error', { message: e.message });
   }
@@ -338,6 +344,61 @@ function setupUpdates() {
   setTimeout(checkUpdates, 4000);
   setInterval(checkUpdates, 4 * 60 * 60 * 1000);
 }
+let installing = false;
+ipcMain.handle('update:install', async () => {
+  if (!pending || installing) return { ok: false, error: 'Δεν υπάρχει ενημέρωση για εγκατάσταση.' };
+  installing = true;
+  const { version, assets, target } = pending;
+  const work = path.join(target.parent, `.homeflow-update-${version}`);
+  try {
+    // 1. αντίγραφο των δεδομένων πριν από οτιδήποτε
+    if (fs.existsSync(dataFile())) {
+      const bdir = path.join(dataDir(), BACKUP_DIR); fs.mkdirSync(bdir, { recursive: true });
+      fs.copyFileSync(dataFile(), path.join(bdir, `homeflow-πριν-την-${version}.json`));
+    }
+    // 2. κατέβασμα
+    fs.rmSync(work, { recursive: true, force: true }); fs.mkdirSync(work, { recursive: true });
+    const zip = path.join(work, assets.zipName);
+    send('downloading', { version, percent: 0 });
+    await upd.downloadTo(assets.zipUrl, zip, p => send('progress', { version, percent: p }));
+    // 3. έλεγχος αποτυπώματος
+    send('verifying', { version });
+    const sums = upd.parseSums(await upd.downloadText(assets.sumsUrl));
+    const want = sums[assets.zipName], got = await upd.sha256File(zip);
+    if (!want || want !== got) throw new Error('Το αρχείο δεν κατέβηκε σωστά (δεν ταιριάζει το αποτύπωμα).');
+    // 4. αποσυμπίεση δίπλα στο τωρινό πρόγραμμα
+    send('installing', { version });
+    upd.extractZip(zip, path.join(work, 'x'), process.platform);
+    fs.rmSync(zip, { force: true });
+    const exeName = target.exeName || 'HomeFlow.exe';
+    const newPath = upd.findApp(path.join(work, 'x'), process.platform, exeName);
+    if (!newPath) throw new Error('Δεν βρέθηκε η νέα εφαρμογή μέσα στο zip.');
+    // 5. script που αλλάζει την έκδοση αφού κλείσει η εφαρμογή
+    const logFile = path.join(app.getPath('userData'), 'ενημερώσεις.log');
+    const h = upd.helperScript(process.platform, { pid: process.pid, appPath: target.appPath, newPath, workDir: work, exeName, logFile });
+    const script = path.join(app.getPath('temp'), h.name);
+    fs.writeFileSync(script, h.content, 'utf8');
+    if (process.platform !== 'win32') fs.chmodSync(script, 0o755);
+    writeConfig({ ...readConfig(), updatedFrom: app.getVersion() });
+    const child = require('child_process').spawn(h.cmd, h.args(script), { detached: true, stdio: 'ignore', windowsHide: true });
+    child.unref();
+    send('restarting', { version });
+    setTimeout(() => app.quit(), 600);
+    return { ok: true };
+  } catch (e) {
+    installing = false;
+    try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* τίποτα */ }
+    send('install-error', { version, message: e.message, url: pending.url });
+    return { ok: false, error: e.message };
+  }
+});
+// Μετά από ενημέρωση: ποια ήταν η προηγούμενη έκδοση (για το μήνυμα «Ενημερώθηκε»)
+ipcMain.handle('update:justUpdated', () => {
+  const cfg = readConfig();
+  if (!cfg.updatedFrom) return null;
+  const from = cfg.updatedFrom; delete cfg.updatedFrom; writeConfig(cfg);
+  return from !== app.getVersion() ? { from, to: app.getVersion() } : { failed: true, from };
+});
 ipcMain.handle('update:check', async () => {
   if (!app.isPackaged) return { status: 'dev' };
   checkUpdates();
