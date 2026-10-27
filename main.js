@@ -379,6 +379,7 @@ function newer(a, b) {
   }
   return false;
 }
+let lastLogged = '';
 async function checkUpdates() {
   send('checking');
   try {
@@ -397,6 +398,7 @@ async function checkUpdates() {
       let target = upd.installTarget(process.execPath, process.platform);
       if (target.ok && dataInside(target.appPath)) target = { ok: false, reason: 'datainside', dir: target.appPath };
       pending = assets && target.ok ? { version: best.version, url: best.url, assets, target } : null;
+      if (lastLogged !== best.version) { lastLogged = best.version; updLog(`βρέθηκε νέα έκδοση ${best.version}` + (pending ? '' : ` (χωρίς αυτόματη ενημέρωση: ${!assets ? 'noassets' : target.reason})`)); }
       send('manual', { version: best.version, url: best.url, canAuto: !!pending, reason: !assets ? 'noassets' : target.reason, dir: target.dir });
     } else send('latest');
   } catch (e) {
@@ -406,6 +408,8 @@ async function checkUpdates() {
 function setupUpdates() {
   if (!app.isPackaged) return;
   setTimeout(cleanOldUpdates, 15000);
+  // μία γραμμή κάθε φορά που ανοίγει νέα έκδοση, ώστε το ημερολόγιο να υπάρχει πάντα
+  try { const cfg = readConfig(); if (cfg.loggedVersion !== app.getVersion()) { updLog(`άνοιξε η έκδοση ${app.getVersion()} από ${path.dirname(process.execPath)}`); writeConfig({ ...readConfig(), loggedVersion: app.getVersion() }); } } catch { /* τίποτα */ }
   setTimeout(checkUpdates, 4000);
   setInterval(checkUpdates, 4 * 60 * 60 * 1000);
 }
@@ -503,7 +507,7 @@ ipcMain.handle('update:install', async () => {
   }
 });
 // Μετά από ενημέρωση: ποια ήταν η προηγούμενη έκδοση (για το μήνυμα «Ενημερώθηκε»)
-ipcMain.handle('update:openLog', () => { if (!fs.existsSync(updLogFile())) return { error: 'Δεν υπάρχει ακόμα ημερολόγιο ενημερώσεων.' }; shell.openPath(updLogFile()); return { ok: true }; });
+ipcMain.handle('update:openLog', () => { if (!fs.existsSync(updLogFile())) updLog(`έκδοση ${app.getVersion()}: δεν έχει γίνει ακόμα καμία ενημέρωση`); shell.openPath(updLogFile()); return { ok: true }; });
 ipcMain.handle('update:justUpdated', () => {
   const cfg = readConfig();
   if (!cfg.updatedFrom) return null;
