@@ -112,7 +112,19 @@ function renderDlg2(d) {
   if (d.kind === 'car') {
     const cats = DB.categories.filter(c => c.type === 'expense').sort((a, b) => a.name.localeCompare(b.name, 'el'));
     return { head: 'neutral', title: d.id ? 'Στοιχεία αυτοκινήτου' : 'Νέο αυτοκίνητο', body: `
-      <div class="field"><label for="d-cname">Όνομα</label><input id="d-cname" type="text" style="width:100%" value="${esc(d.name)}" placeholder="π.χ. Kia XCeed"></div>
+      <div class="row">
+        <div class="field"><label for="d-cbrand">Μάρκα</label><input id="d-cbrand" type="text" list="car-brands" autocomplete="off" style="width:100%" value="${esc(d.brand)}" placeholder="π.χ. Kia"><datalist id="car-brands">${CAR_BRANDS.map(b => `<option value="${esc(b)}">`).join('')}</datalist></div>
+        <div class="field"><label for="d-cmodel">Μοντέλο</label><input id="d-cmodel" type="text" style="width:100%" value="${esc(d.model)}" placeholder="π.χ. XCeed"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-cname">Όνομα <span class="muted" style="font-weight:500">(πώς το λέτε· αν μείνει κενό: μάρκα και μοντέλο)</span></label><input id="d-cname" type="text" style="width:100%" value="${esc(d.name)}" placeholder="π.χ. Το Kia του μπαμπά"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="d-cplate">Πινακίδα</label><input id="d-cplate" type="text" style="width:10rem;text-transform:uppercase" value="${esc(d.plate)}" placeholder="ΙΚΑ 1234"></div>
+        <div class="field"><label for="d-cyear">Χρονολογία</label><input id="d-cyear" type="number" min="1950" max="2100" style="width:7rem" value="${esc(d.year)}" placeholder="2019"></div>
+      </div>
+      <div class="field"><div class="flabel">Τι είναι;</div><div class="chips">${CAR_TYPES.map(([e, l]) => `<button class="chip ${(d.type || '🚗') === e ? 'sel' : ''}" data-action="dlg-ctype" data-v="${e}" data-noicon>${e} ${l}</button>`).join('')}</div></div>
+      <div class="field"><div class="flabel">Χρώμα</div><div class="chips">${CAR_COLORS.map(([k, l, hex]) => `<button class="chip ${d.color === k ? 'sel' : ''}" data-action="dlg-ccolor" data-v="${k}"><span class="swatch" style="background:${hex}"></span>${l}</button>`).join('')}</div></div>
       <div class="row">
         <div class="field"><label for="d-fuel">Κατηγορία καυσίμων (για €/km)</label><select id="d-fuel" style="width:100%"><option value="">—</option>${cats.map(c => `<option value="${esc(c.id)}" ${d.fuel === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select></div>
         <div class="field"><label for="d-kteo">Επόμενο ΚΤΕΟ</label><input id="d-kteo" type="date" value="${esc(d.kteo)}"></div>
@@ -127,7 +139,7 @@ function syncDlg2() {
   const c = id => { const el = $('#' + id); return el ? el.checked : undefined; };
   const d = dlg; if (!d) return;
   for (const [id, k] of [['d-amount', 'amountStr'], ['d-date', 'date'], ['d-tname', 'name'], ['d-count', 'count'], ['d-from', 'from'], ['d-pname', 'name'], ['d-pnote', 'note'],
-    ['d-text', 'text'], ['d-km', 'kmStr'], ['d-work', 'work'], ['d-next', 'nextStr'], ['d-cname', 'name'], ['d-fuel', 'fuel'], ['d-kteo', 'kteo'], ['d-hours', 'hoursStr'],
+    ['d-text', 'text'], ['d-km', 'kmStr'], ['d-work', 'work'], ['d-next', 'nextStr'], ['d-cname', 'name'], ['d-cbrand', 'brand'], ['d-cmodel', 'model'], ['d-cplate', 'plate'], ['d-cyear', 'year'], ['d-fuel', 'fuel'], ['d-kteo', 'kteo'], ['d-hours', 'hoursStr'],
     ['d-pwname', 'name'], ['d-pwtot', 'totStr'], ['d-pwm2', 'm2Str'], ['d-pwmt', 'meteredTenantId'], ['d-pwrest', 'restTenantId'], ['d-pwg', 'gStr'], ['d-pwr', 'lastStr'],
     ['d-pfrom', 'from'], ['d-pto', 'to'], ['d-pkwh', 'kwhStr'], ['d-penergy', 'energyStr'], ['d-pfees', 'feesStr'], ['d-pr0', 'r0Str'], ['d-pr1', 'r1Str']]) { const x = v(id); if (x !== undefined) d[k] = typeof x === 'string' ? x.trim() : x; }
   for (const [id, k] of [['d-addexp', 'addExpense'], ['d-sold', 'sold']]) { const x = c(id); if (x !== undefined) d[k] = x; }
@@ -244,9 +256,12 @@ function saveDlg2() {
     return done(`ΔΕΗ: ${rec.metered.who} ${eur(k.metered)} · ${rec.rest.who} ${eur(k.rest)}`);
   }
   if (d.kind === 'car') {
-    if (!d.name) return fail('Γράψτε όνομα.');
-    if (d.id) Object.assign(DB.cars.find(x => x.id === d.id), { name: d.name, fuelCategoryId: d.fuel || '', kteo: d.kteo || '', sold: d.sold ? (DB.cars.find(x => x.id === d.id).sold || todayStr()) : '' });
-    else { const km = intOf(d.kmStr); DB.cars.push({ id: 'c' + uid(), name: d.name, since: todayStr(), fuelCategoryId: d.fuel || '', sold: '', kteo: d.kteo || '', km: km ? [{ date: todayStr(), km }] : [], services: [] }); }
+    const brand = (d.brand || '').trim(), model = (d.model || '').trim();
+    const name = (d.name || '').trim() || [brand, model].filter(Boolean).join(' ');
+    if (!name) return fail('Γράψτε μάρκα και μοντέλο ή ένα όνομα.');
+    const info = { name, brand, model, plate: (d.plate || '').trim().toUpperCase(), year: d.year ? String(d.year).trim() : '', color: d.color || '', type: d.type || '🚗', fuelCategoryId: d.fuel || '', kteo: d.kteo || '' };
+    if (d.id) Object.assign(DB.cars.find(x => x.id === d.id), info, { sold: d.sold ? (DB.cars.find(x => x.id === d.id).sold || todayStr()) : '' });
+    else { const km = intOf(d.kmStr); DB.cars.push({ id: 'c' + uid(), ...info, since: todayStr(), sold: '', km: km ? [{ date: todayStr(), km }] : [], services: [] }); }
     return done('Αποθηκεύτηκε.');
   }
   return false;

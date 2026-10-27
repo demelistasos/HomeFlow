@@ -127,3 +127,22 @@ html.h-xs .side-actions .btn.big { min-height: 2.5rem; font-size: 1rem; }
 .ic-svg .f{fill:currentColor;stroke:none}
 .nav .ic-svg{width:1.3em;height:1.3em}
 h1 .ic-svg,h2 .ic-svg{color:var(--brand)}
+
+/* Κλείσιμο μήνα */
+.mc-tot{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem}
+.mc-tot>div{background:var(--paper-2);border-radius:16px;padding:.7rem .9rem}
+.mc-tot .num{font-size:1.45rem;font-weight:700}
+.mc-row{display:flex;justify-content:space-between;gap:1rem;padding:.35rem 0;border-bottom:1px solid var(--line);font-size:1.05rem}
+html.w-xs .mc-tot{grid-template-columns:1fr}
+.modal-head h2 .ic-svg{color:inherit}
+
+/* Αυτοκίνητα: σήμα στο χρώμα του αυτοκινήτου, πινακίδα */
+.car-badge{--car:var(--brand-soft);flex:none;display:inline-grid;place-items:center;width:3.1rem;height:3.1rem;border-radius:50%;font-size:1.6rem;line-height:1;
+  background:radial-gradient(circle at 50% 50%, var(--paper) 0 52%, transparent 53%), var(--car);border:2px solid color-mix(in srgb, var(--car) 70%, var(--ink) 30%)}
+.car-badge.big{width:3.6rem;height:3.6rem;font-size:1.9rem}
+.car-h1{display:flex;align-items:center;gap:.8rem}
+.car-sub{font-size:.95rem;font-weight:500;margin-top:.1rem}
+h1 .car-sub{font-size:1rem}
+.plate{display:inline-block;vertical-align:middle;margin-left:.4rem;padding:.05rem .45rem;border:2px solid var(--ink-2);border-radius:6px;background:#fff;color:#111;font-size:.8rem;font-weight:700;letter-spacing:.06em;line-height:1.35;border-left:.55rem solid #2457a6}
+h1 .plate{font-size:.9rem}
+.swatch{display:inline-block;width:1em;height:1em;border-radius:50%;margin-right:.35rem;vertical-align:-.12em;border:1.5px solid var(--line-2)}

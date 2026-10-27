@@ -77,6 +77,7 @@ function extraBackup(kind, { quiet } = {}) {
     const files = fs.readdirSync(dir).filter(f => /^homeflow-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
     while (files.length > KEEP_EXTRA) fs.unlinkSync(path.join(dir, files.shift()));
     mirrorDir(attDir(), path.join(dir, ATT_DIR));
+    mirrorDir(path.join(dataDir(), 'Μηνιαίες συνόψεις'), path.join(dir, 'Μηνιαίες συνόψεις'));
     setBackupCfg(kind, { ...b, last: new Date().toISOString() });
     return { ok: true };
   } catch (e) {
@@ -259,14 +260,9 @@ ipcMain.handle('data:saveXlsx', async (_e, { book, defaultName }) => {
   return { ok: true, path: res.filePath };
 });
 
-// Σύνοψη μήνα σε PDF: η σελίδα φτιάχνεται στο παράθυρο, εδώ γίνεται PDF σε κρυφό παράθυρο
-ipcMain.handle('data:savePdf', async (_e, { html, defaultName }) => {
-  const res = await dialog.showSaveDialog(win, {
-    title: 'Αποθήκευση PDF',
-    defaultPath: path.join(app.getPath('documents'), String(defaultName || 'HomeFlow.pdf').replace(/[\\/:*?"<>|]/g, '_')),
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
-  });
-  if (res.canceled || !res.filePath) return { ok: false };
+// ---------- PDF ----------
+// Η σελίδα (HTML) φτιάχνεται στο παράθυρο, εδώ γίνεται PDF σε κρυφό παράθυρο.
+async function htmlToPdf(html) {
   // Η γραμματοσειρά μπαίνει μέσα στη σελίδα (data:), ώστε να φορτώνει σίγουρα και μέσα από το app.asar
   // και από φακέλους με ελληνικά ή κενά στο όνομα, χωρίς τους περιορισμούς του file://.
   let font = '';
@@ -278,16 +274,52 @@ ipcMain.handle('data:savePdf', async (_e, { html, defaultName }) => {
     pdfWin = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
     await pdfWin.loadFile(tmp);
     await new Promise(r => setTimeout(r, 250)); // λίγος χρόνος για να εφαρμοστεί η γραμματοσειρά
-    const pdf = await pdfWin.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
-    fs.writeFileSync(res.filePath, pdf);
-  } catch (e) {
-    return { ok: false, error: e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'EACCES' ? 'Το αρχείο είναι ανοιχτό σε άλλο πρόγραμμα ή ο φάκελος δεν επιτρέπει αποθήκευση. Κλείστε το ή διαλέξτε άλλο φάκελο.' : 'Δεν αποθηκεύτηκε: ' + e.message };
+    return await pdfWin.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
   } finally {
     if (pdfWin && !pdfWin.isDestroyed()) pdfWin.destroy();
     try { fs.unlinkSync(tmp); } catch { /* τίποτα */ }
   }
+}
+const busyMsg = e => (e.code === 'EBUSY' || e.code === 'EPERM' || e.code === 'EACCES' ? 'Το αρχείο είναι ανοιχτό σε άλλο πρόγραμμα ή ο φάκελος δεν επιτρέπει αποθήκευση. Κλείστε το ή διαλέξτε άλλο φάκελο.' : 'Δεν αποθηκεύτηκε: ' + e.message);
+const safeName = n => String(n || 'HomeFlow.pdf').replace(/[\\/:*?"<>|]/g, '_');
+
+// Σύνοψη μήνα σε PDF, όπου διαλέξει ο χρήστης
+ipcMain.handle('data:savePdf', async (_e, { html, defaultName }) => {
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Αποθήκευση PDF',
+    defaultPath: path.join(app.getPath('documents'), safeName(defaultName)),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  });
+  if (res.canceled || !res.filePath) return { ok: false };
+  try { fs.writeFileSync(res.filePath, await htmlToPdf(html)); } catch (e) { return { ok: false, error: busyMsg(e) }; }
   shell.openPath(res.filePath);
   return { ok: true, path: res.filePath };
+});
+
+// Κλείσιμο μήνα: το PDF μπαίνει μόνο του στον φάκελο «Μηνιαίες συνόψεις» δίπλα στα δεδομένα
+// και αντιγράφεται και στα δεύτερα αντίγραφα (cloud / USB), όσα είναι διαθέσιμα.
+const MONTHS_DIR = 'Μηνιαίες συνόψεις';
+const monthsDir = () => path.join(dataDir(), MONTHS_DIR);
+ipcMain.handle('report:archive', async (_e, { html, name }) => {
+  try {
+    const dir = monthsDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, safeName(name));
+    fs.writeFileSync(file, await htmlToPdf(html));
+    const copies = [];
+    for (const [k, b] of Object.entries(backupCfg())) {
+      if (!b || !b.dir || !fs.existsSync(b.dir)) continue;
+      try { const d = path.join(b.dir, EXTRA_DIR, MONTHS_DIR); fs.mkdirSync(d, { recursive: true }); fs.copyFileSync(file, path.join(d, path.basename(file))); copies.push(k); } catch { /* θα γίνει στο επόμενο αντίγραφο */ }
+    }
+    return { ok: true, path: file, file: path.basename(file), dir, copies };
+  } catch (e) { return { ok: false, error: busyMsg(e) }; }
+});
+ipcMain.handle('report:open', async (_e, file) => {
+  const p = path.join(monthsDir(), path.basename(String(file || '')));
+  if (file && fs.existsSync(p)) { const err = await shell.openPath(p); return err ? { error: err } : { ok: true }; }
+  fs.mkdirSync(monthsDir(), { recursive: true });
+  shell.openPath(monthsDir());
+  return { ok: true };
 });
 
 ipcMain.handle('att:add', async (_e, title) => {

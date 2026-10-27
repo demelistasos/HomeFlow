@@ -31,7 +31,7 @@ function makeFixture(today = new Date()) {
   const inst = (from, count, amount, paidN) => Array.from({ length: count }, (_, k) => { const s = ym(+from.slice(0, 4), +from.slice(5) + k); const last = new Date(+s.slice(0, 4), +s.slice(5), 0).getDate(); return { due: `${s}-${pad(last)}`, amount, paid: k < paidN, paidDate: k < paidN ? `${s}-20` : '', txId: '' }; });
   return {
     app: 'HomeFlow', version: 1,
-    settings: { persons: ['Πατέρας', 'Μητέρα'], methods: ['Μετρητά', 'Τράπεζα', 'Κάρτα'], fontScale: 1.15, usdPerEur: 1.1, rentCategoryId: 'x_rent', taxCategoryId: 'x_tax', migrations: ['bills-2026'] },
+    settings: { persons: ['Πατέρας', 'Μητέρα'], methods: ['Μετρητά', 'Τράπεζα', 'Κάρτα'], fontScale: 1.15, usdPerEur: 1.1, rentCategoryId: 'x_rent', taxCategoryId: 'x_tax', migrations: ['bills-2026'], closedMonth: ym(Y, M - 1) },
     categories: cats,
     transactions: tx,
     recurring: [
@@ -57,8 +57,8 @@ function makeFixture(today = new Date()) {
     people: [{ id: 'p1', name: 'Συγγενής Δ', note: 'έξοδα για λογαριασμό τους', entries: [
       { id: 'e1', date: `${ym(Y, 2)}-10`, text: 'ΕΝΦΙΑ', amount: 200, dir: 'out' }, { id: 'e2', date: `${ym(Y, 3)}-10`, text: 'μας έστειλαν', amount: 150, dir: 'in' }] }],
     cars: [
-      { id: 'c1', name: 'Αυτοκίνητο Α', since: `${Y - 3}-01-01`, fuelCategoryId: 'x_fuel', sold: '', kteo: `${ym(Y, M + 1)}-10`, km: [{ date: `${ym(Y, 1)}-01`, km: 50000 }, { date: `${ym(Y, M)}-01`, km: 58000 }], services: [{ id: 's1', date: `${ym(Y, 1)}-05`, km: 50000, work: 'Λάδια και φίλτρα', nextKm: 58500, cost: 180 }] },
-      { id: 'c2', name: 'Παλιό αυτοκίνητο', since: '2015-01-01', fuelCategoryId: '', sold: `${Y - 1}-06-01`, kteo: '', km: [], services: [] }
+      { id: 'c1', name: 'Αυτοκίνητο Α', brand: 'Kia', model: 'Ceed', plate: 'ΑΒΓ 1234', year: '2019', color: 'blue', type: '🚗', since: `${Y - 3}-01-01`, fuelCategoryId: 'x_fuel', sold: '', kteo: `${ym(Y, M + 1)}-10`, km: [{ date: `${ym(Y, 1)}-01`, km: 50000 }, { date: `${ym(Y, M)}-01`, km: 58000 }], services: [{ id: 's1', date: `${ym(Y, 1)}-05`, km: 50000, work: 'Λάδια και φίλτρα', nextKm: 58500, cost: 180 }] },
+      { id: 'c2', name: 'Παλιό αυτοκίνητο', brand: 'Fiat', color: 'red', type: '🚙', since: '2015-01-01', fuelCategoryId: '', sold: `${Y - 1}-06-01`, kteo: '', km: [], services: [] }
     ],
     field: { waterings: [{ id: 'w1', date: `${Y - 1}-07-01`, hours: 10 }, { id: 'w2', date: `${ym(Y, Math.max(1, M - 1))}-05`, hours: 2 }, { id: 'w3', date: `${ym(Y, M)}-03`, hours: 1.5 }], payments: [{ id: 'f1', year: Y - 1, date: `${Y - 1}-10-01`, amount: 170, hours: 10, txId: '' }], categoryId: '' },
     power: { name: 'ΔΕΗ ισογείου', totalM2: 180, meteredM2: 65, meteredTenantId: 'ten_b', meteredName: 'Πίσω', restTenantId: '', restName: 'Διαμέρισμα', georgeShare: 50, lastReading: 1000,

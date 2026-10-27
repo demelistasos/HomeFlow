@@ -130,11 +130,11 @@ function buildSummaryBook(year, focus) {
   // Αυτοκίνητα
   if (DB.cars.length) {
     const rows = xlHeadRows('Αυτοκίνητα');
-    rows.push(['Αυτοκίνητο', 'Χιλιόμετρα', 'Ημερομηνία', 'Επόμενο σέρβις (km)', 'Μένουν km', `Χλμ ${year}`, 'ΚΤΕΟ'].map(XL.h));
-    for (const c of DB.cars) { const k = carKm(c), st = carService(c); rows.push([c.name + (c.sold ? ' (πουλήθηκε)' : ''), k ? XL.n(k.km) : null, k ? XL.d(k.date) : null, st ? XL.n(st.next) : null, st ? { v: st.left, s: st.left < 0 ? 'moneyR' : 'num' } : null, XL.n(carYearKm(c, year)), c.kteo ? XL.d(c.kteo) : null]); }
+    rows.push(['Αυτοκίνητο', 'Μάρκα / μοντέλο', 'Πινακίδα', 'Χιλιόμετρα', 'Ημερομηνία', 'Επόμενο σέρβις (km)', 'Μένουν km', `Χλμ ${year}`, 'ΚΤΕΟ'].map(XL.h));
+    for (const c of DB.cars) { const k = carKm(c), st = carService(c); rows.push([c.name + (c.sold ? ' (πουλήθηκε)' : ''), [c.brand, c.model, c.year].filter(Boolean).join(' '), c.plate || '', k ? XL.n(k.km) : null, k ? XL.d(k.date) : null, st ? XL.n(st.next) : null, st ? { v: st.left, s: st.left < 0 ? 'moneyR' : 'num' } : null, XL.n(carYearKm(c, year)), c.kteo ? XL.d(c.kteo) : null]); }
     rows.push([], [XL.b('Σέρβις')], ['Αυτοκίνητο', 'Ημερομηνία', 'Χλμ', 'Τι έγινε', 'Κόστος', 'Επόμενο (km)'].map(XL.h));
     for (const c of DB.cars) for (const s of c.services.slice().sort((x, y) => y.date.localeCompare(x.date))) rows.push([c.name, XL.d(s.date), XL.n(s.km || null), s.work, XL.m(s.cost), XL.n(s.nextKm)]);
-    sheets.push({ name: 'Αυτοκίνητα', rows, widths: [24, 13, 12, 34, 13, 14, 12], freeze: 0, key: 'cars' });
+    sheets.push({ name: 'Αυτοκίνητα', rows, widths: [24, 20, 12, 34, 13, 14, 12, 12, 12], freeze: 0, key: 'cars' });
   }
   // Χωράφι
   if (DB.field && (DB.field.waterings.length || DB.field.payments.length)) {

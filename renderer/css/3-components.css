@@ -173,7 +173,9 @@ table.sheet .zero { color: var(--line-2); }
 .cat-table input[type=text], .cat-table input[type=number] { border: 2px solid var(--line-2); border-radius: 12px; padding: .35rem .7rem; width: 100%; background: var(--paper); }
 .cat-table .btn.small { padding: .3rem .6rem; }
 .cat-table .ic-btn { font-size: 1.4rem; background: var(--btn); border: 2px solid var(--line-2); border-radius: 14px; width: 3rem; height: 2.8rem; }
-.emoji-grid { display: grid; grid-template-columns: repeat(10, 2.8rem); gap: .3rem; }
+.emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.8rem, 1fr)); gap: .3rem; }
+.emoji-group + .emoji-group { margin-top: .9rem; }
+.emoji-grid button.sel { border-color: var(--brand); background: var(--brand-soft); }
 .emoji-grid button { font-size: 1.4rem; height: 2.8rem; border: 2px solid var(--line-2); background: var(--btn); border-radius: 14px; }
 .path { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: .9rem; background: var(--soft); padding: .45rem .7rem; border-radius: 12px; word-break: break-all; }
 .theme-pick { display: grid; grid-template-columns: repeat(3, minmax(0, 13rem)); gap: .8rem; }

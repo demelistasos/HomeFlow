@@ -100,7 +100,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderDlg2(d);
+  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -226,7 +226,8 @@ function renderDlg() {
         ${d.kind === 'pbill' && d.id ? '<button class="btn danger" data-action="pb-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
-        ${d.kind === 'day' || d.kind === 'help' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
+        ${d.kind === 'mclose' ? `<button class="btn" data-action="mclose-pdf">📄 Άνοιγμα PDF</button>${store.native ? '<button class="btn" data-action="mclose-folder">📂 Φάκελος</button>' : ''}` : ''}
+        ${d.kind === 'day' || d.kind === 'help' || d.kind === 'mclose' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
         <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : d.kind === 'upd' ? '⬇️ Ενημέρωση τώρα' : '✓ Αποθήκευση'}</button>`}
       </div>
     </div>
@@ -237,7 +238,7 @@ function saveDlg() {
   if (dlg.kind === 'pin') { savePinDlg(); return; }
   if (dlg.kind === 'ask') { saveAsk(); return; }
   if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
-  if (dlg.kind === 'day' || dlg.kind === 'help') { dlg = null; renderDlg(); return; }
+  if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose') { dlg = null; renderDlg(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {

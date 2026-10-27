@@ -3,6 +3,20 @@
 // (Τα αρχεία φορτώνονται με τη σειρά του index.html· μοιράζονται τις ίδιες μεταβλητές.)
 
 // ---------- Αυτοκίνητα ----------
+// Μάρκες (προτάσεις· μπορεί να γραφτεί και οποιαδήποτε άλλη)
+const CAR_BRANDS = ['Alfa Romeo', 'Audi', 'BMW', 'BYD', 'Chevrolet', 'Citroën', 'Cupra', 'Dacia', 'Daihatsu', 'DS', 'Fiat', 'Ford', 'Honda', 'Hyundai', 'Isuzu', 'Jaguar', 'Jeep', 'Kia', 'KGM (SsangYong)', 'Lancia', 'Land Rover', 'Lexus', 'Mazda', 'Mercedes-Benz', 'MG', 'Mini', 'Mitsubishi', 'Nissan', 'Opel', 'Peugeot', 'Polestar', 'Porsche', 'Renault', 'Seat', 'Skoda', 'Smart', 'Subaru', 'Suzuki', 'Tesla', 'Toyota', 'Volkswagen', 'Volvo',
+  'Aprilia', 'Ducati', 'Harley-Davidson', 'Kawasaki', 'KTM', 'Kymco', 'Piaggio', 'SYM', 'Vespa', 'Yamaha', 'John Deere', 'Kubota', 'New Holland', 'Massey Ferguson', 'Lamborghini Trattori'];
+const CAR_COLORS = [['white', 'Λευκό', '#f4f4f1'], ['black', 'Μαύρο', '#1d2023'], ['silver', 'Ασημί', '#c2c8cd'], ['grey', 'Γκρι', '#6e777e'], ['red', 'Κόκκινο', '#c8322c'], ['bordeaux', 'Μπορντό', '#6e1f2b'],
+  ['blue', 'Μπλε', '#2457a6'], ['lightblue', 'Γαλάζιο', '#6fa8dc'], ['green', 'Πράσινο', '#2e7d4f'], ['yellow', 'Κίτρινο', '#f2c230'], ['orange', 'Πορτοκαλί', '#e8792b'], ['brown', 'Καφέ', '#6b4a32'], ['beige', 'Μπεζ', '#d9c7a3'], ['gold', 'Χρυσό', '#c8a24a']];
+const CAR_TYPES = [['🚗', 'Επιβατικό'], ['🚙', 'SUV / τζιπ'], ['🚕', 'Ταξί'], ['🚐', 'Βαν'], ['🛻', 'Αγροτικό'], ['🚚', 'Φορτηγάκι'], ['🏎️', 'Σπορ'], ['🏍️', 'Μηχανή'], ['🛵', 'Σκούτερ'], ['🚜', 'Τρακτέρ'], ['🚲', 'Ποδήλατο']];
+const carColor = c => CAR_COLORS.find(x => x[0] === c.color);
+// Το «σήμα» του αυτοκινήτου: κύκλος στο χρώμα του με το είδος του
+function carBadge(c, big) {
+  const col = carColor(c);
+  return `<span class="car-badge ${big ? 'big' : ''}" data-noicon style="${col ? `--car:${col[2]}` : ''}" title="${esc([col && col[1], (CAR_TYPES.find(t => t[0] === c.type) || [])[1]].filter(Boolean).join(' · '))}">${c.type || '🚗'}</span>`;
+}
+const carSub = c => [[c.brand, c.model].filter(Boolean).join(' '), c.year, carColor(c) && carColor(c)[1]].filter(Boolean).map(esc).join(' · ');
+const carPlate = c => (c.plate ? `<span class="plate">${esc(c.plate)}</span>` : '');
 const carKm = c => (c.km.length ? c.km.slice().sort((a, b) => a.date.localeCompare(b.date)).pop() : null);
 function carService(c) {
   const cur = carKm(c);
@@ -24,7 +38,7 @@ function carsPage() {
     const sv = c.services.slice().sort((a, b) => b.date.localeCompare(a.date));
     const log = c.km.slice().sort((a, b) => b.date.localeCompare(a.date));
     return `
-    <div class="page-head"><button class="btn no-print" data-action="car-back">◀ Όλα</button><h1>🚗 ${esc(c.name)}</h1><div class="spacer"></div>
+    <div class="page-head"><button class="btn no-print" data-action="car-back">◀ Όλα</button><h1 class="car-h1">${carBadge(c, true)}<span>${esc(c.name)}${carPlate(c)}${carSub(c) ? `<div class="muted car-sub">${carSub(c)}</div>` : ''}</span></h1><div class="spacer"></div>
       <button class="btn primary no-print" data-action="car-km" data-id="${c.id}">📍 Χιλιόμετρα</button>
       <button class="btn no-print" data-action="car-service" data-id="${c.id}">🔧 Σέρβις</button>
       <button class="btn no-print" data-action="car-edit" data-id="${c.id}">✎</button>
@@ -45,7 +59,7 @@ function carsPage() {
     const per = ykm ? fuel / ykm : 0;
     const stTxt = !st ? '<span class="muted">Δεν υπάρχει επόμενο σέρβις</span>' : st.left < 0 ? `<span class="exp"><b>Έχει περάσει το σέρβις</b> (ήταν στα ${int0.format(st.next)} km)</span>` : st.left < 1500 ? `<span style="color:var(--warn)"><b>Σέρβις σύντομα:</b> σε ${int0.format(st.left)} km</span>` : `<span class="inc">Επόμενο σέρβις σε ${int0.format(st.left)} km</span>`;
     return `<div class="card tenant-card">
-      <div style="display:flex;gap:.8rem;align-items:flex-start"><div style="flex:1"><div class="tenant-name">🚗 ${esc(c.name)}</div>
+      <div style="display:flex;gap:.8rem;align-items:flex-start">${carBadge(c)}<div style="flex:1;min-width:0"><div class="tenant-name">${esc(c.name)} ${carPlate(c)}</div>${carSub(c) ? `<div class="muted car-sub">${carSub(c)}</div>` : ''}
         <div class="muted">${cur ? `<b>${int0.format(cur.km)} km</b> (${shortDate(cur.date)})` : 'Χωρίς χιλιόμετρα'}${c.sold ? ' · πουλήθηκε' : ''}</div></div></div>
       <div style="margin:.7rem 0 .3rem;font-size:1.1rem">${stTxt}</div>
       <div class="muted" style="font-size:.95rem">${year}: ${int0.format(ykm)} km${fuel ? ` · καύσιμα ${eur(fuel)}${per ? ` · ${numFmt.format(per)} €/km` : ''}` : ''}${c.kteo ? ` · ΚΤΕΟ ${shortDate(c.kteo)}` : ''}</div>

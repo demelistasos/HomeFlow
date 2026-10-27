@@ -13,7 +13,8 @@ async function reload() {
   applyFont();
   if (DB && DB.settings.pin) { locked = true; renderLock(); }
   render();
+  setTimeout(() => checkMonthClose(), 1500);
 }
 reload();
 // Κάθε ώρα: αν άλλαξε ο μήνας, να εμφανιστούν τα νέα πάγια
-setInterval(() => { if (DB && !form && !dlg && generateRecurring()) { persist(); render(); } }, 60 * 60 * 1000);
+setInterval(() => { if (DB && !form && !dlg && generateRecurring()) { persist(); render(); } checkMonthClose(); }, 60 * 60 * 1000);

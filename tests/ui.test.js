@@ -120,6 +120,16 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       await page.evaluate(() => showUpdate({ status: 'manual', version: '9.9.9', url: 'https://x', canAuto: true, platform: 'win32' }));
       await page.click('#update-banner [data-action="update-now"]'); await page.waitForTimeout(60);
       check(!!(await page.$('.modal')), 'η ενημέρωση ρωτάει πριν'); await page.keyboard.press('Escape');
+      // Κλείσιμο μήνα: με «ανοιχτό» τον προηγούμενο μήνα εμφανίζεται το μήνυμα
+      await page.evaluate(() => { const d = JSON.parse(localStorage.getItem('homeflow-data')); delete d.settings.closedMonth; localStorage.setItem('homeflow-data', JSON.stringify(d)); });
+      await page.reload();
+      const mc = await page.waitForSelector('.modal-head h2', { timeout: 8000 }).catch(() => null);
+      check(!!mc && /έκλεισε/.test(await mc.textContent()), 'κλείσιμο μήνα: εμφανίζεται «… έκλεισε»');
+      check(await page.evaluate(() => !!window.__lastReport && JSON.parse(localStorage.getItem('homeflow-data')).settings.closedMonth === addMonths(curYM(), -1)), 'κλείσιμο μήνα: φτιάχνεται η σύνοψη και σημειώνεται ο μήνας');
+      if (process.env.HF_SHOT) await page.screenshot({ path: process.env.HF_SHOT });
+      await page.click('[data-action="dlg-close"] >> nth=-1'); await page.waitForTimeout(80);
+      await page.reload(); await page.waitForTimeout(2000);
+      check(!(await page.$('.modal')), 'κλείσιμο μήνα: δεν ξαναεμφανίζεται');
       // PIN
       await goto('settings'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="general"]').click()); await page.click('[data-action="pin-set"]'); await page.fill('#d-p1', '2580'); await page.fill('#d-p2', '2580'); await page.click('[data-action="dlg-save"]');
       await page.waitForSelector('#d-wrote', { timeout: 15000 }); await page.check('#d-wrote'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);

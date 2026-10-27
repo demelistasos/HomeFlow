@@ -160,8 +160,10 @@ const actions = {
   'pentry-delete': () => { const p = DB.people.find(x => x.id === dlg.pid); if (!confirm('Να σβηστεί αυτή η κίνηση;')) return; p.entries = p.entries.filter(e => e.id !== dlg.eid); dlg = null; renderDlg(); persist(); render(); },
   'dlg-pdir': el => { syncDlg2(); dlg.dir = el.dataset.v; renderDlg(); },
   // αυτοκίνητα
-  'car-new': () => { dlg = { kind: 'car', id: null, name: '', fuel: '', kteo: '', sold: false, error: '' }; renderDlg(); },
-  'car-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'car', id: c.id, name: c.name, fuel: c.fuelCategoryId, kteo: c.kteo, sold: !!c.sold, error: '' }; renderDlg(); },
+  'car-new': () => { dlg = { kind: 'car', id: null, name: '', brand: '', model: '', plate: '', year: '', color: '', type: '🚗', fuel: '', kteo: '', sold: false, error: '' }; renderDlg(); },
+  'car-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'car', id: c.id, name: c.name, brand: c.brand || '', model: c.model || '', plate: c.plate || '', year: c.year || '', color: c.color || '', type: c.type || '🚗', fuel: c.fuelCategoryId, kteo: c.kteo, sold: !!c.sold, error: '' }; renderDlg(); },
+  'dlg-ctype': el => { syncDlg2(); dlg.type = el.dataset.v; renderDlg(); },
+  'dlg-ccolor': el => { syncDlg2(); dlg.color = dlg.color === el.dataset.v ? '' : el.dataset.v; renderDlg(); },
   'car-open': el => { ui.carId = el.dataset.id; ui.page = 'cars'; render(); $('.main').scrollTop = 0; },
   'car-back': () => { ui.carId = null; render(); },
   'car-delete': () => { const c = DB.cars.find(x => x.id === dlg.id); if (!confirm(`Να διαγραφεί το «${c.name}» με όλο το ιστορικό του;`)) return; DB.cars = DB.cars.filter(x => x.id !== c.id); ui.carId = null; dlg = null; renderDlg(); persist(); render(); },
@@ -221,6 +223,7 @@ const actions = {
   'pick-icon': el => iconPicker(el.dataset.id),
   'picker-close': () => { $('#modal-root').innerHTML = ''; },
   'picker-set': el => { const c = catById(el.dataset.id); c.icon = el.dataset.v; $('#modal-root').innerHTML = ''; persist(); render(); },
+  'picker-own': el => { const v = ($('#emoji-own').value || '').trim(); if (!v || !/\p{Extended_Pictographic}/u.test(v)) { toast('Γράψτε ένα emoji.'); return; } const c = catById(el.dataset.id); c.icon = [...new Intl.Segmenter().segment(v)][0].segment; $('#modal-root').innerHTML = ''; persist(); render(); },
   'cat-up': el => moveCat(el.dataset.id, -1),
   'cat-down': el => moveCat(el.dataset.id, 1),
   'cat-add': el => {
