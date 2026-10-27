@@ -115,6 +115,11 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
         check(await page.evaluate(() => form.accountId === 'a1'), 'ο λογαριασμός προτείνεται για την ίδια κατηγορία');
         await page.keyboard.press('Escape'); await page.waitForTimeout(50);
       }
+      // Οφειλές: και οι ενοικιαστές που χρωστάνε
+      await goto('people'); await page.waitForTimeout(80);
+      check(!!(await page.$('[data-action="tenant-goto"]')), 'στις Οφειλές φαίνονται οι ενοικιαστές που χρωστάνε');
+      await page.click('[data-action="tenant-goto"]:not([data-pay]) >> nth=0'); await page.waitForTimeout(80);
+      check(await page.evaluate(() => ui.page === 'rent' && !!ui.tenantId), 'από τις Οφειλές ανοίγει η καρτέλα του ενοικιαστή');
       // Φίλτρο και ταξινόμηση πινάκων (Κινήσεις)
       await goto('list'); await page.waitForTimeout(150);
       check(!!(await page.$('.tbl-tools input')), 'οι πίνακες έχουν φίλτρο');

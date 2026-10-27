@@ -163,6 +163,7 @@ const actions = {
   'pentry-delete': () => { const p = DB.people.find(x => x.id === dlg.pid); if (!confirm('Να σβηστεί αυτή η κίνηση;')) return; p.entries = p.entries.filter(e => e.id !== dlg.eid); dlg = null; renderDlg(); persist(); render(); },
   'dlg-pdir': el => { syncDlg2(); dlg.dir = el.dataset.v; renderDlg(); },
   // αυτοκίνητα
+  'tenant-goto': el => { const id = el.dataset.id; goTo('rent', { ui: { tenantId: id } }); if (el.dataset.pay) actions['tenant-pay']({ dataset: { id } }); },
   'car-new': () => { dlg = { kind: 'car', id: null, photo: '', name: '', brand: '', model: '', plate: '', year: '', color: '', type: '🚗', fuel: '', kteo: '', sold: false, error: '' }; renderDlg(); },
   'car-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'car', id: c.id, photo: c.photo || '', name: c.name, brand: c.brand || '', model: c.model || '', plate: c.plate || '', year: c.year || '', color: c.color || '', type: c.type || '🚗', fuel: c.fuelCategoryId, kteo: c.kteo, sold: !!c.sold, error: '' }; renderDlg(); },
   'dlg-cphoto': async () => { syncDlg2(); const p = await pickPhoto(); if (p && dlg) { dlg.photo = p; renderDlg(); } },

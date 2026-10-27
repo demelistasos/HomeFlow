@@ -37,5 +37,23 @@ function peoplePage() {
     <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
       <button class="btn expense" data-action="pentry-new" data-id="${p.id}" data-dir="out">− Πληρώσαμε</button>
       <button class="btn income" data-action="pentry-new" data-id="${p.id}" data-dir="in">+ Μας έδωσαν</button>
-      <button class="btn" data-action="person-open" data-id="${p.id}">📒 Καρτέλα</button></div></div>`; }).join('')}</div>` : '<div class="panel empty">Κανένα πρόσωπο ακόμα.</div>'}`;
+      <button class="btn" data-action="person-open" data-id="${p.id}">📒 Καρτέλα</button></div></div>`; }).join('')}</div>` : '<div class="panel empty">Κανένα πρόσωπο ακόμα.</div>'}
+  ${tenantDebtsPanel()}`;
+}
+
+// Ενοικιαστές που χρωστάνε: μόνο για να φαίνονται μαζί με τις άλλες οφειλές.
+// Η οφειλή υπολογίζεται στα «Ενοίκια» (ενοίκιο συμβολαίου − πληρωμές) και οι πληρωμές γράφονται εκεί.
+function tenantDebtsPanel() {
+  const y = now.getFullYear();
+  const list = DB.tenants.map(t => ({ t, bal: tenantLedger(t).balance, sp: tenantYearSplit(t, y) })).filter(x => x.bal > 0.005).sort((a, b) => b.bal - a.bal);
+  const tot = round2(list.reduce((a, x) => a + x.bal, 0));
+  return `<h2 style="margin-top:1.6rem">🔑 Ενοικιαστές που χρωστάνε ${list.length ? `<span class="muted">${eur(tot)}</span>` : ''}</h2>
+  <div class="h-hint" style="margin:-.4rem 0 .9rem">Υπολογίζονται μόνα τους από τα «Ενοίκια». Τις πληρωμές τις γράφετε εκεί, με το «💶 Πλήρωσε» του ενοικιαστή.</div>
+  ${list.length ? `<div class="tenant-grid">${list.map(({ t, bal, sp }) => `<div class="card tenant-card">
+    <div class="tenant-name">🔑 ${esc(t.name)}</div><div class="muted">${esc(t.property || '')}</div>
+    <div class="tenant-bal"><span class="exp">Χρωστάει <b class="num">${eur(bal)}</b></span></div>
+    <div class="muted" style="font-size:.95rem">${sp.extra ? `Φέτος έδωσε <b>${eur(sp.extra)}</b> έξτρα για την οφειλή.` : 'Φέτος δεν έχει δώσει έξτρα για την οφειλή.'}${t.opening ? ` Παλιό υπόλοιπο: ${eur(t.opening)}.` : ''}</div>
+    <div style="display:flex;gap:.6rem;margin-top:.9rem;flex-wrap:wrap">
+      <button class="btn income" data-action="tenant-goto" data-id="${t.id}" data-pay="1">💶 Πλήρωσε</button>
+      <button class="btn" data-action="tenant-goto" data-id="${t.id}">📒 Καρτέλα</button></div></div>`).join('')}</div>` : '<div class="panel empty">Κανένας ενοικιαστής δεν χρωστάει ✓</div>'}`;
 }
