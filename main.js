@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { buildXlsx } = require('./xlsx');
 const upd = require('./updater');
+const ofs = (() => { try { return require('original-fs'); } catch { return fs; } })(); // χωρίς «μαγεία» .asar (βλ. updater.js)
 
 const DATA_FILE = 'homeflow-data.json';
 const BACKUP_DIR = 'Αντίγραφα ασφαλείας';
@@ -438,7 +439,7 @@ function cleanOldUpdates() {
     const t = upd.installTarget(process.execPath, process.platform);
     for (const dir of [app.getPath('temp'), t.parent].filter(Boolean)) {
       if (!fs.existsSync(dir)) continue;
-      for (const f of fs.readdirSync(dir)) if (/^\.?homeflow-update-/.test(f)) { try { fs.rmSync(path.join(dir, f), RM); updLog('σβήστηκε παλιός φάκελος ενημέρωσης: ' + f); } catch { /* την επόμενη φορά */ } }
+      for (const f of fs.readdirSync(dir)) if (/^\.?homeflow-update-/.test(f)) { try { ofs.rmSync(path.join(dir, f), RM); updLog('σβήστηκε παλιός φάκελος ενημέρωσης: ' + f); } catch { /* την επόμενη φορά */ } }
     }
   } catch { /* τίποτα */ }
 }
@@ -485,12 +486,12 @@ ipcMain.handle('update:install', async () => {
       await upd.downloadTo(assets.zipUrl, zip, p => send('progress', { version, percent: p }));
       send('verifying', { version });
       const got = await upd.sha256File(zip);
-      updLog(`κατέβηκε (${fs.statSync(zip).size} bytes)`);
+      updLog(`κατέβηκε (${fs.statSync(zip).size} bytes, αποτύπωμα ${got.slice(0, 12)}…, αναμενόμενο ${want.slice(0, 12)}…)`);
       if (want !== got) throw new Error('Το αρχείο δεν κατέβηκε σωστά (δεν ταιριάζει το αποτύπωμα).');
     }, 3);
     // 4. αποσυμπίεση δίπλα στο τωρινό πρόγραμμα
     send('installing', { version });
-    await retry('αποσυμπίεση', () => { fs.rmSync(path.join(work, 'x'), RM); upd.extractZip(zip, path.join(work, 'x'), process.platform); });
+    await retry('αποσυμπίεση', () => { ofs.rmSync(path.join(work, 'x'), RM); upd.extractZip(zip, path.join(work, 'x'), process.platform); });
     try { fs.rmSync(zip, { force: true }); } catch { /* θα σβηστεί μαζί με τον φάκελο εργασίας */ }
     const exeName = target.exeName || 'HomeFlow.exe';
     const newPath = upd.findApp(path.join(work, 'x'), process.platform, exeName);
@@ -520,7 +521,7 @@ ipcMain.handle('update:install', async () => {
   } catch (e) {
     installing = false;
     updLog('ΣΦΑΛΜΑ: ' + (e && e.stack || e));
-    try { fs.rmSync(work, RM); } catch { /* τίποτα */ }
+    try { ofs.rmSync(work, RM); } catch { /* τίποτα */ }
     send('install-error', { version, message: e.message, url: pending.url });
     return { ok: false, error: e.message };
   }

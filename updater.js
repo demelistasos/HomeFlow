@@ -3,7 +3,9 @@
 // στο τωρινό πρόγραμμα → η εφαρμογή κλείνει → ένα μικρό script βάζει τη νέα έκδοση στη θέση
 // της παλιάς και την ξανανοίγει. Αν κάτι αποτύχει, μένει η παλιά έκδοση.
 // Τα δεδομένα (Έγγραφα/HomeFlow) ΔΕΝ αγγίζονται.
-const fs = require('fs');
+// Μέσα στο Electron το κανονικό «fs» βλέπει τα αρχεία .asar σαν φακέλους και μπερδεύεται όταν
+// αντιγράφει ή σβήνει μια ολόκληρη εφαρμογή. Το «original-fs» τα βλέπει σαν απλά αρχεία.
+const fs = (() => { try { return require('original-fs'); } catch { return require('fs'); } })();
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
@@ -165,7 +167,7 @@ async function finishUpdate(o, { log = () => {}, isAlive, launch, wait = 500 } =
     if (fs.existsSync(old)) await tryMany('σβήσιμο παλιού', () => fs.rmSync(old, { recursive: true, force: true }), 10);
     await tryMany('μετακίνηση παλιάς έκδοσης', () => fs.renameSync(o.appPath, old));
     moved = true;
-    await tryMany('αντιγραφή νέας έκδοσης', () => { fs.rmSync(o.appPath, { recursive: true, force: true }); fs.cpSync(o.newPath, o.appPath, { recursive: true }); }, 10);
+    await tryMany('αντιγραφή νέας έκδοσης', () => { fs.rmSync(o.appPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); fs.cpSync(o.newPath, o.appPath, { recursive: true }); }, 10);
     if (!fs.existsSync(path.join(o.appPath, o.exeName))) throw new Error('η νέα έκδοση δεν αντιγράφηκε σωστά');
     log('η νέα έκδοση μπήκε');
     launch(path.join(o.appPath, o.exeName));
@@ -174,8 +176,8 @@ async function finishUpdate(o, { log = () => {}, isAlive, launch, wait = 500 } =
   } catch (e) {
     log('ΣΦΑΛΜΑ στην ολοκλήρωση: ' + e.message);
     if (moved) {
-      try { fs.rmSync(o.appPath, { recursive: true, force: true }); } catch { /* τίποτα */ }
-      try { fs.renameSync(old, o.appPath); log('επαναφορά παλιάς έκδοσης'); } catch (e2) { log('ΔΕΝ έγινε επαναφορά: ' + (e2.code || e2.message) + ' — η παλιά έκδοση είναι στο ' + old); launch(path.join(old, o.exeName)); return { ok: false }; }
+      try { fs.rmSync(o.appPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch (e3) { log('δεν σβήστηκε η μισή αντιγραφή: ' + (e3.code || e3.message)); }
+      try { await tryMany('επαναφορά', () => fs.renameSync(old, o.appPath), 20); log('επαναφορά παλιάς έκδοσης'); } catch (e2) { log('ΔΕΝ έγινε επαναφορά: ' + (e2.code || e2.message) + ' — η παλιά έκδοση είναι στο ' + old); launch(path.join(old, o.exeName)); return { ok: false }; }
     }
     launch(path.join(o.appPath, o.exeName));
     return { ok: false, error: e.message };
