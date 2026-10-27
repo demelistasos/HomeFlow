@@ -394,7 +394,8 @@ async function checkUpdates() {
     }
     if (best && newer(best.version, app.getVersion())) {
       const assets = upd.pickAssets(best.rel, process.platform, best.version);
-      const target = upd.installTarget(process.execPath, process.platform);
+      let target = upd.installTarget(process.execPath, process.platform);
+      if (target.ok && dataInside(target.appPath)) target = { ok: false, reason: 'datainside', dir: target.appPath };
       pending = assets && target.ok ? { version: best.version, url: best.url, assets, target } : null;
       send('manual', { version: best.version, url: best.url, canAuto: !!pending, reason: !assets ? 'noassets' : target.reason, dir: target.dir });
     } else send('latest');
@@ -404,10 +405,29 @@ async function checkUpdates() {
 }
 function setupUpdates() {
   if (!app.isPackaged) return;
+  setTimeout(cleanOldUpdates, 15000);
   setTimeout(checkUpdates, 4000);
   setInterval(checkUpdates, 4 * 60 * 60 * 1000);
 }
 let installing = false;
+// σβήσιμο φακέλου με επιμονή (Windows: antivirus / OneDrive κρατάνε αρχεία για λίγο)
+const RM = { recursive: true, force: true, maxRetries: 10, retryDelay: 300 };
+// Ασφάλεια: τα δεδομένα ΔΕΝ πρέπει να είναι μέσα στον φάκελο του προγράμματος, γιατί η ενημέρωση τον αντικαθιστά
+function dataInside(appPath) {
+  const norm = p => path.resolve(p).toLowerCase() + path.sep;
+  return norm(dataDir()).startsWith(norm(appPath)) || norm(appPath) === norm(dataDir());
+}
+// Μαζεύει ό,τι έμεινε από παλιές ενημερώσεις που δεν ολοκληρώθηκαν
+function cleanOldUpdates() {
+  if (installing) return;
+  try {
+    const t = upd.installTarget(process.execPath, process.platform);
+    for (const dir of [app.getPath('temp'), t.parent].filter(Boolean)) {
+      if (!fs.existsSync(dir)) continue;
+      for (const f of fs.readdirSync(dir)) if (/^\.?homeflow-update-/.test(f)) { try { fs.rmSync(path.join(dir, f), RM); updLog('σβήστηκε παλιός φάκελος ενημέρωσης: ' + f); } catch { /* την επόμενη φορά */ } }
+    }
+  } catch { /* τίποτα */ }
+}
 // Ημερολόγιο ενημερώσεων (για να βρίσκουμε τι έγινε αν κάτι δεν πάει καλά)
 const updLogFile = () => path.join(app.getPath('userData'), 'ενημερώσεις.log');
 function updLog(msg) { try { fs.appendFileSync(updLogFile(), `${new Date().toISOString().slice(0, 19)} [${app.getVersion()}] ${msg}\n`, 'utf8'); } catch { /* τίποτα */ } }
@@ -417,7 +437,11 @@ ipcMain.handle('update:install', async () => {
   installing = true;
   updLog(`ξεκινάει η ενημέρωση στην ${pending.version} (${pending.target.appPath})`);
   const { version, assets, target } = pending;
-  let work = path.join(target.parent, `.homeflow-update-${version}`);
+  // Η δουλειά (κατέβασμα, αποσυμπίεση) γίνεται στον φάκελο προσωρινών αρχείων του υπολογιστή, όχι δίπλα
+  // στο πρόγραμμα: αν το πρόγραμμα είναι σε OneDrive (Επιφάνεια εργασίας / Έγγραφα), το OneDrive «πιάνει»
+  // τα αρχεία καθώς γράφονται. Μόνο αν ο προσωρινός φάκελος είναι σε άλλο δίσκο, η δουλειά γίνεται δίπλα στο πρόγραμμα.
+  const sameDrive = process.platform !== 'win32' || path.win32.parse(app.getPath('temp')).root.toLowerCase() === path.win32.parse(target.appPath).root.toLowerCase();
+  let work = path.join(sameDrive ? app.getPath('temp') : target.parent, `homeflow-update-${version}-${Date.now()}`);
   // Στα Windows το antivirus μπορεί να κρατάει για λίγο «κλειδωμένο» ένα αρχείο που μόλις κατέβηκε.
   // Γι' αυτό κάθε βήμα που πειράζει αρχεία ξαναδοκιμάζει μερικές φορές πριν τα παρατήσει.
   const retry = async (what, fn, times = 4) => {
@@ -436,7 +460,6 @@ ipcMain.handle('update:install', async () => {
       fs.copyFileSync(dataFile(), path.join(bdir, `homeflow-πριν-την-${version}.json`));
     }
     // 2. κατέβασμα
-    try { fs.rmSync(work, { recursive: true, force: true }); } catch { work += '-' + Date.now(); }
     fs.mkdirSync(work, { recursive: true });
     const zip = path.join(work, assets.zipName);
     const sums = upd.parseSums(await retry('αποτυπώματα', () => upd.downloadText(assets.sumsUrl), 3));
@@ -453,7 +476,7 @@ ipcMain.handle('update:install', async () => {
     }, 3);
     // 4. αποσυμπίεση δίπλα στο τωρινό πρόγραμμα
     send('installing', { version });
-    await retry('αποσυμπίεση', () => { fs.rmSync(path.join(work, 'x'), { recursive: true, force: true }); upd.extractZip(zip, path.join(work, 'x'), process.platform); });
+    await retry('αποσυμπίεση', () => { fs.rmSync(path.join(work, 'x'), RM); upd.extractZip(zip, path.join(work, 'x'), process.platform); });
     try { fs.rmSync(zip, { force: true }); } catch { /* θα σβηστεί μαζί με τον φάκελο εργασίας */ }
     const exeName = target.exeName || 'HomeFlow.exe';
     const newPath = upd.findApp(path.join(work, 'x'), process.platform, exeName);
@@ -474,7 +497,7 @@ ipcMain.handle('update:install', async () => {
   } catch (e) {
     installing = false;
     updLog('ΣΦΑΛΜΑ: ' + (e && e.stack || e));
-    try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* τίποτα */ }
+    try { fs.rmSync(work, RM); } catch { /* τίποτα */ }
     send('install-error', { version, message: e.message, url: pending.url });
     return { ok: false, error: e.message };
   }
