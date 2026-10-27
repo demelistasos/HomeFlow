@@ -12,6 +12,7 @@ function renderDlg2(d) {
       <div class="field"><label for="d-amount">Ποσό</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}"><span class="amount-eur">€</span></div></div>
       <div class="field"><label for="d-date">Πότε πληρώθηκε</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
       <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα (${esc(catName(taxCatId()))})</label>
+      ${d.addExpense ? accPicker('expense', d.accountId, 'dlg-acc', 'd-acc') : ''}
       <div class="hint">Βγάλτε το τσεκ αν η πληρωμή έχει ήδη γραφτεί στα έξοδα.</div>` };
   }
   if (d.kind === 'tax') {
@@ -72,7 +73,8 @@ function renderDlg2(d) {
       <div class="chips">${[now.getFullYear() - 1, now.getFullYear()].map(y => `<button class="chip ${d.year === y ? 'sel' : ''}" data-action="dlg-fyear" data-v="${y}">${y}</button>`).join('')}</div>
       <div class="field"><label for="d-amount">Πόσα πληρώσατε;</label><div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">€</span><span id="d-calc" class="amount-calc"></span></div></div>
       <div class="field"><label for="d-date">Πότε</label><input id="d-date" type="date" value="${esc(d.date)}"></div>
-      <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα (${esc(catName(fieldCatId()))})</label>` };
+      <label class="check"><input type="checkbox" id="d-addexp" ${d.addExpense ? 'checked' : ''}> Να μπει και στα έξοδα (${esc(catName(fieldCatId()))})</label>
+      ${d.addExpense ? accPicker('expense', d.accountId, 'dlg-acc', 'd-acc') : ''}` };
   }
   if (d.kind === 'pset') {
     const ts = DB.tenants.filter(t => !t.end || t.end >= curYM());
@@ -160,7 +162,7 @@ function saveDlg2() {
     if (!amt || isNaN(amt)) return fail('Γράψτε το ποσό.');
     i.paid = true; i.paidDate = d.date; i.amount = amt;
     if (d.addExpense) {
-      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: taxCatId(), note: `${t.name} (δόση ${d.k + 1}/${t.installments.length})`, person: t.person, method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
+      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: taxCatId(), note: `${t.name} (δόση ${d.k + 1}/${t.installments.length})`, person: t.person, method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString(), ...(d.accountId ? { accountId: d.accountId } : {}) };
       DB.transactions.push(tx); i.txId = tx.id;
     }
     return done(`Πληρώθηκε: ${t.name} – ${eur(amt)}`);
@@ -229,7 +231,7 @@ function saveDlg2() {
     const r = fieldYear(d.year);
     const pay = { id: 'f' + uid(), year: d.year, date: d.date, amount: amt, hours: r.hours, txId: '' };
     if (d.addExpense) {
-      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: fieldCatId(), note: `Πότισμα ${d.year} (${hrs(r.hours)} ώρες)`, person: '', method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
+      const tx = { id: uid(), date: d.date, dayKnown: true, type: 'expense', amount: amt, categoryId: fieldCatId(), note: `Πότισμα ${d.year} (${hrs(r.hours)} ώρες)`, person: '', method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString(), ...(d.accountId ? { accountId: d.accountId } : {}) };
       DB.transactions.push(tx); pay.txId = tx.id;
     }
     fieldCfg().payments.push(pay);

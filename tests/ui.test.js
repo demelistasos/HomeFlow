@@ -93,6 +93,28 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       // βοήθεια, ημερολόγιο
       await page.keyboard.press('F1'); await page.waitForTimeout(60); await page.click('[data-action="help-topic"] >> nth=0'); await page.keyboard.press('Escape');
       await goto('home'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="cal"]').click()); await page.click('.cal-c.has >> nth=0'); await page.waitForTimeout(60); await page.keyboard.press('Escape');
+      // Λογαριασμοί: έξοδο από λογαριασμό, κατάθεση, μεταφορά, νέο υπόλοιπο
+      { const bal = id => page.evaluate(id => accBalanceAt(DB.accounts.find(a => a.id === id)).balance, id);
+        const b0 = await bal('a1'), c0 = await bal('a3');
+        await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80);
+        await page.fill('#fm-amount', '100'); await page.click('.cat-btn >> nth=0'); await page.selectOption('#fm-acc', 'a1'); await page.waitForTimeout(50);
+        await page.click('[data-action="form-save"]'); await page.waitForTimeout(100);
+        check(Math.abs(await bal('a1') - (b0 - 100)) < 0.01, 'έξοδο από λογαριασμό: το υπόλοιπο μειώνεται');
+        check(await page.evaluate(() => DB.transactions[DB.transactions.length - 1].accountId === 'a1'), 'το έξοδο θυμάται τον λογαριασμό');
+        await goto('money'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="current"]').click()); await page.waitForTimeout(60);
+        await page.click('[data-action="acc-open"][data-id="a1"] >> nth=0'); await page.waitForTimeout(80);
+        check(!!(await page.$('table.acc-led')), 'η καρτέλα του λογαριασμού δείχνει τις κινήσεις');
+        await page.click('[data-action="acc-move"][data-k="in"]'); await page.fill('#d-amount', '50'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+        check(Math.abs(await bal('a1') - (b0 - 50)) < 0.01, 'κατάθεση: το υπόλοιπο αυξάνεται');
+        await page.click('[data-action="acc-move"][data-k="transfer"]'); await page.fill('#d-amount', '20'); await page.selectOption('#d-to', 'a3'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+        check(Math.abs(await bal('a1') - (b0 - 70)) < 0.01 && Math.abs(await bal('a3') - (c0 + 20)) < 0.01, 'μεταφορά: φεύγει από τον έναν, μπαίνει στον άλλον');
+        await page.click('.modal [data-action="acc-update"]'); await page.fill('#d-amount', '1000'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+        check(Math.abs(await bal('a1') - 1000) < 0.01 && !!(await page.$('table.acc-led')), 'νέο υπόλοιπο: μετράει από εκεί και πέρα');
+        await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+        await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80); await page.click('.cat-btn >> nth=0'); await page.waitForTimeout(50);
+        check(await page.evaluate(() => form.accountId === 'a1'), 'ο λογαριασμός προτείνεται για την ίδια κατηγορία');
+        await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+      }
       // Φίλτρο και ταξινόμηση πινάκων (Κινήσεις)
       await goto('list'); await page.waitForTimeout(150);
       check(!!(await page.$('.tbl-tools input')), 'οι πίνακες έχουν φίλτρο');

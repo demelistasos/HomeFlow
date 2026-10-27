@@ -46,7 +46,7 @@ function generateRecurring() {
       DB.transactions.push({
         id: uid(), date: `${s}-${pad(Math.min(r.day || 1, lastDay(s)))}`, dayKnown: true, type: r.type, amount: r.amount,
         categoryId: r.categoryId, note: (r.note || '') + (instNo(r, s) ? `${r.note ? ' ' : ''}(δόση ${instNo(r, s)}/${r.total})` : ''), person: r.person || '', method: r.method || '', planned: true,
-        recurringId: r.id, tenantId: '', source: 'recurring', created: new Date().toISOString()
+        recurringId: r.id, tenantId: '', source: 'recurring', created: new Date().toISOString(), ...(r.accountId ? { accountId: r.accountId } : {})
       });
       have.add(r.id + '|' + s); added++;
     }

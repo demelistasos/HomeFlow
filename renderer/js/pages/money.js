@@ -12,8 +12,9 @@ const curSym = c => (c === 'USD' ? '$' : '€');
 const usdFmt = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = (n, c) => (c === 'USD' ? usdFmt.format(n || 0) : eur(n));
 const usd0Fmt = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const lastBal = a => (a.history.length ? a.history[a.history.length - 1] : null);
-function balAt(a, date) { let b = null; for (const h of a.history) if (h.date <= date) b = h.balance; return b; }
+// υπόλοιπα: γραμμένα υπόλοιπα + κινήσεις (βλ. features/accounts.js)
+const lastBal = a => accBalanceAt(a);
+function balAt(a, date) { const r = accBalanceAt(a, date); return r ? r.balance : null; }
 const toEur = (n, c) => (c === 'USD' ? n / (DB.settings.usdPerEur || 1.16) : n);
 function shortDate(d) { const x = new Date(d + 'T12:00'); return `${x.getDate()} ${MONTHS_SHORT[x.getMonth()]} ${x.getFullYear()}`; }
 function moneyTotals(date) {
@@ -24,7 +25,7 @@ function moneyTotals(date) {
 }
 function moneyChart() {
   // σύνολο σε € στο τέλος κάθε μήνα (τελευταίοι 12 μήνες με στοιχεία)
-  const dates = DB.accounts.flatMap(a => a.history.map(h => h.date)).sort();
+  const dates = DB.accounts.flatMap(a => [...a.history.map(h => h.date), ...(a.moves || []).map(m => m.date)]).sort();
   if (!dates.length) return '';
   const pts = [];
   let s = dates[0].slice(0, 7);
@@ -57,14 +58,17 @@ function moneyPage() {
   for (const a of accs) { const b = (lastBal(a) || {}).balance || 0; const k = a.bank || kindLabel(a.kind)[1]; byBank[k] = (byBank[k] || 0) + toEur(b, a.currency); }
   const row = a => {
     const lb = lastBal(a);
-    const prev = a.history.length > 1 ? a.history[a.history.length - 2] : null;
+    // «από πριν»: από το τελευταίο γραμμένο υπόλοιπο (αν κινήθηκε μετά), αλλιώς από το προηγούμενο γραμμένο
+    const hs = a.history, last = hs[hs.length - 1];
+    const moved = lb && last && Math.abs(lb.balance - last.balance) > 0.005;
+    const prev = moved ? last : (hs.length > 1 ? hs[hs.length - 2] : null);
     const diff = lb && prev ? lb.balance - prev.balance : 0;
-    return `<div class="tx" style="cursor:default;grid-template-columns:2.4rem 1fr auto auto">
+    return `<div class="tx acc-row" data-action="acc-open" data-id="${a.id}" title="Κινήσεις και ιστορικό" style="grid-template-columns:2.4rem 1fr auto auto">
       <span class="ic">${kindLabel(a.kind)[2]}</span>
       <span><div class="t1">${a.bank ? esc(a.bank) + ' · ' : ''}${esc(a.name)}</div>
         <div class="t2">${a.maturity ? `<b class="${daysUntil(a.maturity) <= 7 ? 'exp' : ''}">⏰ λήγει ${shortDate(a.maturity)}</b> · ` : ''}${esc(a.owner || '')}${lb ? `${a.owner ? ' · ' : ''}ενημ. ${shortDate(lb.date)}` : ''}${prev && Math.abs(diff) > 0.005 ? ` · <span class="${diff < 0 ? 'exp' : 'inc'}">${diff > 0 ? '+' : '−'}${money(Math.abs(diff), a.currency)}</span> από πριν` : ''}</div></span>
       <span class="amt num">${lb ? money(lb.balance, a.currency) : '—'}</span>
-      <span style="display:flex;gap:.4rem"><button class="btn small primary" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button><button class="btn small ghost" data-action="acc-edit" data-id="${a.id}" title="Στοιχεία λογαριασμού">⚙</button></span>
+      <span style="display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end"><button class="btn small primary" data-action="acc-open" data-id="${a.id}">📒 Κινήσεις</button><button class="btn small" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button><button class="btn small ghost" data-action="acc-edit" data-id="${a.id}" title="Στοιχεία λογαριασμού">⚙</button></span>
     </div>`;
   };
   const groupTabs = [];
@@ -90,7 +94,7 @@ function moneyPage() {
     <div class="card"><div class="label">Σε δολάρια</div><div class="value num">${usd0Fmt.format(t.USD)}</div>
       <div class="sub">Ισοτιμία: 1 € = ${String(rate).replace('.', ',')} $ <button class="btn small ghost no-print" data-action="rate-edit">✎ αλλαγή</button></div></div>
   </div>
-  ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Για να γράψετε νέο υπόλοιπο, ανοίξτε την καρτέλα του λογαριασμού (π.χ. «Τρεχούμενοι») και πατήστε «✎ Νέο υπόλοιπο».</div>` : ''}
+  ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Πατήστε έναν λογαριασμό για να δείτε τις κινήσεις του ή να γράψετε κατάθεση, ανάληψη ή μεταφορά. Τα έξοδα και έσοδα με «λογαριασμό» αλλάζουν μόνα τους το υπόλοιπο.</div>` : ''}
   ${mbar}
   ${mtab === 'summary' ? `<div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
   <div class="panel"><h2>Ανά τράπεζα (σε €)</h2>

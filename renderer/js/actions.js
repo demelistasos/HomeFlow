@@ -55,7 +55,7 @@ const actions = {
   'modal-back': (el, ev) => { if (ev.target === el) { if (form) { if (confirmCloseForm()) { form = null; renderForm(); } } else $('#modal-root').innerHTML = ''; } },
   'form-close': () => { if (confirmCloseForm()) { form = null; renderForm(); } },
   'form-switch': () => { syncFormInputs(); form.type = form.type === 'expense' ? 'income' : 'expense'; form.categoryId = ''; form.error = ''; renderForm(); },
-  'form-cat': el => { syncFormInputs(); form.categoryId = el.dataset.id; form.error = ''; renderForm(); },
+  'form-cat': el => { syncFormInputs(); form.categoryId = el.dataset.id; form.error = ''; if (!form.id && !form.accTouched) form.accountId = suggestAcc(form.categoryId); renderForm(); },
   'form-note': el => { syncFormInputs(); form.note = form.note === el.dataset.v ? '' : el.dataset.v; renderForm(); },
   'form-date': el => { syncFormInputs(); form.date = el.dataset.v; form.dayKnown = true; renderForm(); },
   'form-person': el => { syncFormInputs(); form.person = el.dataset.v; renderForm(); },
@@ -103,7 +103,7 @@ const actions = {
     const y0 = now.getFullYear(); const prev = fieldYear(y0 - 1);
     const year = prev.hours && !prev.paid ? y0 - 1 : y0;
     const r = fieldYear(year);
-    dlg = { kind: 'fieldpay', year, amountStr: r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : '', date: todayStr(), addExpense: true, error: '' }; renderDlg();
+    dlg = { kind: 'fieldpay', year, amountStr: r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : '', date: todayStr(), addExpense: true, accountId: suggestAcc(fieldCatId()), error: '' }; renderDlg();
   },
   'dlg-fyear': el => { syncDlg2(); dlg.year = +el.dataset.v; const r = fieldYear(dlg.year); dlg.amountStr = r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : ''; renderDlg(); },
   'pw-set': () => { const c = powerCfg(); const f = n => (n == null ? '' : numFmt.format(n).replace(/\./g, '').replace(/,00$/, ''));
@@ -119,7 +119,7 @@ const actions = {
   'goto-page': el => { ui.page = el.dataset.page; render(); $('.main').scrollTop = 0; },
   'taxyear-prev': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) - 1; render(); },
   'taxyear-next': () => { ui.taxYear = (ui.taxYear || now.getFullYear()) + 1; render(); },
-  'tax-pay': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); const k = +el.dataset.k; dlg = { kind: 'taxpay', tid: t.id, k, amountStr: numFmt.format(t.installments[k].amount).replace(/\./g, ''), date: todayStr(), addExpense: true, error: '' }; renderDlg(); },
+  'tax-pay': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); const k = +el.dataset.k; dlg = { kind: 'taxpay', tid: t.id, k, amountStr: numFmt.format(t.installments[k].amount).replace(/\./g, ''), date: todayStr(), addExpense: true, accountId: suggestAcc(taxCatId()), error: '' }; renderDlg(); },
   'tax-unpay': el => {
     const t = DB.taxes.find(x => x.id === el.dataset.id); const i = t.installments[+el.dataset.k];
     if (!confirm('Να ξαναγίνει «απλήρωτη» αυτή η δόση;' + (i.txId ? ' Θα σβηστεί και από τα έξοδα.' : ''))) return;
@@ -176,7 +176,7 @@ const actions = {
   'service-delete': () => { const c = DB.cars.find(x => x.id === dlg.cid); if (!confirm('Να σβηστεί αυτό το σέρβις;')) return; c.services = c.services.filter(x => x.id !== dlg.sid); dlg = null; renderDlg(); persist(); render(); },
   'dlg-work': el => { syncDlg2(); dlg.work = el.dataset.v; renderDlg(); },
   'dlg-next': el => { syncDlg2(); const km = parseInt(String(dlg.kmStr).replace(/\D/g, ''), 10) || 0; dlg.nextStr = String(km + +el.dataset.v); renderDlg(); },
-  'acc-update': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); const lb = lastBal(a); dlg = { kind: 'bal', id: a.id, amountStr: lb ? numFmt.format(lb.balance).replace(/\./g, '') : '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) { i.focus(); i.select(); } }, 30); },
+  'acc-update': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); const lb = lastBal(a); const back = !!(dlg && dlg.kind === 'accview'); dlg = { kind: 'bal', back, id: a.id, amountStr: lb ? numFmt.format(lb.balance).replace(/\./g, '') : '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) { i.focus(); i.select(); } }, 30); },
   'acc-new': () => { dlg = { kind: 'acc', id: null, bank: '', name: '', owner: '', currency: 'EUR', kind2: 'current', amountStr: '', archived: false, maturity: '', error: '' }; renderDlg(); },
   'acc-edit': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); dlg = { kind: 'acc', id: a.id, bank: a.bank, name: a.name, owner: a.owner, currency: a.currency, kind2: a.kind, archived: a.archived, maturity: a.maturity || '', error: '' }; renderDlg(); },
   'acc-hist-del': el => {

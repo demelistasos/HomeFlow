@@ -6,7 +6,7 @@
 function openForm(type, tx, preset) {
   const base = tx ? { ...tx, amountStr: numFmt.format(paidOf(tx)).replace(/\./g, '') } : {
     id: null, type, amountStr: '', categoryId: '', note: '', date: defaultDateFor(), dayKnown: true,
-    person: '', method: '', planned: false, tenantId: '', recurringId: '', ...(preset || {})
+    person: '', method: '', planned: false, tenantId: '', recurringId: '', accountId: '', ...(preset || {})
   };
   form = { ...base, makeRecurring: false, error: '' };
   renderForm();
@@ -92,6 +92,7 @@ function renderForm() {
             ${f.id || f.recurringId || f.tenantId ? '' : `<label class="check"><input type="checkbox" id="fm-recurring" ${f.makeRecurring ? 'checked' : ''}> 🔁 Να γίνει πάγιο (κάθε μήνα)</label>`}
           </div>
         </div>
+        ${accPicker(f.type, f.accountId, 'form-acc', 'fm-acc')}
         ${f.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
       </div>
       <div class="modal-foot">
@@ -140,8 +141,10 @@ function saveForm() {
     id: f.id || uid(), date: f.date, dayKnown: f.dayKnown !== false, type: f.type, amount: sh !== 100 ? round2(amt * sh / 100) : amt, categoryId: f.categoryId,
     note: f.note || '', person: f.person || '', method: f.method || '', planned: !!f.planned,
     source: f.source || 'app', created: f.created || new Date().toISOString(),
-    ...((f.attachments || []).length ? { attachments: f.attachments } : {})
+    ...((f.attachments || []).length ? { attachments: f.attachments } : {}),
+    ...(f.accountId ? { accountId: f.accountId } : {})
   };
+  if (!f.id || f.accTouched) rememberAcc(rec.categoryId, f.accountId || '');
   const added = [rec];
   if (f.id) {
     const i = DB.transactions.findIndex(t => t.id === f.id);
@@ -155,7 +158,7 @@ function saveForm() {
   let newRec = null;
   if (f.makeRecurring) {
     newRec = { id: 'r' + uid(), type: rec.type, amount: amt, categoryId: rec.categoryId, note: rec.note, day: +rec.date.slice(8, 10), every: 1,
-      from: rec.date.slice(0, 7), until: '', person: rec.person, method: rec.method, active: true, skip: [] };
+      from: rec.date.slice(0, 7), until: '', person: rec.person, method: rec.method, active: true, skip: [], ...(rec.accountId ? { accountId: rec.accountId } : {}) };
     DB.recurring.push(newRec);
     rec.recurringId = newRec.id;
     generateRecurring();

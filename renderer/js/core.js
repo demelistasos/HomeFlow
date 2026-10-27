@@ -150,7 +150,7 @@ function normalize(d) {
   d.transactions = (d.transactions || []).filter(t => t && t.date && t.categoryId).map(t => Object.assign({ note: '', person: '', method: '', planned: false, dayKnown: true, tenantId: '', recurringId: '' }, t, { amount: +t.amount || 0 }));
   d.recurring = (d.recurring || []).map(r => Object.assign({ every: 1, day: 1, note: '', person: '', method: '', active: true, skip: [], until: '', total: null }, r));
   d.tenants = (d.tenants || []).map(t => Object.assign({ property: '', rents: [], opening: 0, end: '', dueDay: 1, note: '', active: true, share: 100 }, t));
-  d.accounts = (d.accounts || []).map((a, i) => Object.assign({ bank: '', name: '', owner: '', currency: 'EUR', kind: 'current', archived: false, order: i, history: [] }, a));
+  d.accounts = (d.accounts || []).map((a, i) => Object.assign({ bank: '', name: '', owner: '', currency: 'EUR', kind: 'current', archived: false, order: i, history: [], moves: [] }, a));
   d.settings.usdPerEur = +d.settings.usdPerEur || 1.16;
   d.taxes = (d.taxes || []).map(t => Object.assign({ name: '', person: '', kind: 'other', installments: [] }, t));
   d.people = (d.people || []).map(p => Object.assign({ name: '', note: '', entries: [] }, p));

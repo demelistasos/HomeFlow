@@ -15,7 +15,7 @@ function chipsHtml(values, sel, action, emptyLabel) {
   return `<div class="chips">${values.map(v => `<button class="chip ${sel === v ? 'sel' : ''}" data-action="${action}" data-v="${esc(v)}">${v === '' ? emptyLabel : esc(v)}</button>`).join('')}</div>`;
 }
 function openRecDialog(type, r) {
-  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, until: r.until || '', totalStr: r.total ? String(r.total) : '', variable: !!r.variable, error: '' }
+  dlg = r ? { kind: 'rec', id: r.id, type: r.type, amountStr: numFmt.format(r.amount).replace(/\./g, ''), categoryId: r.categoryId, note: r.note, day: r.day, every: r.every, from: r.from, person: r.person, method: r.method, accountId: r.accountId || '', until: r.until || '', totalStr: r.total ? String(r.total) : '', variable: !!r.variable, error: '' }
     : { kind: 'rec', id: null, type, amountStr: '', categoryId: '', note: '', day: new Date().getDate(), every: 1, from: curYM(), person: '', method: '', until: '', totalStr: '', variable: false, error: '' };
   renderDlg();
   setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30);
@@ -75,9 +75,9 @@ function saveMoneyDlg() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return fail('Η ημερομηνία δεν είναι σωστή.');
     const before = a.history.slice();
     a.history = a.history.filter(h => h.date !== d.date);
-    a.history.push({ date: d.date, balance: amt });
+    a.history.push({ date: d.date, balance: amt, at: new Date().toISOString() });
     a.history.sort((x, y) => x.date.localeCompare(y.date));
-    dlg = null; renderDlg(); persist(); render();
+    dlg = d.back ? { kind: 'accview', id: a.id, error: '' } : null; renderDlg(); persist(); render();
     toast(`${a.bank ? a.bank + ' · ' : ''}${a.name}: ${money(amt, a.currency)}`, () => { a.history = before; persist(); render(); });
     return;
   }
@@ -100,7 +100,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderDlg2(d);
+  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderAccDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -130,7 +130,8 @@ function renderDlg() {
       <div class="row">
         ${(DB.settings.persons || []).length ? `<div class="field"><div class="flabel">Ποιος;</div>${chipsHtml(['', ...DB.settings.persons], d.person, 'dlg-person', 'Όλοι / —')}</div>` : ''}
         <div class="field"><div class="flabel">Πώς;</div>${chipsHtml(['', ...(DB.settings.methods || [])], d.method, 'dlg-method', '—')}</div>
-      </div>`;
+      </div>
+      ${accPicker(d.type, d.accountId, 'dlg-acc', 'd-acc')}`;
   } else if (d.kind === 'bal') {
     const a = DB.accounts.find(x => x.id === d.id);
     const lb = lastBal(a);
@@ -227,7 +228,7 @@ function renderDlg() {
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
         ${d.kind === 'mclose' ? `<button class="btn" data-action="mclose-pdf">📄 Άνοιγμα PDF</button>${store.native ? '<button class="btn" data-action="mclose-folder">📂 Φάκελος</button>' : ''}` : ''}
-        ${d.kind === 'day' || d.kind === 'help' || d.kind === 'mclose' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
+        ${d.kind === 'day' || d.kind === 'help' || d.kind === 'mclose' || d.kind === 'accview' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
         <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : d.kind === 'upd' ? '⬇️ Ενημέρωση τώρα' : '✓ Αποθήκευση'}</button>`}
       </div>
     </div>
@@ -238,7 +239,8 @@ function saveDlg() {
   if (dlg.kind === 'pin') { savePinDlg(); return; }
   if (dlg.kind === 'ask') { saveAsk(); return; }
   if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
-  if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose') { dlg = null; renderDlg(); return; }
+  if (dlg.kind === 'accmove') { saveAccMove(); return; }
+  if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose' || dlg.kind === 'accview') { dlg = null; renderDlg(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {
@@ -263,7 +265,7 @@ function saveDlg() {
     const total = d.totalStr ? parseInt(d.totalStr, 10) : null;
     if (d.totalStr && !(total >= 1)) return fail('Οι δόσεις πρέπει να είναι αριθμός.');
     if (total && !d.until) return fail('Για τις δόσεις, διαλέξτε και τον μήνα της τελευταίας δόσης.');
-    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method, until: d.until || '', total: total || null, variable: !!d.variable };
+    const fields = { type: d.type, amount: amt, categoryId: d.categoryId, note: d.note, day: d.day, every: d.every, from: d.from, person: d.person, method: d.method, until: d.until || '', total: total || null, variable: !!d.variable, accountId: d.accountId || '' };
     if (d.id) {
       const r = DB.recurring.find(x => x.id === d.id);
       Object.assign(r, fields);

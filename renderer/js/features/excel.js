@@ -67,7 +67,7 @@ function buildSummaryBook(year, focus) {
     const rows = xlHeadRows(`Κινήσεις ${year}`, 'Όλες οι καταχωρήσεις της χρονιάς. Μπορείτε να τις φιλτράρετε από το Excel (Δεδομένα → Φίλτρο).');
     rows.push(['Ημερομηνία', 'Μήνας', 'Κατηγορία', 'Σημείωση', 'Ποιος', 'Τρόπος', 'Έσοδο', 'Έξοδο', 'Κατάσταση'].map(XL.h));
     for (const t of DB.transactions.filter(t => yOf(t) === year).sort((x, y) => x.date.localeCompare(y.date)))
-      rows.push([t.dayKnown === false ? null : XL.d(t.date), MONTHS[mOf(t) - 1], catName(t.categoryId), t.note || '', t.person || '', t.method || '',
+      rows.push([t.dayKnown === false ? null : XL.d(t.date), MONTHS[mOf(t) - 1], catName(t.categoryId), t.note || '', t.person || '', [t.method, t.accountId && accById(t.accountId) ? accLabel(accById(t.accountId)) : ''].filter(Boolean).join(' · '),
         t.type === 'income' ? XL.mz(t.amount) : null, t.type === 'expense' ? XL.mz(t.amount) : null, t.planned ? 'προγραμματισμένο' : '']);
     sheets.push({ name: `Κινήσεις ${year}`, rows, widths: [12, 12, 30, 34, 10, 11, 13, 13, 17], freeze: 4, key: 'list', landscape: true });
   }
@@ -100,6 +100,16 @@ function buildSummaryBook(year, focus) {
     }
     rows.push([XL.tt('Σύνολο σε €'), null, null, null, null, null, null, XL.mb(tot)]);
     sheets.push({ name: 'Χρήματα', rows, widths: [24, 14, 22, 14, 9, 15, 12, 15], freeze: 4, key: 'money' });
+  }
+  // Κινήσεις λογαριασμών (καταθέσεις, αναλήψεις, μεταφορές και έσοδα/έξοδα με λογαριασμό)
+  {
+    const accs = DB.accounts.filter(a => (a.moves || []).length || DB.transactions.some(t => t.accountId === a.id && !t.planned));
+    if (accs.length) {
+      const rows = xlHeadRows('Κινήσεις λογαριασμών', 'Το υπόλοιπο μετά από κάθε κίνηση. «📌» = υπόλοιπο που γράφτηκε με το χέρι (ή από το Excel).');
+      rows.push(['Λογαριασμός', 'Ημερομηνία', 'Τι', 'Ποσό', 'Υπόλοιπο'].map(XL.h));
+      for (const a of accs) for (const r of accTimeline(a)) rows.push([accLabel(a), XL.d(r.date), r.snap ? '📌 Γράφτηκε υπόλοιπο' : (r.text || (r.amount > 0 ? 'Κατάθεση' : 'Ανάληψη')), r.snap ? null : { v: r.amount, s: r.amount < 0 ? 'moneyR' : 'moneyG' }, { v: r.bal, s: 'money' }]);
+      sheets.push({ name: 'Κινήσεις λογαριασμών', rows, widths: [28, 12, 40, 14, 15], freeze: 4, key: 'accmoves' });
+    }
   }
   // Εφορία
   if (DB.taxes.length) {
@@ -175,7 +185,7 @@ async function exportTxXlsx(list, title, name) {
   const rows = xlHeadRows(title);
   rows.push(['Ημερομηνία', 'Μήνας', 'Κατηγορία', 'Σημείωση', 'Ποιος', 'Τρόπος', 'Έσοδο', 'Έξοδο', 'Κατάσταση'].map(XL.h));
   let ti = 0, te = 0;
-  for (const t of list) { if (t.type === 'income') ti += t.amount; else te += t.amount; rows.push([t.dayKnown === false ? null : XL.d(t.date), `${MONTHS[mOf(t) - 1]} ${yOf(t)}`, catName(t.categoryId), t.note || '', t.person || '', t.method || '', t.type === 'income' ? XL.mz(t.amount) : null, t.type === 'expense' ? XL.mz(t.amount) : null, t.planned ? 'προγραμματισμένο' : '']); }
+  for (const t of list) { if (t.type === 'income') ti += t.amount; else te += t.amount; rows.push([t.dayKnown === false ? null : XL.d(t.date), `${MONTHS[mOf(t) - 1]} ${yOf(t)}`, catName(t.categoryId), t.note || '', t.person || '', [t.method, t.accountId && accById(t.accountId) ? accLabel(accById(t.accountId)) : ''].filter(Boolean).join(' · '), t.type === 'income' ? XL.mz(t.amount) : null, t.type === 'expense' ? XL.mz(t.amount) : null, t.planned ? 'προγραμματισμένο' : '']); }
   rows.push([XL.tt('Σύνολο'), null, null, null, null, null, XL.mb(ti), XL.mb(te)]);
   const book = { title, sheets: [{ name: 'Κινήσεις', rows, widths: [12, 15, 30, 34, 10, 11, 13, 13, 17], freeze: 4, landscape: true, active: true }] };
   if (window.homeflow && window.homeflow.saveXlsx) { const r = await window.homeflow.saveXlsx(book, name); if (r && r.ok) toast('Το Excel αποθηκεύτηκε και ανοίγει…'); }
