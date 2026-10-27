@@ -408,9 +408,14 @@ function setupUpdates() {
   setInterval(checkUpdates, 4 * 60 * 60 * 1000);
 }
 let installing = false;
+// Ημερολόγιο ενημερώσεων (για να βρίσκουμε τι έγινε αν κάτι δεν πάει καλά)
+const updLogFile = () => path.join(app.getPath('userData'), 'ενημερώσεις.log');
+function updLog(msg) { try { fs.appendFileSync(updLogFile(), `${new Date().toISOString().slice(0, 19)} [${app.getVersion()}] ${msg}\n`, 'utf8'); } catch { /* τίποτα */ } }
 ipcMain.handle('update:install', async () => {
-  if (!pending || installing) return { ok: false, error: 'Δεν υπάρχει ενημέρωση για εγκατάσταση.' };
+  if (installing) { updLog('πατήθηκε ξανά ενώ γινόταν ήδη η ενημέρωση'); return { ok: false, error: 'Η ενημέρωση γίνεται ήδη. Περιμένετε λίγο…' }; }
+  if (!pending) { updLog('πατήθηκε χωρίς διαθέσιμη ενημέρωση'); return { ok: false, error: 'Δεν υπάρχει ενημέρωση για εγκατάσταση.' }; }
   installing = true;
+  updLog(`ξεκινάει η ενημέρωση στην ${pending.version} (${pending.target.appPath})`);
   const { version, assets, target } = pending;
   const work = path.join(target.parent, `.homeflow-update-${version}`);
   try {
@@ -428,6 +433,7 @@ ipcMain.handle('update:install', async () => {
     send('verifying', { version });
     const sums = upd.parseSums(await upd.downloadText(assets.sumsUrl));
     const want = sums[assets.zipName], got = await upd.sha256File(zip);
+    updLog(`κατέβηκε (${fs.statSync(zip).size} bytes)`);
     if (!want || want !== got) throw new Error('Το αρχείο δεν κατέβηκε σωστά (δεν ταιριάζει το αποτύπωμα).');
     // 4. αποσυμπίεση δίπλα στο τωρινό πρόγραμμα
     send('installing', { version });
@@ -437,7 +443,8 @@ ipcMain.handle('update:install', async () => {
     const newPath = upd.findApp(path.join(work, 'x'), process.platform, exeName);
     if (!newPath) throw new Error('Δεν βρέθηκε η νέα εφαρμογή μέσα στο zip.');
     // 5. script που αλλάζει την έκδοση αφού κλείσει η εφαρμογή
-    const logFile = path.join(app.getPath('userData'), 'ενημερώσεις.log');
+    const logFile = updLogFile();
+    updLog('η νέα έκδοση είναι έτοιμη, η εφαρμογή κλείνει');
     const h = upd.helperScript(process.platform, { pid: process.pid, appPath: target.appPath, newPath, workDir: work, exeName, logFile });
     const script = path.join(app.getPath('temp'), h.name);
     fs.writeFileSync(script, h.content, 'utf8');
@@ -450,12 +457,14 @@ ipcMain.handle('update:install', async () => {
     return { ok: true };
   } catch (e) {
     installing = false;
+    updLog('ΣΦΑΛΜΑ: ' + (e && e.stack || e));
     try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* τίποτα */ }
     send('install-error', { version, message: e.message, url: pending.url });
     return { ok: false, error: e.message };
   }
 });
 // Μετά από ενημέρωση: ποια ήταν η προηγούμενη έκδοση (για το μήνυμα «Ενημερώθηκε»)
+ipcMain.handle('update:openLog', () => { if (!fs.existsSync(updLogFile())) return { error: 'Δεν υπάρχει ακόμα ημερολόγιο ενημερώσεων.' }; shell.openPath(updLogFile()); return { ok: true }; });
 ipcMain.handle('update:justUpdated', () => {
   const cfg = readConfig();
   if (!cfg.updatedFrom) return null;

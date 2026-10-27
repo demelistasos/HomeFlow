@@ -83,6 +83,7 @@ function settingsPage() {
     <h2>🔄 Έκδοση</h2>
     <p style="margin-top:0">HomeFlow έκδοση <b>${esc(info.version || '—')}</b>. Όταν βγαίνει νέα έκδοση, εμφανίζεται ειδοποίηση πάνω πάνω. Η ενημέρωση γίνεται <b>μόνο όταν πατήσετε «Ενημέρωση τώρα»</b>: το HomeFlow κατεβάζει τη νέα έκδοση, κλείνει και ξανανοίγει μόνο του. Τα στοιχεία σας δεν αλλάζουν.</p>
     <button class="btn" data-action="check-updates">Έλεγχος για νέα έκδοση</button>
+    ${store.native ? '<button class="btn ghost" data-action="update-log">📝 Ημερολόγιο ενημερώσεων</button>' : ''}
     <span id="upd-msg" class="muted" style="margin-left:.8rem"></span>
   </div>`;
 }

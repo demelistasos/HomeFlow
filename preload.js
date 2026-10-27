@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('homeflow', {
   print: () => ipcRenderer.invoke('app:print'),
   archiveMonth: (html, name) => ipcRenderer.invoke('report:archive', { html, name }),
   openMonthPdf: file => ipcRenderer.invoke('report:open', file),
+  openUpdateLog: () => ipcRenderer.invoke('update:openLog'),
   savePdf: (html, defaultName) => ipcRenderer.invoke('data:savePdf', { html, defaultName }),
   saveXlsx: (book, defaultName) => ipcRenderer.invoke('data:saveXlsx', { book, defaultName }),
   attAdd: title => ipcRenderer.invoke('att:add', title),

@@ -47,6 +47,7 @@ function showUpdate(s) {
 }
 if (window.homeflow) window.homeflow.onUpdate(showUpdate);
 const updActions = {
+  'update-log': async () => { const r = await window.homeflow.openUpdateLog(); if (r && r.error) toast(r.error); },
   'update-later': () => { updLater = true; updBanner(''); },
   'update-now': () => {
     if (!updInfo || !updInfo.canAuto) return;
