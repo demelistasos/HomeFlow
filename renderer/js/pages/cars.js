@@ -13,7 +13,34 @@ const carColor = c => CAR_COLORS.find(x => x[0] === c.color);
 // Το «σήμα» του αυτοκινήτου: κύκλος στο χρώμα του με το είδος του
 function carBadge(c, big) {
   const col = carColor(c);
-  return `<span class="car-badge ${big ? 'big' : ''}" data-noicon style="${col ? `--car:${col[2]}` : ''}" title="${esc([col && col[1], (CAR_TYPES.find(t => t[0] === c.type) || [])[1]].filter(Boolean).join(' · '))}">${c.type || '🚗'}</span>`;
+  return `<span class="car-badge ${big ? 'big' : ''} ${c.photo ? 'photo' : ''}" data-noicon style="${col ? `--car:${col[2]}` : ''}" title="${esc([col && col[1], (CAR_TYPES.find(t => t[0] === c.type) || [])[1]].filter(Boolean).join(' · '))}">${c.photo ? `<img src="${esc(c.photo)}" alt="">` : c.type || '🚗'}</span>`;
+}
+// Φωτογραφία από τον υπολογιστή: μικραίνει σε τετράγωνο 256×256 και μπαίνει μέσα στα δεδομένα
+function pickPhoto() {
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/png,image/jpeg,image/webp,image/gif,image/bmp';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return resolve(null);
+      if (f.size > 25 * 1024 * 1024) { toast('Η φωτογραφία είναι πολύ μεγάλη.'); return resolve(null); }
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const S = 256, cv = document.createElement('canvas'); cv.width = cv.height = S;
+          const k = Math.max(S / img.width, S / img.height), w = img.width * k, h = img.height * k;
+          const ctx = cv.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, S, S);
+          ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+          resolve(cv.toDataURL('image/jpeg', 0.85));
+        };
+        img.onerror = () => { toast('Η φωτογραφία δεν διαβάζεται. Δοκιμάστε JPG ή PNG.'); resolve(null); };
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    };
+    inp.click();
+  });
 }
 const carSub = c => [[c.brand, c.model].filter(Boolean).join(' '), c.year, carColor(c) && carColor(c)[1]].filter(Boolean).map(esc).join(' · ');
 const carPlate = c => (c.plate ? `<span class="plate">${esc(c.plate)}</span>` : '');

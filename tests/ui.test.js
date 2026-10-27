@@ -93,6 +93,21 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       // βοήθεια, ημερολόγιο
       await page.keyboard.press('F1'); await page.waitForTimeout(60); await page.click('[data-action="help-topic"] >> nth=0'); await page.keyboard.press('Escape');
       await goto('home'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="cal"]').click()); await page.click('.cal-c.has >> nth=0'); await page.waitForTimeout(60); await page.keyboard.press('Escape');
+      // Φίλτρο και ταξινόμηση πινάκων (Κινήσεις)
+      await goto('list'); await page.waitForTimeout(150);
+      check(!!(await page.$('.tbl-tools input')), 'οι πίνακες έχουν φίλτρο');
+      const amt = () => page.$$eval('table.data tbody tr:not([hidden])', rs => rs.map(r => parseFloat(r.cells[r.cells.length - 1].textContent.replace(/[^\d,−-]/g, '').replace('−', '-').replace(',', '.'))));
+      await page.click('table.data th:last-child'); await page.waitForTimeout(50);
+      let a1 = await amt(); check(a1.length >= 3 && a1.every((v, i) => !i || a1[i - 1] <= v), 'ταξινόμηση: ποσό αύξουσα ' + JSON.stringify(a1));
+      await page.click('table.data th:last-child'); await page.waitForTimeout(50);
+      a1 = await amt(); check(a1.every((v, i) => !i || a1[i - 1] >= v), 'ταξινόμηση: ποσό φθίνουσα');
+      const sel = await page.$('.tbl-tools select'); const opt = await sel.$$eval('option', os => os[1].value); await sel.selectOption(opt); await page.waitForTimeout(50);
+      check(await page.$$eval('table.data tbody tr:not([hidden])', (rs, o) => rs.length > 0 && rs.every(r => [...r.cells].some(c => c.textContent.replace(/\s+/g, ' ').trim() === o)), opt), 'φίλτρο ανά κατηγορία');
+      await page.fill('.tbl-tools input', 'βενζινη'); await page.waitForTimeout(50);
+      check(await page.$$eval('table.data tbody tr:not([hidden])', rs => rs.every(r => /βενζίνη/.test(r.textContent))), 'φίλτρο με κείμενο (χωρίς τόνους)');
+      await page.click('.tbl-reset'); await page.waitForTimeout(50);
+      check(await page.$$eval('table.data tbody tr[hidden]', rs => rs.length) === 0, 'καθαρισμός φίλτρων');
+      await goto('home'); await page.waitForTimeout(100);
       // PDF μήνα: μία σελίδα Α4
       const pop = page.waitForEvent('popup').catch(() => null);
       await page.click('[data-action="month-pdf"]'); const pw = await pop; if (pw) await pw.close();

@@ -46,7 +46,7 @@ function listPage() {
   ${rows.length ? `<div class="sheet-wrap"><table class="data">
     <thead><tr><th>Ημερομηνία</th><th>Κατηγορία</th><th>Σημείωση</th><th>Ποιος</th><th>Τρόπος</th><th class="r">Ποσό</th></tr></thead>
     <tbody>${shown.map(t => `<tr data-action="edit" data-id="${t.id}">
-      <td style="white-space:nowrap">${esc(tableDate(t))}</td>
+      <td style="white-space:nowrap" data-sort="${t.date.replace(/-/g, '')}">${esc(tableDate(t))}</td>
       <td><span style="font-size:1.2rem">${esc(catIcon(t.categoryId))}</span> ${esc(catName(t.categoryId))}</td>
       <td>${esc(t.note)}${t.planned ? '<span class="tag planned">προγραμματισμένο</span>' : ''}</td>
       <td>${esc(t.tenantId && tenantById(t.tenantId) ? '🔑 ' + tenantById(t.tenantId).name : t.person)}</td><td>${esc(t.method)}</td>

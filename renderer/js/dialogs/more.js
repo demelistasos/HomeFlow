@@ -123,6 +123,10 @@ function renderDlg2(d) {
         <div class="field"><label for="d-cplate">Πινακίδα</label><input id="d-cplate" type="text" style="width:10rem;text-transform:uppercase" value="${esc(d.plate)}" placeholder="ΙΚΑ 1234"></div>
         <div class="field"><label for="d-cyear">Χρονολογία</label><input id="d-cyear" type="number" min="1950" max="2100" style="width:7rem" value="${esc(d.year)}" placeholder="2019"></div>
       </div>
+      <div class="field"><div class="flabel">Φωτογραφία <span class="muted" style="font-weight:500">(προαιρετικά: του αυτοκινήτου ή ό,τι άλλο θέλετε)</span></div>
+        <div style="display:flex;gap:.8rem;align-items:center;flex-wrap:wrap">${carBadge({ photo: d.photo, type: d.type, color: d.color }, true)}
+          <button class="btn" data-action="dlg-cphoto">📷 ${d.photo ? 'Άλλη φωτογραφία' : 'Διάλεξε φωτογραφία'}</button>
+          ${d.photo ? '<button class="btn ghost" data-action="dlg-cphoto-x">✕ Χωρίς φωτογραφία</button>' : ''}</div></div>
       <div class="field"><div class="flabel">Τι είναι;</div><div class="chips">${CAR_TYPES.map(([e, l]) => `<button class="chip ${(d.type || '🚗') === e ? 'sel' : ''}" data-action="dlg-ctype" data-v="${e}" data-noicon>${e} ${l}</button>`).join('')}</div></div>
       <div class="field"><div class="flabel">Χρώμα</div><div class="chips">${CAR_COLORS.map(([k, l, hex]) => `<button class="chip ${d.color === k ? 'sel' : ''}" data-action="dlg-ccolor" data-v="${k}"><span class="swatch" style="background:${hex}"></span>${l}</button>`).join('')}</div></div>
       <div class="row">
@@ -259,7 +263,7 @@ function saveDlg2() {
     const brand = (d.brand || '').trim(), model = (d.model || '').trim();
     const name = (d.name || '').trim() || [brand, model].filter(Boolean).join(' ');
     if (!name) return fail('Γράψτε μάρκα και μοντέλο ή ένα όνομα.');
-    const info = { name, brand, model, plate: (d.plate || '').trim().toUpperCase(), year: d.year ? String(d.year).trim() : '', color: d.color || '', type: d.type || '🚗', fuelCategoryId: d.fuel || '', kteo: d.kteo || '' };
+    const info = { name, brand, model, plate: (d.plate || '').trim().toUpperCase(), year: d.year ? String(d.year).trim() : '', color: d.color || '', type: d.type || '🚗', photo: d.photo || '', fuelCategoryId: d.fuel || '', kteo: d.kteo || '' };
     if (d.id) Object.assign(DB.cars.find(x => x.id === d.id), info, { sold: d.sold ? (DB.cars.find(x => x.id === d.id).sold || todayStr()) : '' });
     else { const km = intOf(d.kmStr); DB.cars.push({ id: 'c' + uid(), ...info, since: todayStr(), sold: '', km: km ? [{ date: todayStr(), km }] : [], services: [] }); }
     return done('Αποθηκεύτηκε.');
