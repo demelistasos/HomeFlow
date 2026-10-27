@@ -33,8 +33,8 @@ function rentPage() {
   const s = curYM();
   const active = DB.tenants.filter(t => !t.end || t.end >= s);
   const gone = DB.tenants.filter(t => t.end && t.end < s);
-  let expect = 0, got = 0, owed = 0;
-  for (const t of active) { if (tenantActiveIn(t, s)) { const st = tenantMonthStatus(t, s); expect += st.due; got += st.paid; } }
+  let expect = 0, got = 0, owed = 0, gotExtra = 0;
+  for (const t of active) { if (tenantActiveIn(t, s)) { const st = tenantMonthStatus(t, s); expect += st.due; got += st.paid; gotExtra += splitPaid(st.due, st.paid).extra; } }
   for (const t of DB.tenants) { const b = tenantLedger(t).balance; if (b > 0) owed += b; }
   const card = t => {
     const st = tenantActiveIn(t, s) ? tenantMonthStatus(t, s) : null;
@@ -68,7 +68,7 @@ function rentPage() {
   ${DB.tenants.length ? `
   <div class="cards">
     <div class="card bal"><div class="label">Ενοίκια ${MONTHS[+s.slice(5) - 1]}</div><div class="value num">${eur(expect)}</div><div class="sub">όσα πρέπει να μπουν αυτόν τον μήνα</div></div>
-    <div class="card inc"><div class="label">Πληρώθηκαν ως τώρα</div><div class="value inc num">${eur(got)}</div><div class="sub">μέσα σε αυτόν τον μήνα</div></div>
+    <div class="card inc"><div class="label">Πληρώθηκαν ως τώρα</div><div class="value inc num">${eur(got)}</div><div class="sub">${gotExtra > 0.005 ? `ενοίκιο ${eur(got - gotExtra)} + <b>${eur(gotExtra)}</b> για παλιές οφειλές` : 'μέσα σε αυτόν τον μήνα'}</div></div>
     <div class="card exp"><div class="label">Χρωστάνε συνολικά</div><div class="value exp num">${eur(owed)}</div><div class="sub">μαζί με παλιές οφειλές</div></div>
   </div>
   ${(() => {
@@ -80,7 +80,7 @@ function rentPage() {
       { k: 'owing', icon: '💶', label: 'Χρωστάνε', count: owing.length, alert: owing.length > 0 },
       ...(gone.length ? [{ k: 'gone', icon: '🚪', label: 'Έφυγαν', count: gone.length }] : []),
       { k: 'decl', icon: '🧾', label: 'Για τη δήλωση' },
-      (() => { const pc = DB.power ? DB.power.bills.filter(b => (b.metered.who && !b.metered.paid) || (b.rest.tenant && !b.rest.paid)).length : 0; return { k: 'power', icon: '⚡', label: DB.power ? DB.power.name : 'ΔΕΗ ισογείου', count: pc, alert: pc > 0 }; })()
+      (() => { const pc = powerOwedCount(); return { k: 'power', icon: '⚡', label: (DB.powers || []).length > 1 ? 'ΔΕΗ μοιράσματα' : ((DB.powers || [])[0] || {}).name || 'ΔΕΗ', count: pc, alert: pc > 0 }; })()
     ], 'all');
     if (tab === 'decl') return bar + declPanel();
     if (tab === 'power') return bar + powerPanel();
@@ -107,18 +107,19 @@ function tenantPage(t) {
     <div class="card bal"><div class="label">Ενοίκιο</div><div class="value num">${eur(currentRent(t))}</div><div class="sub">${esc(t.property || '')}${t.dueDay ? ` · πληρώνει στις ${t.dueDay} του μήνα` : ''}${shareOf(t) !== 100 ? `<br>Δικό μας το ${shareOf(t)}%: <b>${eur(currentRent(t) * shareOf(t) / 100)}</b>` : ''}</div></div>
     <div class="card"><div class="label">Από</div><div class="value" style="font-size:1.6rem">${ymLabel(t.start)}</div><div class="sub">${t.end ? 'Έφυγε: ' + ymLabel(t.end) : ''}${t.opening ? `${t.end ? ' · ' : ''}Παλιό υπόλοιπο: ${eur(t.opening)}` : ''}</div></div>
   </div>
+  ${(() => { const y = now.getFullYear(), x = tenantYearSplit(t, y); return x.contract || x.extra ? `<div class="notice info"><b>${y}:</b> ενοίκια συμβολαίου ${eur(x.contract)} · πλήρωσε για ενοίκιο <b>${eur(x.rent)}</b>${x.extra ? ` · και <b>${eur(x.extra)}</b> έξτρα για παλιές οφειλές` : ''}. Στον λογιστή δίνετε τα ενοίκια του συμβολαίου (Ενοίκια › Για τη δήλωση).</div>` : ''; })()}
   ${t.note ? `<div class="notice">${esc(t.note)}</div>` : ''}
   ${store.native || (t.attachments || []).length ? `<div class="panel"><h2>📎 Έγγραφα <span class="muted">μισθωτήριο, αποδείξεις κ.λπ.</span></h2>${attBlock('tenant', t.id, t.attachments)}</div>` : ''}
   <div class="sheet-wrap"><table class="data">
-    <thead><tr><th>Μήνας</th><th class="r">Ενοίκιο</th><th class="r">Πλήρωσε</th><th>Πότε</th><th>Κατάσταση</th><th class="r">Χρωστάει</th></tr></thead>
+    <thead><tr><th>Μήνας</th><th class="r">Ενοίκιο</th><th class="r">Πλήρωσε για ενοίκιο</th><th class="r">+ Για παλιά οφειλή</th><th>Πότε</th><th>Κατάσταση</th><th class="r">Χρωστάει</th></tr></thead>
     <tbody>${rows.map(r => { const st = tenantMonthStatus(t, r.s); return `<tr style="cursor:default">
       <td><b>${ymLabel(r.s)}</b></td>
       <td class="r num">${eur(r.due)}</td>
-      <td class="r num inc">${r.paid ? eur(r.paid) : '<span class="muted">—</span>'}</td>
+      ${(() => { const x = splitPaid(r.due, r.paid); return `<td class="r num inc">${r.paid ? eur(x.rent) : '<span class="muted">—</span>'}</td><td class="r num">${x.extra ? `<b>${eur(x.extra)}</b>` : '<span class="muted">—</span>'}</td>`; })()}
       <td>${r.pays.map(p => `<button class="chip" style="min-height:2.1rem;padding:.1rem .7rem;margin:.1rem" data-action="edit" data-id="${p.id}">${p.dayKnown === false ? '' : `${new Date(p.date + 'T12:00').getDate()}/${+p.date.slice(5, 7)} · `}${eur(paidOf(p))}</button>`).join('')}</td>
       <td>${statusChip(st)}</td>
       <td class="r num ${r.bal > 0.005 ? 'exp' : 'inc'}"><b>${r.bal < -0.005 ? '−' + eur(-r.bal) : eur(r.bal)}</b></td></tr>`; }).join('')}
-      ${t.opening ? `<tr style="cursor:default"><td class="muted">Πριν τον ${ymLabel(t.start)}</td><td colspan="4" class="muted">Παλιό υπόλοιπο</td><td class="r num"><b>${eur(t.opening)}</b></td></tr>` : ''}
+      ${t.opening ? `<tr style="cursor:default"><td class="muted">Πριν τον ${ymLabel(t.start)}</td><td colspan="5" class="muted">Παλιό υπόλοιπο</td><td class="r num"><b>${eur(t.opening)}</b></td></tr>` : ''}
     </tbody></table></div>
   ${led.later.length ? `<p class="muted">Υπάρχουν και ${led.later.length} πληρωμές με μελλοντική ημερομηνία, που έχουν αφαιρεθεί ήδη από την οφειλή.</p>` : ''}`;
 }

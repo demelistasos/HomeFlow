@@ -98,6 +98,13 @@ function tenantLedger(t) {
   if (later.length) { bal = round2(bal - sumPaid(later)); }
   return { rows, balance: round2(bal), early, later };
 }
+// Τι από την πληρωμή του μήνα πήγε στο ενοίκιο του μήνα και τι «έξτρα» για παλιά οφειλή
+const splitPaid = (due, paid) => ({ rent: round2(Math.min(paid, due)), extra: round2(Math.max(0, paid - due)) });
+function tenantYearSplit(t, year) {
+  let contract = 0, rent = 0, extra = 0;
+  for (const r of tenantLedger(t).rows) if (+r.s.slice(0, 4) === year) { const x = splitPaid(r.due, r.paid); contract += r.due; rent += x.rent; extra += x.extra; }
+  return { contract: round2(contract), rent: round2(rent), extra: round2(extra) };
+}
 function tenantMonthStatus(t, s) {
   const due = tenantRent(t, s);
   const paid = sumPaid(tenantPayments(t).filter(p => p.date.slice(0, 7) === s));

@@ -106,6 +106,9 @@ const actions = {
     dlg = { kind: 'fieldpay', year, amountStr: r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : '', date: todayStr(), addExpense: true, accountId: suggestAcc(fieldCatId()), error: '' }; renderDlg();
   },
   'dlg-fyear': el => { syncDlg2(); dlg.year = +el.dataset.v; const r = fieldYear(dlg.year); dlg.amountStr = r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : ''; renderDlg(); },
+  'pw-pick': el => { ui.powerId = el.dataset.id; render(); },
+  'pw-add': () => { const c = newPowerCfg('ΔΕΗ ' + ((DB.powers || []).length + 1)); DB.powers.push(c); ui.powerId = c.id; persist(); render(); actions['pw-set'](); },
+  'pw-del': () => { const c = powerCfg(); if (c.bills.length) { alert('Έχει λογαριασμούς. Σβήστε πρώτα τους λογαριασμούς του.'); return; } if (!confirm(`Να σβηστεί το «${c.name}»;`)) return; DB.powers = DB.powers.filter(p => p.id !== c.id); ui.powerId = null; dlg = null; renderDlg(); persist(); render(); },
   'pw-set': () => { const c = powerCfg(); const f = n => (n == null ? '' : numFmt.format(n).replace(/\./g, '').replace(/,00$/, ''));
     dlg = { kind: 'pset', name: c.name, totStr: f(c.totalM2), m2Str: f(c.meteredM2), meteredTenantId: c.meteredTenantId, restTenantId: c.restTenantId, restName: c.restName, gStr: String(c.georgeShare || 0), lastStr: f(c.lastReading), error: '' }; renderDlg(); },
   'pb-new': () => { const c = powerCfg(); const last = c.bills.slice().sort((a, b) => a.to.localeCompare(b.to)).pop();

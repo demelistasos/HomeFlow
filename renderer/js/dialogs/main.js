@@ -224,6 +224,7 @@ function renderDlg() {
         ${d.kind === 'service' && d.sid ? '<button class="btn danger" data-action="service-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'person' && d.id ? '<button class="btn danger" data-action="person-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'car' && d.id ? '<button class="btn danger" data-action="car-delete">🗑 Διαγραφή</button>' : ''}
+        ${d.kind === 'pset' && (DB.powers || []).length > 1 ? '<button class="btn danger" data-action="pw-del">🗑 Διαγραφή μοιράσματος</button>' : ''}
         ${d.kind === 'pbill' && d.id ? '<button class="btn danger" data-action="pb-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>

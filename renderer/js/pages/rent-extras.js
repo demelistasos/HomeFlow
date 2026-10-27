@@ -11,7 +11,8 @@ function declRows(year) {
     const received = sumPaid(tenantPayments(t).filter(p => yOf(p) === year));
     if (!months && !received) continue;
     const sh = shareOf(t);
-    out.push({ t, months, rents: [...rents], contract: round2(contract), received, share: sh, ours: round2(contract * sh / 100), oursRec: round2(received * sh / 100) });
+    const sp = tenantYearSplit(t, year);
+    out.push({ t, months, rents: [...rents], contract: round2(contract), received, rentPaid: sp.rent, extra: sp.extra, share: sh, ours: round2(contract * sh / 100), oursRec: round2(received * sh / 100) });
   }
   return out;
 }
@@ -25,14 +26,14 @@ function declPanel() {
       <div class="month-nav"><button class="btn no-print" data-action="decl-prev">◀</button><div class="month-title" style="min-width:6rem">${year}</div><button class="btn no-print" data-action="decl-next">▶</button></div>
     </div>
     ${rows.length ? `<div class="sheet-wrap"><table class="data">
-      <thead><tr><th>Ενοικιαστής</th><th class="r">Ενοίκιο × μήνες</th><th class="r">Ενοίκια χρονιάς</th><th class="r">Δικό μας</th><th class="r">Εισπράχθηκαν</th></tr></thead>
+      <thead><tr><th>Ενοικιαστής</th><th class="r">Ενοίκιο × μήνες</th><th class="r">Ενοίκια χρονιάς</th><th class="r">Δικό μας</th><th class="r">Εισπράχθηκαν για ενοίκιο</th><th class="r">+ Για παλιές οφειλές</th></tr></thead>
       <tbody>${rows.map(r => `<tr style="cursor:default">
         <td><b>${esc(r.t.name)}</b><div class="muted" style="font-size:.9rem">${esc(r.t.property || '')}</div></td>
         <td class="r num">${r.months ? `${r.rents.map(x => eur(x)).join(' → <br>')} × ${r.months}` : '<span class="muted">δεν ήταν νοικιασμένο</span>'}</td>
         <td class="r num">${eur(r.contract)}</td>
         <td class="r num"><b>${eur(r.ours)}</b>${r.share !== 100 ? `<div class="muted" style="font-size:.9rem">το ${r.share}%</div>` : ''}</td>
-        <td class="r num ${r.received + 0.005 < r.contract ? 'exp' : 'inc'}">${eur(r.received)}</td></tr>`).join('')}
-        <tr style="cursor:default;border-top:3px solid var(--line)"><td><b>Σύνολο</b></td><td></td><td class="r num"><b>${eur(tot('contract'))}</b></td><td class="r num" style="font-size:1.2rem"><b>${eur(tot('ours'))}</b></td><td class="r num"><b>${eur(tot('received'))}</b></td></tr>
+        <td class="r num ${r.rentPaid + 0.005 < r.contract ? 'exp' : 'inc'}">${eur(r.rentPaid)}</td><td class="r num">${r.extra ? eur(r.extra) : '<span class="muted">—</span>'}</td></tr>`).join('')}
+        <tr style="cursor:default;border-top:3px solid var(--line)"><td><b>Σύνολο</b></td><td></td><td class="r num"><b>${eur(tot('contract'))}</b></td><td class="r num" style="font-size:1.2rem"><b>${eur(tot('ours'))}</b></td><td class="r num"><b>${eur(tot('rentPaid'))}</b></td><td class="r num"><b>${eur(tot('extra'))}</b></td></tr>
       </tbody></table></div>
       <p class="muted" style="margin-bottom:0">«Ενοίκια χρονιάς» = ενοίκιο × μήνες που ήταν νοικιασμένο, όπως το υπολογίζατε στο Excel. «Δικό μας ποσό» είναι αυτό που αναλογεί σε εμάς με το ποσοστό. Η τελευταία στήλη δείχνει τι πληρώθηκε πραγματικά μέσα στη χρονιά (κόκκινο αν πληρώθηκαν λιγότερα).</p>`
     : `<div class="empty">Δεν υπάρχουν ενοίκια για το ${year}.</div>`}
@@ -40,10 +41,16 @@ function declPanel() {
 }
 
 // ---------- ΔΕΗ ισογείου: μοίρασμα λογαριασμού με υπομετρητή ----------
-function powerCfg() {
-  if (!DB.power) DB.power = { name: 'ΔΕΗ ισογείου', totalM2: 0, meteredM2: 0, meteredTenantId: '', meteredName: 'Πίσω (με υπομετρητή)', restTenantId: '', restName: 'Διαμέρισμα', georgeShare: 50, lastReading: null, bills: [] };
-  return DB.power;
+function newPowerCfg(name) {
+  return { id: 'pw' + uid(), name: name || 'ΔΕΗ', totalM2: 0, meteredM2: 0, meteredTenantId: '', meteredName: 'Με υπομετρητή', restTenantId: '', restName: 'Το υπόλοιπο', georgeShare: 0, lastReading: null, bills: [] };
 }
+// Το μοίρασμα που βλέπουμε τώρα (ui.powerId). Αν δεν υπάρχει κανένα, φτιάχνεται ένα.
+function powerCfg() {
+  DB.powers = DB.powers || [];
+  if (!DB.powers.length) DB.powers.push({ ...newPowerCfg('ΔΕΗ ισογείου'), meteredName: 'Πίσω (με υπομετρητή)', restName: 'Διαμέρισμα' });
+  return DB.powers.find(p => p.id === ui.powerId) || DB.powers[0];
+}
+const powerOwedCount = () => (DB.powers || []).reduce((n, c) => n + c.bills.filter(b => (b.metered.who && !b.metered.paid) || (b.rest.tenant && !b.rest.paid)).length, 0);
 const pwWho = (tid, fallback) => { const t = tid && tenantById(tid); return t ? t.name : fallback; };
 function powerCalc(c, x) {
   const kwh = +x.kwh || 0, energy = +x.energy || 0, fees = +x.fees || 0;
@@ -64,7 +71,9 @@ function powerPanel() {
     <td>${b.metered.who ? `${esc(b.metered.who)}: <b class="num">${eur(b.metered.amount)}</b> ${b.metered.paid ? `<span class="status" style="${STATUS_STYLE.ok}">✓ Τα έδωσε</span> <button class="btn small ghost no-print" data-action="pb-unpaid" data-id="${b.id}" data-p="metered">↩</button>` : `<button class="btn small income no-print" data-action="pb-paid" data-id="${b.id}" data-p="metered">✓ Τα έδωσε</button>`}` : ''}</td>
     <td>${esc(b.rest.who)}: <b class="num">${eur(b.rest.amount)}</b> ${b.rest.tenant ? (b.rest.paid ? `<span class="status" style="${STATUS_STYLE.ok}">✓ Τα έδωσε</span> <button class="btn small ghost no-print" data-action="pb-unpaid" data-id="${b.id}" data-p="rest">↩</button>` : `<button class="btn small income no-print" data-action="pb-paid" data-id="${b.id}" data-p="rest">✓ Τα έδωσε</button>`) : `<div class="muted" style="font-size:.9rem">ξενοίκιαστο: εμείς${c.georgeShare ? ` · Γιώργος ${c.georgeShare}%: ${eur(b.rest.amount * c.georgeShare / 100)}` : ''}</div>`}</td>
     <td style="width:3rem"><button class="btn small ghost no-print" data-action="pb-edit" data-id="${b.id}" title="Αλλαγή">✎</button></td></tr>`;
-  return `<div class="panel">
+  return `${`<div class="chips no-print" style="margin-bottom:.8rem">${DB.powers.map(p => `<button class="chip ${p.id === c.id ? 'sel' : ''}" data-action="pw-pick" data-id="${p.id}">⚡ ${esc(p.name)}</button>`).join('')}
+      <button class="chip" data-action="pw-add">+ Νέο μοίρασμα ΔΕΗ (άλλο ακίνητο)</button></div>`}
+    <div class="panel">
     <div style="display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.6rem">
       <h2 style="margin:0">⚡ ${esc(c.name)}</h2><div class="spacer"></div>
       <button class="btn primary no-print" data-action="pb-new">+ Νέος λογαριασμός ΔΕΗ</button>

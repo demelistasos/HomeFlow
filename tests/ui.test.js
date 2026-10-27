@@ -89,7 +89,7 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       check(await page.evaluate(() => { const d = JSON.parse(localStorage.getItem('homeflow-data')); const c = d.categories.find(c => c.id === d.field.categoryId); const t = d.transactions[d.transactions.length - 1]; return !!c && /Χωράφι/.test(c.name) && t.categoryId === c.id && t.amount === 170; }), 'η πληρωμή του χωραφιού μπαίνει στη δική του κατηγορία');
       await goto('rent'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="power"]').click()); await page.click('[data-action="pb-new"]');
       await page.fill('#d-pfrom', '2030-01-01'); await page.fill('#d-pto', '2030-02-01'); await page.fill('#d-pkwh', '200'); await page.fill('#d-penergy', '60'); await page.fill('#d-pfees', '40'); await page.fill('#d-pr1', '1100'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(60);
-      check(await page.evaluate(() => JSON.parse(localStorage.getItem('homeflow-data')).power.bills.length) === 2, 'λογαριασμός ΔΕΗ μοιράζεται και αποθηκεύεται');
+      check(await page.evaluate(() => JSON.parse(localStorage.getItem('homeflow-data')).powers[0].bills.length) === 2, 'λογαριασμός ΔΕΗ μοιράζεται και αποθηκεύεται');
       // βοήθεια, ημερολόγιο
       await page.keyboard.press('F1'); await page.waitForTimeout(60); await page.click('[data-action="help-topic"] >> nth=0'); await page.keyboard.press('Escape');
       await goto('home'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="cal"]').click()); await page.click('.cal-c.has >> nth=0'); await page.waitForTimeout(60); await page.keyboard.press('Escape');

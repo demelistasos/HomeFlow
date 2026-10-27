@@ -84,10 +84,10 @@ function buildSummaryBook(year, focus) {
     sheets.push({ name: 'Ενοίκια', rows, widths: [26, 14, 12, 10, ...Array(12).fill(10), 13, 15], freeze: 4, key: 'rent', landscape: true });
     const dr = declRows(year);
     const r2 = xlHeadRows(`Ενοίκια για τη δήλωση ${year}`, 'Ενοίκιο × μήνες που ήταν νοικιασμένο, όπως στο παλιό Excel.');
-    r2.push(['Ενοικιαστής', 'Ακίνητο', 'Ενοίκιο τον μήνα', 'Μήνες', 'Ενοίκια χρονιάς', 'Δικό μας %', 'Δικό μας ποσό', 'Εισπράχθηκαν'].map(XL.h));
-    for (const r of dr) r2.push([r.t.name, r.t.property || '', r.rents.map(x => eur(x)).join(' → '), XL.n(r.months), XL.mz(r.contract), { v: r.share / 100, s: 'pct' }, XL.mz(r.ours), XL.mz(r.received)]);
-    r2.push([XL.tt('Σύνολο'), null, null, null, XL.mb(dr.reduce((x, r) => x + r.contract, 0)), null, XL.mb(dr.reduce((x, r) => x + r.ours, 0)), XL.mb(dr.reduce((x, r) => x + r.received, 0))]);
-    sheets.push({ name: `Δήλωση ${year}`, rows: r2, widths: [26, 14, 20, 8, 15, 11, 15, 15], freeze: 4, key: 'decl' });
+    r2.push(['Ενοικιαστής', 'Ακίνητο', 'Ενοίκιο τον μήνα', 'Μήνες', 'Ενοίκια χρονιάς', 'Δικό μας %', 'Δικό μας ποσό', 'Εισπράχθηκαν για ενοίκιο', 'Για παλιές οφειλές'].map(XL.h));
+    for (const r of dr) r2.push([r.t.name, r.t.property || '', r.rents.map(x => eur(x)).join(' → '), XL.n(r.months), XL.mz(r.contract), { v: r.share / 100, s: 'pct' }, XL.mz(r.ours), XL.mz(r.rentPaid), XL.m(r.extra)]);
+    r2.push([XL.tt('Σύνολο'), null, null, null, XL.mb(dr.reduce((x, r) => x + r.contract, 0)), null, XL.mb(dr.reduce((x, r) => x + r.ours, 0)), XL.mb(dr.reduce((x, r) => x + r.rentPaid, 0)), XL.mb(dr.reduce((x, r) => x + r.extra, 0))]);
+    sheets.push({ name: `Δήλωση ${year}`, rows: r2, widths: [26, 14, 20, 8, 15, 11, 15, 17, 15], freeze: 4, key: 'decl' });
   }
   // Χρήματα
   if (DB.accounts.length) {

@@ -89,7 +89,7 @@ function renderDlg2(d) {
       <div class="field"><label for="d-pwrest">Ποιος νοικιάζει το υπόλοιπο (${esc(d.restName)});</label><select id="d-pwrest" style="width:100%">${opt(d.restTenantId, 'Ξενοίκιαστο: πληρώνουμε εμείς')}</select>
         <div class="hint">Όταν νοικιαστεί, διαλέξτε εδώ τον νέο ενοικιαστή (πρώτα προσθέστε τον στα Ενοίκια).</div></div>
       <div class="row">
-        <div class="field"><label for="d-pwg">Όταν είναι ξενοίκιαστο, ο Γιώργος πληρώνει</label><input id="d-pwg" type="number" min="0" max="100" style="width:6rem" value="${esc(d.gStr)}"> %</div>
+        <div class="field"><label for="d-pwg">Όταν είναι ξενοίκιαστο, ο συνιδιοκτήτης πληρώνει</label><input id="d-pwg" type="number" min="0" max="100" style="width:6rem" value="${esc(d.gStr)}"> %</div>
         <div class="field"><label for="d-pwr">Τελευταία ένδειξη υπομετρητή</label><input id="d-pwr" class="num" inputmode="decimal" style="width:9rem" value="${esc(d.lastStr)}"></div>
       </div>` };
   }

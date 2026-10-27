@@ -163,7 +163,10 @@ function normalize(d) {
     d.field.categoryId = c.id;
   }
   d.policies = (d.policies || []).map(p => Object.assign({ kind: 'other', name: '', what: '', company: '', number: '', amount: 0, every: 12, next: '', categoryId: '', attachments: [], history: [] }, p));
-  if (d.power) d.power.bills = d.power.bills || [];
+  // ΔΕΗ: πολλά «μοιράσματα» (π.χ. ισόγειο, και όποιο άλλο ακίνητο χρειαστεί)
+  if (!Array.isArray(d.powers)) d.powers = d.power ? [{ id: 'pw1', ...d.power }] : [];
+  delete d.power;
+  for (const p of d.powers) { p.bills = p.bills || []; p.id = p.id || 'pw' + uid(); }
   d.history = d.history || {};
   addBillRecurring(d);
   return d;
