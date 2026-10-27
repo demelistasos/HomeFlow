@@ -41,6 +41,7 @@ function renderForm() {
         <button class="btn small" data-action="form-close" title="Κλείσιμο (Esc)">✕</button>
       </div>
       <div class="modal-body">
+        <div class="row fm-top">
         <div class="field">
           <label for="fm-amount">1. Πόσα χρήματα;</label>
           <div class="amount-wrap">
@@ -50,6 +51,8 @@ function renderForm() {
           </div>
           <div id="fm-share" class="amount-calc" style="margin-top:.35rem">${shareHint(f, amt)}</div>
           <div class="hint">Μπορείτε να γράψετε και πρόσθεση, όπως στο Excel: <b>50+39+12,5</b></div>
+        </div>
+        ${accPicker(f.type, f.accountId, 'form-acc', 'fm-acc')}
         </div>
         <div class="field">
           <div class="flabel">2. Για τι;</div>
@@ -92,7 +95,6 @@ function renderForm() {
             ${f.id || f.recurringId || f.tenantId ? '' : `<label class="check"><input type="checkbox" id="fm-recurring" ${f.makeRecurring ? 'checked' : ''}> 🔁 Να γίνει πάγιο (κάθε μήνα)</label>`}
           </div>
         </div>
-        ${accPicker(f.type, f.accountId, 'form-acc', 'fm-acc')}
         ${f.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
       </div>
       <div class="modal-foot">

@@ -171,3 +171,7 @@ th.sortable.sorted{color:var(--brand)}
 table.acc-led td{vertical-align:middle}
 table.acc-led tr.acc-snap td{background:var(--paper-2);font-weight:600}
 .acc-pick select{font:inherit;color:var(--ink)}
+
+.fm-top{align-items:start}
+.fm-top .acc-pick .chips{flex-wrap:wrap}
+.fm-top .acc-pick select{max-width:100%}
