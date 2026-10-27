@@ -34,7 +34,7 @@ function renderPolDlg(d) {
       <div class="field"><div class="flabel">Τι είναι;</div><div class="chips">${POL_KINDS.map(([k, i, l]) => `<button class="chip ${d.pk === k ? 'sel' : ''}" data-action="dlg-pk" data-v="${k}">${i} ${l}</button>`).join('')}</div></div>
       <div class="row">
         <div class="field"><label for="d-polname">Όνομα</label><input id="d-polname" type="text" style="width:100%" value="${esc(d.name)}"></div>
-        <div class="field"><label for="d-polwhat">Για ποιο; <span class="muted" style="font-weight:500">(π.χ. Kia, Κατεχάκη, Νίκος)</span></label><input id="d-polwhat" type="text" style="width:100%" value="${esc(d.what)}"></div>
+        <div class="field"><label for="d-polwhat">Για ποιο; <span class="muted" style="font-weight:500">(π.χ. το αυτοκίνητο, το σπίτι, ένα πρόσωπο)</span></label><input id="d-polwhat" type="text" style="width:100%" value="${esc(d.what)}"></div>
       </div>
       <div class="row">
         <div class="field"><label for="d-polco">Εταιρεία <span class="muted" style="font-weight:500">(προαιρετικά)</span></label><input id="d-polco" type="text" style="width:100%" value="${esc(d.company)}"></div>

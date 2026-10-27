@@ -6,7 +6,7 @@
 const IS_MAC = /Mac/i.test(navigator.platform || navigator.userAgent);
 const MOD = IS_MAC ? '⌘' : 'Ctrl';
 const normS = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ς/g, 'σ');
-// «Σκελετός» ήχου: ίδιος για ελληνικά και λατινικά (λακτεσκο = lactesco, τζορτζ ≈ george)
+// «Σκελετός» ήχου: ίδιος για ελληνικά και λατινικά (π.χ. «μαρια» = «maria»)
 const GR2LAT = { α: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', ζ: 'z', η: 'i', θ: 'th', ι: 'i', κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'ks', ο: 'o', π: 'p', ρ: 'r', σ: 's', τ: 't', υ: 'i', φ: 'f', χ: 'h', ψ: 'ps', ω: 'o' };
 const skel = s => normS(s).replace(/[α-ω]/g, c => GR2LAT[c] || c).replace(/ph/g, 'f').replace(/ch/g, 'h').replace(/[cq]/g, 'k').replace(/x/g, 'ks').replace(/[yu]/g, 'i').replace(/w/g, 'o').replace(/tz|dz|j/g, 'z').replace(/oi/g, 'o').replace(/([a-z])\1/g, '$1');
 let pal = null; // { q, sel }
@@ -34,7 +34,7 @@ const COMMANDS = [
   ['💰', 'Χρήματα', 'τραπεζεσ λογαριασμοι υπολοιπα', () => goTo('money'), `${MOD}+4`],
   ['🔁', 'Πάγια', 'επαναλαμβανομενα', () => goTo('recurring'), `${MOD}+5`],
   ['🏛️', 'Εφορία', 'φοροι ενφια δοσεισ', () => goTo('tax'), `${MOD}+6`],
-  ['🤝', 'Οφειλές', 'george stacey χρωστανε', () => goTo('people'), `${MOD}+7`],
+  ['🤝', 'Οφειλές', 'οφειλεσ χρωστανε δανεικα', () => goTo('people'), `${MOD}+7`],
   ['🚗', 'Αυτοκίνητα', 'σερβισ χιλιομετρα κτεο', () => goTo('cars'), `${MOD}+8`],
   ['🌱', 'Χωράφι', 'ποτισμα', () => goTo('field'), `${MOD}+9`],
   ['💧', 'Πότισα (χωράφι)', 'ποτισμα ωρεσ', () => { goTo('field'); actions['water-new'](); }],
@@ -61,7 +61,7 @@ function searchAll(q) {
   const qLat = /[a-z]/.test(normS(q)), qGr = /[α-ω]/.test(normS(q));
   const hit = text => {
     const h = normS(text); if (toks.every(t => h.includes(t))) return true;
-    // ελληνικά ↔ λατινικά μόνο όταν το κείμενο έχει το «άλλο» αλφάβητο (π.χ. «λακτεσκο» → Lactesco)
+    // ελληνικά ↔ λατινικά μόνο όταν το κείμενο έχει το «άλλο» αλφάβητο (π.χ. «μαρια» → Maria)
     if (!((qGr && /[a-z]/.test(h)) || (qLat && /[α-ω]/.test(h)))) return false;
     const hs = skel(text); return sk.every(t => t.length >= 3 && hs.includes(t));
   };
@@ -105,7 +105,7 @@ function renderPal(keepInput) {
     : `<div class="empty" style="padding:1.2rem">Δεν βρέθηκε τίποτα για «${esc(pal.q)}».</div>`;
   if (keepInput && root.querySelector('.pal-list')) { root.querySelector('.pal-list').innerHTML = list; const s = root.querySelector('.pal-item.sel'); if (s) s.scrollIntoView({ block: 'nearest' }); return; }
   root.innerHTML = `<div class="pal-back" data-action="pal-close"><div class="pal" role="dialog" aria-label="Αναζήτηση">
-    <div class="pal-in"><span>🔍</span><input id="pal-q" type="search" autocomplete="off" placeholder="Αναζήτηση: ενοικιαστής, ΔΕΗ, 150, Lactesco, ρυθμίσεις…" value="${esc(pal.q)}"><kbd>Esc</kbd></div>
+    <div class="pal-in"><span>🔍</span><input id="pal-q" type="search" autocomplete="off" placeholder="Αναζήτηση: ενοικιαστής, ΔΕΗ, 150, Maria, ρυθμίσεις…" value="${esc(pal.q)}"><kbd>Esc</kbd></div>
     <div class="pal-list">${list}</div>
     <div class="pal-foot">↑ ↓ για επιλογή · Enter για άνοιγμα · Esc για κλείσιμο · ${MOD}+K ανοίγει την αναζήτηση από παντού</div>
   </div></div>`;

@@ -71,7 +71,7 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       // αναζήτηση
       await page.keyboard.press('Control+KeyK'); await page.keyboard.type('Ενοικιαστής Α'); await page.waitForTimeout(80); await page.keyboard.press('Enter'); await page.waitForTimeout(100);
       check((await page.textContent('.page-head h1')).includes('Ενοικιαστής Α'), 'αναζήτηση → καρτέλα ενοικιαστή');
-      await page.keyboard.press('Control+KeyK'); await page.keyboard.type('λακτεσκο εταιρια'); await page.waitForTimeout(50); await page.keyboard.press('Escape');
+      await page.keyboard.press('Control+KeyK'); await page.keyboard.type('etaireia b'); await page.waitForTimeout(50); await page.keyboard.press('Escape');
       // πληρωμή ενοικίου
       await page.click('[data-action="tenant-pay"]'); await page.waitForTimeout(80);
       if (await page.$('#fm-amount')) { await page.click('[data-action="form-save"]'); await page.waitForTimeout(100); }

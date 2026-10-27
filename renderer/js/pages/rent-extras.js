@@ -41,7 +41,7 @@ function declPanel() {
 
 // ---------- ΔΕΗ ισογείου: μοίρασμα λογαριασμού με υπομετρητή ----------
 function powerCfg() {
-  if (!DB.power) DB.power = { name: 'ΔΕΗ ισογείου', totalM2: 180, meteredM2: 65.36, meteredTenantId: '', meteredName: 'Πίσω (με υπομετρητή)', restTenantId: '', restName: 'Διαμέρισμα', georgeShare: 50, lastReading: null, bills: [] };
+  if (!DB.power) DB.power = { name: 'ΔΕΗ ισογείου', totalM2: 0, meteredM2: 0, meteredTenantId: '', meteredName: 'Πίσω (με υπομετρητή)', restTenantId: '', restName: 'Διαμέρισμα', georgeShare: 50, lastReading: null, bills: [] };
   return DB.power;
 }
 const pwWho = (tid, fallback) => { const t = tid && tenantById(tid); return t ? t.name : fallback; };
