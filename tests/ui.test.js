@@ -114,6 +114,9 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
         await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80); await page.click('.cat-btn >> nth=0'); await page.waitForTimeout(50);
         check(await page.evaluate(() => form.accountId === 'a1'), 'ο λογαριασμός προτείνεται για την ίδια κατηγορία');
         await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+        check(!!(await page.$('.ask-close')), 'το κλείσιμο της φόρμας ρωτάει μέσα στην εφαρμογή');
+        await page.click('[data-action="form-close-yes"]'); await page.waitForTimeout(50);
+        check(await page.evaluate(() => !form), 'η φόρμα κλείνει με «Ναι, κλείσιμο»');
       }
       // Οφειλές: και οι ενοικιαστές που χρωστάνε
       await goto('people'); await page.waitForTimeout(80);

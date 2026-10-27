@@ -192,6 +192,7 @@ ipcMain.handle('data:save', (_e, text) => {
 // πριν κλείσει η εφαρμογή, να γραφτούν και τα δεύτερα αντίγραφα που περιμένουν
 app.on('before-quit', () => { if (extraTimer) { clearTimeout(extraTimer); extraTimer = null; for (const k of ['cloud', 'usb']) if (backupCfg()[k]) extraBackup(k, { quiet: true }); } });
 
+ipcMain.on('app:refocus', () => { if (win && !win.isDestroyed()) { win.blur(); win.focus(); win.webContents.focus(); } });
 ipcMain.handle('data:info', () => ({ path: dataFile(), dir: dataDir(), version: app.getVersion() }));
 
 ipcMain.handle('data:openFolder', () => shell.openPath(dataDir()));

@@ -28,7 +28,7 @@ const attActions = {
   'att-open': async el => { if (!window.homeflow) return; const r = await window.homeflow.attOpen(el.dataset.file); if (r && r.error) toast(r.error); },
   'att-del': async el => {
     const kind = el.dataset.kind, file = el.dataset.file;
-    if (!confirm('Να αφαιρεθεί αυτό το αρχείο; (Θα πάει στον Κάδο ανακύκλωσης.)')) return;
+    if (!confirmBox('Να αφαιρεθεί αυτό το αρχείο; (Θα πάει στον Κάδο ανακύκλωσης.)')) return;
     if (kind === 'form') { if (!form) return; syncFormInputs(); form.attachments = (form.attachments || []).filter(a => a.file !== file); renderForm(); }
     else { const o = attOwner(kind, el.dataset.id); if (o) { o.attachments = (o.attachments || []).filter(a => a.file !== file); persist(); render(); } }
     if (window.homeflow && window.homeflow.attRemove) window.homeflow.attRemove(file);

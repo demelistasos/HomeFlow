@@ -4,7 +4,7 @@
 
 async function reload() {
   const res = await store.load();
-  if (res && res.error) alert(res.error);
+  if (res && res.error) alertBox(res.error);
   DB = res && validData(res.data) ? normalize(res.data) : null;
   if (DB && generateRecurring()) persist();
   if (window.homeflow) { ui.info = await window.homeflow.info(); $('#brand-version').textContent = 'Έκδοση ' + ui.info.version; }

@@ -128,7 +128,7 @@ const accActions = {
   'accmove-k': el => { syncAccMove(); dlg.k = el.dataset.v; renderDlg(); },
   'acc-move-del': el => {
     const a = DB.accounts.find(x => x.id === el.dataset.id); const m = (a.moves || []).find(x => x.id === el.dataset.m);
-    if (!m || !confirm(`Να σβηστεί η κίνηση ${money(Math.abs(m.amount), a.currency)} της ${shortDate(m.date)};${m.pair ? ' (Σβήνεται και από τον άλλο λογαριασμό της μεταφοράς.)' : ''}`)) return;
+    if (!m || !confirmBox(`Να σβηστεί η κίνηση ${money(Math.abs(m.amount), a.currency)} της ${shortDate(m.date)};${m.pair ? ' (Σβήνεται και από τον άλλο λογαριασμό της μεταφοράς.)' : ''}`)) return;
     for (const x of DB.accounts) if (x.moves) x.moves = x.moves.filter(y => y.id !== m.id && !(m.pair && y.pair === m.pair));
     persist(); renderDlg(); render();
   },

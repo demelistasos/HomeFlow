@@ -175,3 +175,5 @@ table.acc-led tr.acc-snap td{background:var(--paper-2);font-weight:600}
 .fm-top{align-items:start}
 .fm-top .acc-pick .chips{flex-wrap:wrap}
 .fm-top .acc-pick select{max-width:100%}
+
+.ask-close{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.8rem 1.2rem;background:var(--exp-soft);border-top:2px solid var(--exp-line,var(--exp));color:var(--ink)}

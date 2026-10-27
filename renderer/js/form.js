@@ -97,6 +97,8 @@ function renderForm() {
         </div>
         ${f.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
       </div>
+      ${f.askClose ? `<div class="ask-close"><b>Να κλείσει χωρίς αποθήκευση;</b> Ό,τι γράψατε θα χαθεί.<div class="spacer"></div>
+        <button class="btn" data-action="form-close-no">Όχι, συνεχίζω</button><button class="btn danger" data-action="form-close-yes">Ναι, κλείσιμο</button></div>` : ''}
       <div class="modal-foot">
         ${f.id ? '<button class="btn danger" data-action="form-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
@@ -176,7 +178,7 @@ function deleteFromForm() {
   const id = form.id;
   const t = DB.transactions.find(x => x.id === id);
   if (!t) return;
-  if (!confirm(`Να διαγραφεί η κίνηση ${eur(t.amount)} – ${catName(t.categoryId)};`)) return;
+  if (!confirmBox(`Να διαγραφεί η κίνηση ${eur(t.amount)} – ${catName(t.categoryId)};`)) return;
   DB.transactions = DB.transactions.filter(x => x.id !== id);
   // αν ήταν από πάγιο, να μην ξαναφτιαχτεί αυτόν τον μήνα
   const r = t.recurringId && DB.recurring.find(x => x.id === t.recurringId);

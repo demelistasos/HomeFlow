@@ -196,7 +196,7 @@ function saveDlg2() {
     const c = DB.cars.find(x => x.id === d.cid); const km = intOf(d.kmStr);
     if (!km) return fail('Γράψτε τα χιλιόμετρα.');
     const cur = carKm(c);
-    if (cur && km < cur.km && d.date >= cur.date && !confirm(`Τα ${int0.format(km)} km είναι λιγότερα από τα προηγούμενα (${int0.format(cur.km)}). Σωστό;`)) return true;
+    if (cur && km < cur.km && d.date >= cur.date && !confirmBox(`Τα ${int0.format(km)} km είναι λιγότερα από τα προηγούμενα (${int0.format(cur.km)}). Σωστό;`)) return true;
     c.km = c.km.filter(x => x.date !== d.date); c.km.push({ date: d.date, km });
     return done(`${c.name}: ${int0.format(km)} km`);
   }

@@ -43,6 +43,6 @@ const bkActions = {
   'bk-choose': async el => { const r = await window.homeflow.backupChoose(el.dataset.k); if (r.canceled) return; ui.backup = r.status; render(); toast(r.ok ? 'Έτοιμο: το αντίγραφο γράφτηκε.' : r.error); },
   'bk-now': async el => { if (!window.homeflow) return; const r = await window.homeflow.backupNow(el.dataset.k); ui.backup = r.status; render(); toast(r.ok ? 'Το αντίγραφο γράφτηκε ✓' : r.error); },
   'bk-open': el => window.homeflow.backupOpen(el.dataset.k),
-  'bk-remove': async el => { if (!confirm('Να σταματήσουν τα αντίγραφα εκεί; (Όσα έχουν γραφτεί δεν σβήνονται.)')) return; ui.backup = await window.homeflow.backupRemove(el.dataset.k); render(); },
+  'bk-remove': async el => { if (!confirmBox('Να σταματήσουν τα αντίγραφα εκεί; (Όσα έχουν γραφτεί δεν σβήνονται.)')) return; ui.backup = await window.homeflow.backupRemove(el.dataset.k); render(); },
   'bk-setup': () => { ui.page = 'settings'; ui.tabs.settings = 'data'; render(); }
 };

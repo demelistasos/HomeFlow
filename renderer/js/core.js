@@ -40,6 +40,11 @@ const int0 = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 0 });
 const eur = n => eurFmt.format(n || 0);
 const eur0 = n => eur0Fmt.format(n || 0);
 const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+// Τα παράθυρα «OK / Άκυρο» των Windows αφήνουν μερικές φορές την εφαρμογή χωρίς πληκτρολόγιο.
+// Μετά από κάθε τέτοιο παράθυρο, ζητάμε από τα Windows να ξαναδώσουν το πληκτρολόγιο στην εφαρμογή.
+function refocusApp() { try { if (window.homeflow && window.homeflow.refocus) window.homeflow.refocus(); } catch { /* τίποτα */ } }
+function confirmBox(msg) { const r = window.confirm(msg); refocusApp(); return r; }
+function alertBox(msg) { window.alert(msg); refocusApp(); }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const pad = n => String(n).padStart(2, '0');
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }

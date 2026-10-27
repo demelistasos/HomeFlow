@@ -53,6 +53,8 @@ const actions = {
   'export-year': () => exportYear(ui.yearView),
   // φόρμα
   'modal-back': (el, ev) => { if (ev.target === el) { if (form) { if (confirmCloseForm()) { form = null; renderForm(); } } else $('#modal-root').innerHTML = ''; } },
+  'form-close-yes': () => { form = null; renderForm(); },
+  'form-close-no': () => { form.askClose = false; renderForm(); setTimeout(() => { const a = $('#fm-amount'); if (a) a.focus(); }, 20); },
   'form-close': () => { if (confirmCloseForm()) { form = null; renderForm(); } },
   'form-switch': () => { syncFormInputs(); form.type = form.type === 'expense' ? 'income' : 'expense'; form.categoryId = ''; form.error = ''; renderForm(); },
   'form-cat': el => { syncFormInputs(); form.categoryId = el.dataset.id; form.error = ''; if (!form.id && !form.accTouched) form.accountId = suggestAcc(form.categoryId); renderForm(); },
@@ -66,7 +68,7 @@ const actions = {
   'rec-stop': el => {
     const r = DB.recurring.find(x => x.id === el.dataset.id); if (!r) return;
     const pending = DB.transactions.filter(t => t.recurringId === r.id && t.planned);
-    if (!confirm(`Να σταματήσει το πάγιο «${catName(r.categoryId)}»;${pending.length ? `\n\nΘα σβηστούν και ${pending.length} προγραμματισμένες που δεν έχουν γίνει ακόμα.` : ''}`)) return;
+    if (!confirmBox(`Να σταματήσει το πάγιο «${catName(r.categoryId)}»;${pending.length ? `\n\nΘα σβηστούν και ${pending.length} προγραμματισμένες που δεν έχουν γίνει ακόμα.` : ''}`)) return;
     r.active = false;
     DB.transactions = DB.transactions.filter(t => !(t.recurringId === r.id && t.planned));
     persist(); render(); toast('Το πάγιο σταμάτησε.');
@@ -74,7 +76,7 @@ const actions = {
   'rec-resume': el => { const r = DB.recurring.find(x => x.id === el.dataset.id); if (!r) return; r.active = true; if (r.from < curYM()) r.from = curYM(); generateRecurring(); persist(); render(); toast('Το πάγιο συνεχίζει.'); },
   'rec-delete': el => {
     const r = DB.recurring.find(x => x.id === el.dataset.id); if (!r) return;
-    if (!confirm(`Να διαγραφεί εντελώς το πάγιο «${catName(r.categoryId)}»; (Οι πληρωμές που έγιναν μένουν.)`)) return;
+    if (!confirmBox(`Να διαγραφεί εντελώς το πάγιο «${catName(r.categoryId)}»; (Οι πληρωμές που έγιναν μένουν.)`)) return;
     DB.recurring = DB.recurring.filter(x => x.id !== r.id); persist(); render();
   },
   'dlg-close': () => { dlg = null; renderDlg(); },
@@ -98,7 +100,7 @@ const actions = {
   'decl-next': () => { ui.declYear = (ui.declYear || now.getFullYear()) + 1; render(); },
   'water-new': () => { dlg = { kind: 'water', hoursStr: '2', date: todayStr(), error: '' }; renderDlg(); },
   'dlg-hours': el => { syncDlg2(); dlg.hoursStr = el.dataset.v; renderDlg(); },
-  'water-del': el => { const f = fieldCfg(); const w = f.waterings.find(x => x.id === el.dataset.id); if (!w || !confirm(`Να σβηστεί το πότισμα της ${shortDate(w.date)};`)) return; f.waterings = f.waterings.filter(x => x !== w); persist(); render(); },
+  'water-del': el => { const f = fieldCfg(); const w = f.waterings.find(x => x.id === el.dataset.id); if (!w || !confirmBox(`Να σβηστεί το πότισμα της ${shortDate(w.date)};`)) return; f.waterings = f.waterings.filter(x => x !== w); persist(); render(); },
   'field-pay': () => {
     const y0 = now.getFullYear(); const prev = fieldYear(y0 - 1);
     const year = prev.hours && !prev.paid ? y0 - 1 : y0;
@@ -108,7 +110,7 @@ const actions = {
   'dlg-fyear': el => { syncDlg2(); dlg.year = +el.dataset.v; const r = fieldYear(dlg.year); dlg.amountStr = r.hours && fieldRate() ? numFmt.format(Math.round(r.hours * fieldRate())).replace(/\./g, '') : ''; renderDlg(); },
   'pw-pick': el => { ui.powerId = el.dataset.id; render(); },
   'pw-add': () => { const c = newPowerCfg('ΔΕΗ ' + ((DB.powers || []).length + 1)); DB.powers.push(c); ui.powerId = c.id; persist(); render(); actions['pw-set'](); },
-  'pw-del': () => { const c = powerCfg(); if (c.bills.length) { alert('Έχει λογαριασμούς. Σβήστε πρώτα τους λογαριασμούς του.'); return; } if (!confirm(`Να σβηστεί το «${c.name}»;`)) return; DB.powers = DB.powers.filter(p => p.id !== c.id); ui.powerId = null; dlg = null; renderDlg(); persist(); render(); },
+  'pw-del': () => { const c = powerCfg(); if (c.bills.length) { alertBox('Έχει λογαριασμούς. Σβήστε πρώτα τους λογαριασμούς του.'); return; } if (!confirmBox(`Να σβηστεί το «${c.name}»;`)) return; DB.powers = DB.powers.filter(p => p.id !== c.id); ui.powerId = null; dlg = null; renderDlg(); persist(); render(); },
   'pw-set': () => { const c = powerCfg(); const f = n => (n == null ? '' : numFmt.format(n).replace(/\./g, '').replace(/,00$/, ''));
     dlg = { kind: 'pset', name: c.name, totStr: f(c.totalM2), m2Str: f(c.meteredM2), meteredTenantId: c.meteredTenantId, restTenantId: c.restTenantId, restName: c.restName, gStr: String(c.georgeShare || 0), lastStr: f(c.lastReading), error: '' }; renderDlg(); },
   'pb-new': () => { const c = powerCfg(); const last = c.bills.slice().sort((a, b) => a.to.localeCompare(b.to)).pop();
@@ -116,7 +118,7 @@ const actions = {
     dlg = { kind: 'pbill', id: null, from: last ? shiftDay(last.to, 1) : '', to: todayStr(), kwhStr: '', energyStr: '', feesStr: '', r0Str: r0 == null ? '' : String(r0).replace('.', ','), r1Str: '', error: '' }; renderDlg(); },
   'pb-edit': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); const f = n => String(n).replace('.', ',');
     dlg = { kind: 'pbill', id: b.id, from: b.from, to: b.to, kwhStr: f(b.kwh), energyStr: f(b.energy), feesStr: f(b.fees), r0Str: f(b.r0), r1Str: f(b.r1), error: '' }; renderDlg(); },
-  'pb-delete': () => { if (!confirm('Να σβηστεί αυτός ο λογαριασμός;')) return; const c = powerCfg(); c.bills = c.bills.filter(b => b.id !== dlg.id); dlg = null; renderDlg(); persist(); render(); },
+  'pb-delete': () => { if (!confirmBox('Να σβηστεί αυτός ο λογαριασμός;')) return; const c = powerCfg(); c.bills = c.bills.filter(b => b.id !== dlg.id); dlg = null; renderDlg(); persist(); render(); },
   'pb-paid': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); b[el.dataset.p].paid = true; b[el.dataset.p].paidDate = todayStr(); persist(); render(); toast(`${b[el.dataset.p].who}: τα έδωσε (${eur(b[el.dataset.p].amount)})`); },
   'pb-unpaid': el => { const b = powerCfg().bills.find(x => x.id === el.dataset.id); b[el.dataset.p].paid = false; persist(); render(); },
   'goto-page': el => { ui.page = el.dataset.page; render(); $('.main').scrollTop = 0; },
@@ -125,14 +127,14 @@ const actions = {
   'tax-pay': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); const k = +el.dataset.k; dlg = { kind: 'taxpay', tid: t.id, k, amountStr: numFmt.format(t.installments[k].amount).replace(/\./g, ''), date: todayStr(), addExpense: true, accountId: suggestAcc(taxCatId()), error: '' }; renderDlg(); },
   'tax-unpay': el => {
     const t = DB.taxes.find(x => x.id === el.dataset.id); const i = t.installments[+el.dataset.k];
-    if (!confirm('Να ξαναγίνει «απλήρωτη» αυτή η δόση;' + (i.txId ? ' Θα σβηστεί και από τα έξοδα.' : ''))) return;
+    if (!confirmBox('Να ξαναγίνει «απλήρωτη» αυτή η δόση;' + (i.txId ? ' Θα σβηστεί και από τα έξοδα.' : ''))) return;
     if (i.txId) DB.transactions = DB.transactions.filter(x => x.id !== i.txId);
     Object.assign(i, { paid: false, paidDate: '', txId: '' }); persist(); render();
   },
   'tax-pay-overdue': () => {
     const list = taxInst().filter(x => !x.i.paid && x.i.due < todayStr());
     const total = list.reduce((a, x) => a + x.i.amount, 0);
-    if (!confirm(`Να σημειωθούν ως πληρωμένες ${list.length} δόσεις (${eur(total)});\n\nΘα μπουν και στα έξοδα με σημερινή ημερομηνία. Αν έχουν ήδη γραφτεί στα έξοδα, πατήστε «Άκυρο» και σημειώστε τις μία-μία βγάζοντας το τσεκ.`)) return;
+    if (!confirmBox(`Να σημειωθούν ως πληρωμένες ${list.length} δόσεις (${eur(total)});\n\nΘα μπουν και στα έξοδα με σημερινή ημερομηνία. Αν έχουν ήδη γραφτεί στα έξοδα, πατήστε «Άκυρο» και σημειώστε τις μία-μία βγάζοντας το τσεκ.`)) return;
     for (const { t, i, k } of list) {
       const tx = { id: uid(), date: todayStr(), dayKnown: true, type: 'expense', amount: i.amount, categoryId: taxCatId(), note: `${t.name} (δόση ${k + 1}/${t.installments.length})`, person: t.person, method: '', planned: false, tenantId: '', recurringId: '', source: 'app', created: new Date().toISOString() };
       DB.transactions.push(tx); Object.assign(i, { paid: true, paidDate: todayStr(), txId: tx.id });
@@ -143,7 +145,7 @@ const actions = {
   'tax-edit': el => { const t = DB.taxes.find(x => x.id === el.dataset.id); dlg = { kind: 'tax', id: t.id, name: t.name, person: t.person, year: t.year, error: '' }; renderDlg(); },
   'tax-delete': () => {
     const t = DB.taxes.find(x => x.id === dlg.id);
-    if (!confirm(`Να διαγραφεί η οφειλή «${t.name} – ${t.person}»; (Ό,τι έχει μπει στα έξοδα μένει.)`)) return;
+    if (!confirmBox(`Να διαγραφεί η οφειλή «${t.name} – ${t.person}»; (Ό,τι έχει μπει στα έξοδα μένει.)`)) return;
     DB.taxes = DB.taxes.filter(x => x.id !== t.id); dlg = null; renderDlg(); persist(); render();
   },
   'dlg-tname': el => { syncDlg2(); dlg.name = el.dataset.v; renderDlg(); },
@@ -155,12 +157,12 @@ const actions = {
   'person-back': () => { ui.personId = null; render(); },
   'person-delete': () => {
     const p = DB.people.find(x => x.id === dlg.id);
-    if (!confirm(`Να διαγραφεί «${p.name}» μαζί με όλη την καρτέλα (${p.entries.length} κινήσεις);`)) return;
+    if (!confirmBox(`Να διαγραφεί «${p.name}» μαζί με όλη την καρτέλα (${p.entries.length} κινήσεις);`)) return;
     DB.people = DB.people.filter(x => x.id !== p.id); ui.personId = null; dlg = null; renderDlg(); persist(); render();
   },
   'pentry-new': el => { dlg = { kind: 'pentry', pid: el.dataset.id, eid: null, dir: el.dataset.dir, amountStr: '', text: '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const a = $('#d-amount'); if (a) a.focus(); }, 30); },
   'pentry-edit': el => { const p = DB.people.find(x => x.id === el.dataset.id); const e = p.entries.find(x => x.id === el.dataset.e); dlg = { kind: 'pentry', pid: p.id, eid: e.id, dir: e.dir, amountStr: numFmt.format(e.amount).replace(/\./g, ''), text: e.text, date: e.date, error: '' }; renderDlg(); },
-  'pentry-delete': () => { const p = DB.people.find(x => x.id === dlg.pid); if (!confirm('Να σβηστεί αυτή η κίνηση;')) return; p.entries = p.entries.filter(e => e.id !== dlg.eid); dlg = null; renderDlg(); persist(); render(); },
+  'pentry-delete': () => { const p = DB.people.find(x => x.id === dlg.pid); if (!confirmBox('Να σβηστεί αυτή η κίνηση;')) return; p.entries = p.entries.filter(e => e.id !== dlg.eid); dlg = null; renderDlg(); persist(); render(); },
   'dlg-pdir': el => { syncDlg2(); dlg.dir = el.dataset.v; renderDlg(); },
   // αυτοκίνητα
   'tenant-goto': el => { const id = el.dataset.id; goTo('rent', { ui: { tenantId: id } }); if (el.dataset.pay) actions['tenant-pay']({ dataset: { id } }); },
@@ -172,12 +174,12 @@ const actions = {
   'dlg-ccolor': el => { syncDlg2(); dlg.color = dlg.color === el.dataset.v ? '' : el.dataset.v; renderDlg(); },
   'car-open': el => { ui.carId = el.dataset.id; ui.page = 'cars'; render(); $('.main').scrollTop = 0; },
   'car-back': () => { ui.carId = null; render(); },
-  'car-delete': () => { const c = DB.cars.find(x => x.id === dlg.id); if (!confirm(`Να διαγραφεί το «${c.name}» με όλο το ιστορικό του;`)) return; DB.cars = DB.cars.filter(x => x.id !== c.id); ui.carId = null; dlg = null; renderDlg(); persist(); render(); },
+  'car-delete': () => { const c = DB.cars.find(x => x.id === dlg.id); if (!confirmBox(`Να διαγραφεί το «${c.name}» με όλο το ιστορικό του;`)) return; DB.cars = DB.cars.filter(x => x.id !== c.id); ui.carId = null; dlg = null; renderDlg(); persist(); render(); },
   'car-km': el => { const c = DB.cars.find(x => x.id === el.dataset.id); dlg = { kind: 'km', cid: c.id, kmStr: '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const a = $('#d-km'); if (a) a.focus(); }, 30); },
-  'km-del': el => { const c = DB.cars.find(x => x.id === el.dataset.id); if (!confirm('Να σβηστεί αυτή η μέτρηση;')) return; c.km = c.km.filter(k => k.date !== el.dataset.d); persist(); render(); },
+  'km-del': el => { const c = DB.cars.find(x => x.id === el.dataset.id); if (!confirmBox('Να σβηστεί αυτή η μέτρηση;')) return; c.km = c.km.filter(k => k.date !== el.dataset.d); persist(); render(); },
   'car-service': el => { const c = DB.cars.find(x => x.id === el.dataset.id); const cur = carKm(c); dlg = { kind: 'service', cid: c.id, sid: null, work: '', date: todayStr(), kmStr: cur ? String(cur.km) : '', nextStr: '', amountStr: '', addExpense: true, error: '' }; renderDlg(); },
   'service-edit': el => { const c = DB.cars.find(x => x.id === el.dataset.id); const sv = c.services.find(x => x.id === el.dataset.s); dlg = { kind: 'service', cid: c.id, sid: sv.id, work: sv.work, date: sv.date, kmStr: sv.km ? String(sv.km) : '', nextStr: sv.nextKm ? String(sv.nextKm) : '', error: '' }; renderDlg(); },
-  'service-delete': () => { const c = DB.cars.find(x => x.id === dlg.cid); if (!confirm('Να σβηστεί αυτό το σέρβις;')) return; c.services = c.services.filter(x => x.id !== dlg.sid); dlg = null; renderDlg(); persist(); render(); },
+  'service-delete': () => { const c = DB.cars.find(x => x.id === dlg.cid); if (!confirmBox('Να σβηστεί αυτό το σέρβις;')) return; c.services = c.services.filter(x => x.id !== dlg.sid); dlg = null; renderDlg(); persist(); render(); },
   'dlg-work': el => { syncDlg2(); dlg.work = el.dataset.v; renderDlg(); },
   'dlg-next': el => { syncDlg2(); const km = parseInt(String(dlg.kmStr).replace(/\D/g, ''), 10) || 0; dlg.nextStr = String(km + +el.dataset.v); renderDlg(); },
   'acc-update': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); const lb = lastBal(a); const back = !!(dlg && dlg.kind === 'accview'); dlg = { kind: 'bal', back, id: a.id, amountStr: lb ? numFmt.format(lb.balance).replace(/\./g, '') : '', date: todayStr(), error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) { i.focus(); i.select(); } }, 30); },
@@ -185,7 +187,7 @@ const actions = {
   'acc-edit': el => { const a = DB.accounts.find(x => x.id === el.dataset.id); dlg = { kind: 'acc', id: a.id, bank: a.bank, name: a.name, owner: a.owner, currency: a.currency, kind2: a.kind, archived: a.archived, maturity: a.maturity || '', error: '' }; renderDlg(); },
   'acc-hist-del': el => {
     const a = DB.accounts.find(x => x.id === dlg.id); const i = +el.dataset.i; const h = a.history[i];
-    if (!h || !confirm(`Να σβηστεί το υπόλοιπο ${money(h.balance, a.currency)} της ${shortDate(h.date)};`)) return;
+    if (!h || !confirmBox(`Να σβηστεί το υπόλοιπο ${money(h.balance, a.currency)} της ${shortDate(h.date)};`)) return;
     syncMoney(); a.history.splice(i, 1); persist(); renderDlg();
   },
   'dlg-bank': el => { syncMoney(); dlg.bank = el.dataset.v; renderDlg(); },
@@ -198,7 +200,7 @@ const actions = {
   'tenant-leave': el => { dlg = { kind: 'leave', id: el.dataset.id, end: curYM(), error: '' }; renderDlg(); },
   'tenant-unleave': el => {
     const t = tenantById(el.dataset.id); if (!t) return;
-    if (!confirm(`Ο/Η ${t.name} συνεχίζει να νοικιάζει; Θα ξαναμετράει ενοίκιο κάθε μήνα.`)) return;
+    if (!confirmBox(`Ο/Η ${t.name} συνεχίζει να νοικιάζει; Θα ξαναμετράει ενοίκιο κάθε μήνα.`)) return;
     t.end = ''; persist(); render(); toast(`${t.name}: συνεχίζει.`);
   },
   // ενοίκια
@@ -215,7 +217,7 @@ const actions = {
   'tenant-delete': () => {
     const t = tenantById(dlg.id); if (!t) return;
     const n = tenantPayments(t).length;
-    if (!confirm(`Να διαγραφεί ο ενοικιαστής «${t.name}»;${n ? `\n\nΟι ${n} πληρωμές του μένουν στα έσοδα (χωρίς όνομα ενοικιαστή).` : ''}\n\nΑν απλώς έφυγε, καλύτερα συμπληρώστε «τελευταίος μήνας» αντί για διαγραφή.`)) return;
+    if (!confirmBox(`Να διαγραφεί ο ενοικιαστής «${t.name}»;${n ? `\n\nΟι ${n} πληρωμές του μένουν στα έσοδα (χωρίς όνομα ενοικιαστή).` : ''}\n\nΑν απλώς έφυγε, καλύτερα συμπληρώστε «τελευταίος μήνας» αντί για διαγραφή.`)) return;
     DB.tenants = DB.tenants.filter(x => x.id !== t.id);
     for (const x of DB.transactions) if (x.tenantId === t.id) x.tenantId = '';
     dlg = null; renderDlg(); ui.tenantId = null; persist(); render();
@@ -244,7 +246,7 @@ const actions = {
   'cat-delete': el => {
     const c = catById(el.dataset.id);
     if (!c || DB.transactions.some(t => t.categoryId === c.id)) return;
-    if (!confirm(`Να διαγραφεί η κατηγορία «${c.name}»;`)) return;
+    if (!confirmBox(`Να διαγραφεί η κατηγορία «${c.name}»;`)) return;
     DB.categories = DB.categories.filter(x => x.id !== c.id); persist(); render();
   },
   'open-folder': () => window.homeflow.openFolder(),
@@ -266,9 +268,10 @@ const actions = {
   'welcome-fresh': () => { DB = defaultData(); persist(); render(); },
   'welcome-import': () => importFlow(false)
 };
+// Κλείσιμο φόρμας: αν έχει γραφτεί κάτι, ρωτάει μέσα στην ίδια τη φόρμα (όχι με παράθυρο των Windows)
 function confirmCloseForm() {
   syncFormInputs();
-  if (form && !form.id && (form.amountStr || form.categoryId)) return confirm('Να κλείσει χωρίς αποθήκευση;');
+  if (form && !form.id && (form.amountStr || form.categoryId) && !form.askClose) { form.askClose = true; renderForm(); setTimeout(() => { const b = $('[data-action="form-close-yes"]'); if (b) b.focus(); }, 20); return false; }
   return true;
 }
 function moveCat(id, dir) {
@@ -289,9 +292,9 @@ async function importFlow(replacing) {
     inp.click();
   });
   if (!res) return;
-  if (res.error || !validData(res.data)) { alert(res.error || 'Αυτό το αρχείο δεν είναι αρχείο HomeFlow.'); return; }
+  if (res.error || !validData(res.data)) { alertBox(res.error || 'Αυτό το αρχείο δεν είναι αρχείο HomeFlow.'); return; }
   const d = normalize(res.data);
-  if (replacing && DB && !confirm(`Το αρχείο «${res.name}» έχει ${d.transactions.length} κινήσεις.\n\nΝα αντικαταστήσει ΟΛΑ τα τωρινά δεδομένα; (Τα τωρινά μένουν στα αντίγραφα ασφαλείας.)`)) return;
+  if (replacing && DB && !confirmBox(`Το αρχείο «${res.name}» έχει ${d.transactions.length} κινήσεις.\n\nΝα αντικαταστήσει ΟΛΑ τα τωρινά δεδομένα; (Τα τωρινά μένουν στα αντίγραφα ασφαλείας.)`)) return;
   if (DB && window.homeflow) await saveText(JSON.stringify(DB), `HomeFlow-πριν-την-επαναφορά-${todayStr()}.json`, 'json').catch(() => { });
   DB = d; generateRecurring(); applyFont(); await persist(); ui.page = 'home'; render();
   toast(`Φορτώθηκαν ${d.transactions.length} κινήσεις.`);
