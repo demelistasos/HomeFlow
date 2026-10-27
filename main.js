@@ -36,15 +36,18 @@ function dataFile() {
 }
 
 // Ασφαλής εγγραφή: πρώτα σε προσωρινό αρχείο, μετά μετονομασία
-function atomicWrite(file, text) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
+// ΧΩΡΙΣ να «παγώνει» η εφαρμογή: όσο περιμένουμε, το παράθυρο δέχεται κανονικά πλήκτρα και κλικ.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function atomicWrite(file, text) {
+  await fs.promises.mkdir(path.dirname(file), { recursive: true });
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, text, 'utf8');
+  await fs.promises.writeFile(tmp, text, 'utf8');
   // Στο OneDrive το αρχείο μπορεί να είναι «πιασμένο» για λίγο την ώρα που ανεβαίνει: ξαναδοκιμάζουμε
   for (let i = 1; ; i++) {
-    try { fs.renameSync(tmp, file); return; } catch (e) {
-      if (i >= 20 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
+    try { await fs.promises.rename(tmp, file); return; } catch (e) {
+      if (!['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      if (i >= 20) { await fs.promises.copyFile(tmp, file); await fs.promises.unlink(tmp).catch(() => {}); return; }
+      await sleep(150);
     }
   }
 }
@@ -172,13 +175,22 @@ ipcMain.handle('data:load', () => {
   }
 });
 
+// Οι αποθηκεύσεις γίνονται μία μία, με τη σειρά. Τα δεύτερα αντίγραφα (cloud / USB) γράφονται
+// λίγο αργότερα, όταν σταματήσουν οι αλλαγές, για να μην καθυστερεί η εφαρμογή σε κάθε κλικ.
+let saveQueue = Promise.resolve(), extraTimer = null;
 ipcMain.handle('data:save', (_e, text) => {
-  dailyBackup();
-  atomicWrite(dataFile(), text);
-  // δεύτερα αντίγραφα: αθόρυβα, όσα είναι διαθέσιμα τώρα
-  for (const k of ['cloud', 'usb']) if (backupCfg()[k]) extraBackup(k, { quiet: true });
-  return { ok: true, path: dataFile() };
+  const job = saveQueue.then(async () => {
+    try { dailyBackup(); } catch { /* το αντίγραφο της ημέρας θα γίνει την επόμενη φορά */ }
+    await atomicWrite(dataFile(), text);
+    clearTimeout(extraTimer);
+    extraTimer = setTimeout(() => { for (const k of ['cloud', 'usb']) if (backupCfg()[k]) extraBackup(k, { quiet: true }); }, 8000);
+    return { ok: true, path: dataFile() };
+  });
+  saveQueue = job.catch(() => {});
+  return job;
 });
+// πριν κλείσει η εφαρμογή, να γραφτούν και τα δεύτερα αντίγραφα που περιμένουν
+app.on('before-quit', () => { if (extraTimer) { clearTimeout(extraTimer); extraTimer = null; for (const k of ['cloud', 'usb']) if (backupCfg()[k]) extraBackup(k, { quiet: true }); } });
 
 ipcMain.handle('data:info', () => ({ path: dataFile(), dir: dataDir(), version: app.getVersion() }));
 
