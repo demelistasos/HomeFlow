@@ -417,7 +417,18 @@ ipcMain.handle('update:install', async () => {
   installing = true;
   updLog(`ξεκινάει η ενημέρωση στην ${pending.version} (${pending.target.appPath})`);
   const { version, assets, target } = pending;
-  const work = path.join(target.parent, `.homeflow-update-${version}`);
+  let work = path.join(target.parent, `.homeflow-update-${version}`);
+  // Στα Windows το antivirus μπορεί να κρατάει για λίγο «κλειδωμένο» ένα αρχείο που μόλις κατέβηκε.
+  // Γι' αυτό κάθε βήμα που πειράζει αρχεία ξαναδοκιμάζει μερικές φορές πριν τα παρατήσει.
+  const retry = async (what, fn, times = 4) => {
+    for (let i = 1; ; i++) {
+      try { return await fn(); } catch (e) {
+        if (i >= times) throw e;
+        updLog(`${what}: απέτυχε (${e.code || e.message}), ξαναδοκιμή ${i + 1}/${times}`);
+        await new Promise(r => setTimeout(r, 1500 * i));
+      }
+    }
+  };
   try {
     // 1. αντίγραφο των δεδομένων πριν από οτιδήποτε
     if (fs.existsSync(dataFile())) {
@@ -425,20 +436,25 @@ ipcMain.handle('update:install', async () => {
       fs.copyFileSync(dataFile(), path.join(bdir, `homeflow-πριν-την-${version}.json`));
     }
     // 2. κατέβασμα
-    fs.rmSync(work, { recursive: true, force: true }); fs.mkdirSync(work, { recursive: true });
+    try { fs.rmSync(work, { recursive: true, force: true }); } catch { work += '-' + Date.now(); }
+    fs.mkdirSync(work, { recursive: true });
     const zip = path.join(work, assets.zipName);
-    send('downloading', { version, percent: 0 });
-    await upd.downloadTo(assets.zipUrl, zip, p => send('progress', { version, percent: p }));
-    // 3. έλεγχος αποτυπώματος
-    send('verifying', { version });
-    const sums = upd.parseSums(await upd.downloadText(assets.sumsUrl));
-    const want = sums[assets.zipName], got = await upd.sha256File(zip);
-    updLog(`κατέβηκε (${fs.statSync(zip).size} bytes)`);
-    if (!want || want !== got) throw new Error('Το αρχείο δεν κατέβηκε σωστά (δεν ταιριάζει το αποτύπωμα).');
+    const sums = upd.parseSums(await retry('αποτυπώματα', () => upd.downloadText(assets.sumsUrl), 3));
+    const want = sums[assets.zipName];
+    if (!want) throw new Error('Η νέα έκδοση δεν έχει αποτύπωμα για αυτόν τον υπολογιστή.');
+    // κατέβασμα και 3. έλεγχος αποτυπώματος (αν κοπεί ή χαλάσει, ξανακατεβαίνει)
+    await retry('κατέβασμα', async () => {
+      send('downloading', { version, percent: 0 });
+      await upd.downloadTo(assets.zipUrl, zip, p => send('progress', { version, percent: p }));
+      send('verifying', { version });
+      const got = await upd.sha256File(zip);
+      updLog(`κατέβηκε (${fs.statSync(zip).size} bytes)`);
+      if (want !== got) throw new Error('Το αρχείο δεν κατέβηκε σωστά (δεν ταιριάζει το αποτύπωμα).');
+    }, 3);
     // 4. αποσυμπίεση δίπλα στο τωρινό πρόγραμμα
     send('installing', { version });
-    upd.extractZip(zip, path.join(work, 'x'), process.platform);
-    fs.rmSync(zip, { force: true });
+    await retry('αποσυμπίεση', () => { fs.rmSync(path.join(work, 'x'), { recursive: true, force: true }); upd.extractZip(zip, path.join(work, 'x'), process.platform); });
+    try { fs.rmSync(zip, { force: true }); } catch { /* θα σβηστεί μαζί με τον φάκελο εργασίας */ }
     const exeName = target.exeName || 'HomeFlow.exe';
     const newPath = upd.findApp(path.join(work, 'x'), process.platform, exeName);
     if (!newPath) throw new Error('Δεν βρέθηκε η νέα εφαρμογή μέσα στο zip.');
