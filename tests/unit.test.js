@@ -54,6 +54,27 @@ async function t(name, fn) {
     const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hf-')), 's.sh'); fs.writeFileSync(f, m.content);
     const r = require('child_process').spawnSync('bash', ['-n', f]); assert.strictEqual(r.status, 0, 'σύνταξη bash: ' + r.stderr);
   });
+  await t('finishUpdate: βάζει τη νέα έκδοση και ανοίγει το πρόγραμμα', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-'));
+    const app = path.join(dir, 'HomeFlow πρόγραμμα'), nw = path.join(dir, 'tmp', 'x');
+    fs.mkdirSync(path.join(app, 'resources'), { recursive: true }); fs.writeFileSync(path.join(app, 'HomeFlow.exe'), 'old'); fs.writeFileSync(path.join(app, 'resources', 'app.asar'), 'old');
+    fs.mkdirSync(path.join(nw, 'resources'), { recursive: true }); fs.writeFileSync(path.join(nw, 'HomeFlow.exe'), 'new'); fs.writeFileSync(path.join(nw, 'resources', 'app.asar'), 'new');
+    let alive = 3, launched = null; const logs = [];
+    const r = await upd.finishUpdate({ pid: 1, appPath: app, newPath: nw, exeName: 'HomeFlow.exe' }, { isAlive: () => alive-- > 0, launch: p => { launched = p; }, log: m => logs.push(m), wait: 5 });
+    assert.ok(r.ok, logs.join('\n'));
+    assert.strictEqual(fs.readFileSync(path.join(app, 'resources', 'app.asar'), 'utf8'), 'new');
+    assert.strictEqual(launched, path.join(app, 'HomeFlow.exe'));
+    assert.ok(!fs.existsSync(app + '.παλιό'), 'η παλιά σβήστηκε');
+  });
+  await t('finishUpdate: αν αποτύχει, μένει η παλιά έκδοση', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-'));
+    const app = path.join(dir, 'HomeFlow'); fs.mkdirSync(app); fs.writeFileSync(path.join(app, 'HomeFlow.exe'), 'old');
+    let launched = null;
+    const r = await upd.finishUpdate({ pid: 1, appPath: app, newPath: path.join(dir, 'δεν-υπάρχει'), exeName: 'HomeFlow.exe' }, { isAlive: () => false, launch: p => { launched = p; }, wait: 1 });
+    assert.ok(!r.ok);
+    assert.strictEqual(fs.readFileSync(path.join(app, 'HomeFlow.exe'), 'utf8'), 'old');
+    assert.strictEqual(launched, path.join(app, 'HomeFlow.exe'));
+  });
   await t('buildXlsx φτιάχνει έγκυρο αρχείο Excel', () => {
     const buf = buildXlsx({ title: 'Δοκιμή', sheets: [{ name: 'Σύνοψη/2026?', rows: [[{ v: 'Τίτλος', s: 'title' }], [{ v: 'Ποσό', s: 'head' }], ['Α & Β <x>', { v: 12.5, s: 'money' }], [{ v: 45000, s: 'date' }]], widths: [20, 12], freeze: 2 }, { name: 'Σύνοψη/2026?', rows: [] }] });
     assert.strictEqual(buf.slice(0, 2).toString(), 'PK');

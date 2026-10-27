@@ -10,6 +10,10 @@ const BACKUP_DIR = 'Αντίγραφα ασφαλείας';
 const KEEP_BACKUPS = 60;
 
 let win = null;
+// Όταν η νέα έκδοση τρέχει για να ολοκληρώσει μια ενημέρωση (βλ. updater.finishUpdate)
+const FIN_I = process.argv.indexOf('--homeflow-finish-update');
+let FINISH = null;
+if (FIN_I > 0) { try { FINISH = JSON.parse(Buffer.from(process.argv[FIN_I + 1] || '', 'base64').toString('utf8')); } catch { FINISH = null; } }
 
 // ---------- ρυθμίσεις θέσης αρχείου ----------
 function configPath() {
@@ -488,12 +492,21 @@ ipcMain.handle('update:install', async () => {
     // 5. script που αλλάζει την έκδοση αφού κλείσει η εφαρμογή
     const logFile = updLogFile();
     updLog('η νέα έκδοση είναι έτοιμη, η εφαρμογή κλείνει');
-    const h = upd.helperScript(process.platform, { pid: process.pid, appPath: target.appPath, newPath, workDir: work, exeName, logFile });
-    const script = path.join(app.getPath('temp'), h.name);
-    fs.writeFileSync(script, h.content, 'utf8');
-    if (process.platform !== 'win32') fs.chmodSync(script, 0o755);
     writeConfig({ ...readConfig(), updatedFrom: app.getVersion() });
-    const child = require('child_process').spawn(h.cmd, h.args(script), { detached: true, stdio: 'ignore', windowsHide: true });
+    let child;
+    if (process.platform === 'win32') {
+      // Windows: χωρίς PowerShell. Η ίδια η νέα έκδοση (από τον προσωρινό φάκελο) ολοκληρώνει την αλλαγή.
+      const arg = Buffer.from(JSON.stringify({ pid: process.pid, appPath: target.appPath, newPath, exeName, logFile })).toString('base64');
+      updLog('ξεκινάει η νέα έκδοση για να ολοκληρώσει την αλλαγή');
+      child = require('child_process').spawn(path.join(newPath, exeName), ['--homeflow-finish-update', arg], { detached: true, stdio: 'ignore', cwd: newPath });
+    } else {
+      const h = upd.helperScript(process.platform, { pid: process.pid, appPath: target.appPath, newPath, workDir: work, exeName, logFile });
+      const script = path.join(app.getPath('temp'), h.name);
+      fs.writeFileSync(script, h.content, 'utf8');
+      fs.chmodSync(script, 0o755);
+      child = require('child_process').spawn(h.cmd, h.args(script), { detached: true, stdio: 'ignore' });
+    }
+    child.on('error', e => updLog('ΣΦΑΛΜΑ στο ξεκίνημα της ολοκλήρωσης: ' + e.message));
     child.unref();
     send('restarting', { version });
     setTimeout(() => app.quit(), 600);
@@ -521,7 +534,12 @@ ipcMain.handle('update:check', async () => {
 });
 
 // ---------- εκκίνηση ----------
-if (!app.requestSingleInstanceLock()) {
+if (FINISH) {
+  // Λειτουργία «ολοκλήρωση ενημέρωσης»: χωρίς παράθυρο, κάνει την αλλαγή και κλείνει.
+  const log = m => { try { fs.appendFileSync(FINISH.logFile, `${new Date().toISOString().slice(0, 19)} [${app.getVersion()}] ${m}\n`, 'utf8'); } catch { /* τίποτα */ } };
+  const launch = p => { try { require('child_process').spawn(p, [], { detached: true, stdio: 'ignore', cwd: path.dirname(p) }).unref(); log('άνοιξε: ' + p); } catch (e) { log('δεν άνοιξε: ' + e.message); } };
+  app.whenReady().then(() => upd.finishUpdate(FINISH, { log, launch })).catch(e => log('ΣΦΑΛΜΑ: ' + e.message)).finally(() => app.exit(0));
+} else if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => {

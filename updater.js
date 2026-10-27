@@ -149,4 +149,37 @@ function helperScript(platform, { pid, appPath, newPath, workDir, exeName, logFi
   return { name: 'homeflow-update.sh', content, cmd: '/bin/bash', args: f => [f] };
 }
 
-module.exports = { pickAssets, installTarget, parseSums, sha256File, downloadTo, downloadText, extractZip, findApp, helperScript, PLAT };
+// Ολοκλήρωση ενημέρωσης ΧΩΡΙΣ script (Windows): τρέχει η ίδια η νέα έκδοση από τον προσωρινό φάκελο
+// με την παράμετρο --homeflow-finish-update. Περιμένει να κλείσει η παλιά, βάζει στην άκρη τον παλιό
+// φάκελο, αντιγράφει τη νέα έκδοση στη θέση του και την ανοίγει. Αν κάτι αποτύχει, επαναφέρει την παλιά.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function finishUpdate(o, { log = () => {}, isAlive, launch, wait = 500 } = {}) {
+  const alive = isAlive || (pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; } });
+  const old = o.appPath + '.παλιό';
+  const tryMany = async (what, fn, n = 40) => { for (let i = 1; ; i++) { try { return fn(); } catch (e) { if (i >= n) throw new Error(`${what}: ${e.code || e.message}`); await sleep(wait); } } };
+  log('ολοκλήρωση: αναμονή να κλείσει η παλιά έκδοση');
+  for (let i = 0; i < 120 && alive(o.pid); i++) await sleep(wait);
+  await sleep(Math.min(800, wait * 2));
+  let moved = false;
+  try {
+    if (fs.existsSync(old)) await tryMany('σβήσιμο παλιού', () => fs.rmSync(old, { recursive: true, force: true }), 10);
+    await tryMany('μετακίνηση παλιάς έκδοσης', () => fs.renameSync(o.appPath, old));
+    moved = true;
+    await tryMany('αντιγραφή νέας έκδοσης', () => { fs.rmSync(o.appPath, { recursive: true, force: true }); fs.cpSync(o.newPath, o.appPath, { recursive: true }); }, 10);
+    if (!fs.existsSync(path.join(o.appPath, o.exeName))) throw new Error('η νέα έκδοση δεν αντιγράφηκε σωστά');
+    log('η νέα έκδοση μπήκε');
+    launch(path.join(o.appPath, o.exeName));
+    try { fs.rmSync(old, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch (e) { log('δεν σβήστηκε η παλιά: ' + (e.code || e.message)); }
+    return { ok: true };
+  } catch (e) {
+    log('ΣΦΑΛΜΑ στην ολοκλήρωση: ' + e.message);
+    if (moved) {
+      try { fs.rmSync(o.appPath, { recursive: true, force: true }); } catch { /* τίποτα */ }
+      try { fs.renameSync(old, o.appPath); log('επαναφορά παλιάς έκδοσης'); } catch (e2) { log('ΔΕΝ έγινε επαναφορά: ' + (e2.code || e2.message) + ' — η παλιά έκδοση είναι στο ' + old); launch(path.join(old, o.exeName)); return { ok: false }; }
+    }
+    launch(path.join(o.appPath, o.exeName));
+    return { ok: false, error: e.message };
+  }
+}
+
+module.exports = { finishUpdate,  pickAssets, installTarget, parseSums, sha256File, downloadTo, downloadText, extractZip, findApp, helperScript, PLAT };
