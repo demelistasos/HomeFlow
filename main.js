@@ -39,7 +39,13 @@ function atomicWrite(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = file + '.tmp';
   fs.writeFileSync(tmp, text, 'utf8');
-  fs.renameSync(tmp, file);
+  // Στο OneDrive το αρχείο μπορεί να είναι «πιασμένο» για λίγο την ώρα που ανεβαίνει: ξαναδοκιμάζουμε
+  for (let i = 1; ; i++) {
+    try { fs.renameSync(tmp, file); return; } catch (e) {
+      if (i >= 20 || !['EPERM', 'EBUSY', 'EACCES'].includes(e.code)) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);
+    }
+  }
 }
 
 // Ένα αντίγραφο την ημέρα, κρατάμε τα τελευταία KEEP_BACKUPS
