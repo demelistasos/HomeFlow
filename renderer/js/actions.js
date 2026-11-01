@@ -53,6 +53,7 @@ const actions = {
   'export-year': () => exportYear(ui.yearView),
   // φόρμα
   'modal-back': (el, ev) => { if (ev.target === el) { if (form) { if (confirmCloseForm()) { form = null; renderForm(); } } else $('#modal-root').innerHTML = ''; } },
+  'form-covers': el => { syncFormInputs(); form.covers = el.dataset.v ? el.dataset.v.split(',') : []; renderForm(); },
   'form-close-yes': () => { form = null; renderForm(); },
   'form-close-no': () => { form.askClose = false; renderForm(); setTimeout(() => { const a = $('#fm-amount'); if (a) a.focus(); }, 20); },
   'form-close': () => { if (confirmCloseForm()) { form = null; renderForm(); } },

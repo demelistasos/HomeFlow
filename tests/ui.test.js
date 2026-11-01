@@ -140,6 +140,14 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       await page.click('.modal [data-action="acc-update"]'); await page.fill('#d-pct', '10'); await page.waitForTimeout(30);
       check(await page.evaluate(() => { const lb = lastBal(DB.accounts.find(a => a.id === 'a1')).balance; return Math.abs(parseAmount(document.querySelector('#d-amount').value) - Math.round(lb * 110) / 100) < 0.02; }), 'νέο υπόλοιπο με %: βγαίνει το ποσό');
       await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+      // Πληρωμή ενοικίου για δύο μήνες
+      { await page.evaluate(() => { ui.tenantId = null; }); await goto('rent'); await page.waitForTimeout(60);
+        await page.evaluate(() => actions['tenant-pay']({ dataset: { id: 'ten_a' } })); await page.waitForTimeout(80);
+        await page.fill('#fm-amount', '1000'); await page.waitForTimeout(50);
+        const ks = await page.$$eval('[data-action="form-covers"]', bs => bs.map(b => b.dataset.v));
+        check(ks.length >= 2, 'πληρωμή πάνω από ένα ενοίκιο: ρωτάει για ποιους μήνες');
+        await page.click(`[data-action="form-covers"][data-v="${ks[1]}"]`); await page.click('[data-action="form-save"]'); await page.waitForTimeout(100);
+        check(await page.evaluate(k => { const m = k.split(','); const al = tenantAlloc(tenantById('ten_a')); return m.every(s => (al[s] || {}).paid >= 500 - 0.01); }, ks[1]), 'η πληρωμή μοιράζεται στους δύο μήνες'); }
       // Οφειλές: και οι ενοικιαστές που χρωστάνε
       await goto('people'); await page.waitForTimeout(80);
       check(!!(await page.$('[data-action="tenant-goto"]')), 'στις Οφειλές φαίνονται οι ενοικιαστές που χρωστάνε');

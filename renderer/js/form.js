@@ -64,6 +64,7 @@ function renderForm() {
           <div class="flabel">Ποιος ενοικιαστής πλήρωσε;</div>
           <div class="chips">${tenantsHere.map(t => `<button class="chip ${f.tenantId === t.id ? 'sel' : ''}" data-action="form-tenant" data-v="${esc(t.id)}">🏠 ${esc(t.name)}${t.property ? ` <span style="font-weight:500">(${esc(t.property)})</span>` : ''}</button>`).join('')}</div>
         </div>` : ''}
+        <div id="fm-covers">${coversField(f, amt)}</div>
         <div class="field">
           <label for="fm-note">Σημείωση <span class="muted" style="font-weight:500">(προαιρετικά)</span></label>
           ${notes.length ? `<div class="chips" style="margin-bottom:.5rem">${notes.map(n => `<button class="chip ${n === f.note ? 'sel' : ''}" data-action="form-note" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
@@ -146,7 +147,8 @@ function saveForm() {
     note: f.note || '', person: f.person || '', method: f.method || '', planned: !!f.planned,
     source: f.source || 'app', created: f.created || new Date().toISOString(),
     ...((f.attachments || []).length ? { attachments: f.attachments } : {}),
-    ...(f.accountId ? { accountId: f.accountId } : {})
+    ...(f.accountId ? { accountId: f.accountId } : {}),
+    ...(isRent && f.tenantId && (f.covers || []).length > 1 && coverOptions(f, amt) ? { covers: f.covers } : {})
   };
   if (!f.id || f.accTouched) rememberAcc(rec.categoryId, f.accountId || '');
   const added = [rec];
@@ -186,4 +188,28 @@ function deleteFromForm() {
   if (r && !(r.skip || []).includes(ym)) { r.skip = [...(r.skip || []), ym]; }
   form = null; renderForm(); persist(); render();
   toast('Η κίνηση διαγράφηκε.', () => { DB.transactions.push(t); if (r) r.skip = r.skip.filter(x => x !== ym); persist(); render(); });
+}
+
+// Πληρωμή ενοικίου για πολλούς μήνες: όταν το ποσό είναι πάνω από ένα ενοίκιο, ρωτάει για ποιους μήνες είναι
+function coverOptions(f, amt) {
+  const t = formTenant(f);
+  if (!t || !amt || isNaN(amt)) return null;
+  const s = f.date.slice(0, 7), due = tenantRent(t, s);
+  if (!due || amt <= due + 0.005) return null;
+  const n = Math.min(6, Math.max(2, Math.round(amt / due)));
+  const span = (from, k) => Array.from({ length: k }, (_, i) => addMonths(from, i));
+  const opts = [{ k: '', label: `Ενοίκιο ${MONTHS[+s.slice(5) - 1]} + έξτρα για παλιά οφειλή` }];
+  const back = span(addMonths(s, -(n - 1)), n), fwd = span(s, n);
+  const name = arr => arr.map(x => MONTHS[+x.slice(5) - 1]).join(' + ');
+  opts.push({ k: back.join(','), label: name(back) });
+  if (fwd.join(',') !== back.join(',')) opts.push({ k: fwd.join(','), label: name(fwd) + ' (προπληρωμή)' });
+  return opts;
+}
+function coversField(f, amt) {
+  const opts = coverOptions(f, amt);
+  if (!opts) return '';
+  const cur = (f.covers || []).join(',');
+  return `<div class="field"><div class="flabel">📅 Το ποσό είναι πάνω από ένα ενοίκιο. Για ποιους μήνες είναι;</div>
+    <div class="chips">${opts.map(o => `<button class="chip ${o.k === cur ? 'sel' : ''}" data-action="form-covers" data-v="${o.k}">${esc(o.label)}</button>`).join('')}</div>
+    <div class="hint">Αν είναι για δύο μήνες, φαίνονται και οι δύο πληρωμένοι. Αν είναι ενοίκιο και κάτι παραπάνω για παλιά χρωστούμενα, διαλέξτε το πρώτο.</div></div>`;
 }

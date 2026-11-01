@@ -81,22 +81,38 @@ const sumPaid = arr => round2(arr.reduce((a, x) => a + paidOf(x), 0));
 const shareOf = t => (t && t.share != null ? +t.share : 100);
 // Καρτέλα: για κάθε μήνα ενοίκιο, πληρωμές και τι χρωστάει
 function tenantLedger(t) {
-  const pays = tenantPayments(t);
+  const al = tenantAlloc(t);
   const upto = t.end && t.end < curYM() ? t.end : curYM();
   const rows = [];
   let bal = +t.opening || 0;
-  const early = pays.filter(p => p.date.slice(0, 7) < t.start);
-  bal -= sumPaid(early);
+  const ms = Object.keys(al).sort();
+  const early = ms.filter(s => s < t.start).flatMap(s => al[s].pays);
+  bal -= round2(ms.filter(s => s < t.start).reduce((a, s) => a + al[s].paid, 0));
   for (let s = t.start, g = 0; s <= upto && g < 600; s = addMonths(s, 1), g++) {
     const due = tenantRent(t, s);
-    const mp = pays.filter(p => p.date.slice(0, 7) === s);
-    const paid = sumPaid(mp);
-    bal = round2(bal + due - paid);
-    rows.push({ s, due, paid, pays: mp, bal });
+    const x = al[s] || { paid: 0, pays: [] };
+    bal = round2(bal + due - x.paid);
+    rows.push({ s, due, paid: x.paid, pays: x.pays, bal });
   }
-  const later = pays.filter(p => p.date.slice(0, 7) > upto);
-  if (later.length) { bal = round2(bal - sumPaid(later)); }
+  const laterMs = ms.filter(s => s > upto);
+  const later = [...new Set(laterMs.flatMap(s => al[s].pays))];
+  if (laterMs.length) { bal = round2(bal - laterMs.reduce((a, s) => a + al[s].paid, 0)); }
   return { rows, balance: round2(bal), early, later };
+}
+// Σε ποιον μήνα «πάει» κάθε πληρωμή. Κανονικά στον μήνα της ημερομηνίας της.
+// Αν η πληρωμή είναι για πολλούς μήνες (p.covers, π.χ. Σεπτέμβριος + Οκτώβριος), μοιράζεται σε αυτούς:
+// κάθε μήνας παίρνει το ενοίκιό του και ό,τι περισσέψει μένει στον τελευταίο.
+function tenantAlloc(t) {
+  const m = {};
+  const put = (s, v, p) => { const x = m[s] = m[s] || { paid: 0, pays: [] }; x.paid = round2(x.paid + v); if (!x.pays.includes(p)) x.pays.push(p); };
+  for (const p of tenantPayments(t)) {
+    const v = paidOf(p);
+    if (Array.isArray(p.covers) && p.covers.length > 1) {
+      const cs = p.covers.slice().sort(); let left = v;
+      cs.forEach((s, i) => { const part = i === cs.length - 1 ? left : Math.min(left, tenantRent(t, s)); put(s, round2(part), p); left = round2(left - part); });
+    } else put(p.date.slice(0, 7), v, p);
+  }
+  return m;
 }
 // Τι από την πληρωμή του μήνα πήγε στο ενοίκιο του μήνα και τι «έξτρα» για παλιά οφειλή
 const splitPaid = (due, paid) => ({ rent: round2(Math.min(paid, due)), extra: round2(Math.max(0, paid - due)) });
@@ -107,7 +123,7 @@ function tenantYearSplit(t, year) {
 }
 function tenantMonthStatus(t, s) {
   const due = tenantRent(t, s);
-  const paid = sumPaid(tenantPayments(t).filter(p => p.date.slice(0, 7) === s));
+  const paid = (tenantAlloc(t)[s] || { paid: 0 }).paid;
   if (!due) return { due, paid, cls: 'ok', text: 'Χωρίς ενοίκιο' };
   if (paid >= due - 0.005) return { due, paid, cls: 'ok', text: '✓ Πλήρωσε' };
   if (paid > 0) return { due, paid, cls: 'part', text: `Μερικώς: ${eur(paid)} από ${eur(due)}` };

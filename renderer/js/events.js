@@ -25,6 +25,7 @@ document.addEventListener('input', ev => {
   if (t.id === 'fm-amount' && form) {
     form.amountStr = t.value; const c = $('#fm-calc'); if (c) c.innerHTML = calcHint(t.value, parseAmount(t.value));
     const sh = $('#fm-share'); if (sh) sh.innerHTML = shareHint(form, parseAmount(t.value));
+    const cv = $('#fm-covers'); if (cv) cv.innerHTML = coversField(form, parseAmount(t.value));
   } else if (t.id === 'f-q') { ui.list.q = t.value; ui.list.limit = 200; ui._focusSearch = true; render(); }
 });
 document.addEventListener('change', ev => {
