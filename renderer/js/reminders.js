@@ -78,6 +78,15 @@ function reminders() {
     if (days > 60) out.push({ sort: 35, cls: 'wait', icon: '💰', text: 'Ενημερώστε τα υπόλοιπα των λογαριασμών', sub: `η τελευταία ενημέρωση ήταν ${shortDate(lastDate)}`, btn: '<button class="btn small" data-action="goto-page" data-page="money">💰 Χρήματα</button>' });
   }
   if (typeof noteReminders === 'function') out.push(...noteReminders());
+  // USB: υπενθύμιση μία φορά την εβδομάδα (μόνο στην εφαρμογή του υπολογιστή)
+  if (store.native && ui.backup) {
+    const u = ui.backup.usb;
+    if (!u) out.push({ sort: 60, cls: 'wait', icon: '🔌', text: 'Αντίγραφο σε USB', sub: 'Δεν έχει οριστεί ακόμα USB για τα αντίγραφα', btn: '<button class="btn small primary" data-action="bk-choose" data-k="usb">Διάλεξε USB</button>' });
+    else {
+      const days = u.last ? Math.floor((Date.now() - new Date(u.last)) / 86400000) : 999;
+      if (days >= 7) out.push({ sort: 55, cls: 'wait', icon: '🔌', text: 'Βάλτε το USB για αντίγραφο', sub: u.last ? `Τελευταίο αντίγραφο πριν από ${days} μέρες` : 'Δεν έχει γίνει ακόμα αντίγραφο', btn: '<button class="btn small primary" data-action="bk-now" data-k="usb">Αντίγραφο τώρα</button>' });
+    }
+  }
   return out.sort((a, b) => a.sort - b.sort);
 }
 function remindersPanel() {
