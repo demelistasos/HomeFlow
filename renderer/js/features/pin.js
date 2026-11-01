@@ -48,13 +48,14 @@ async function lockKey(k) {
 function lockNow() { if (DB && DB.settings.pin) { locked = true; dlg = null; form = null; renderDlg(); renderForm(); renderLock(); } }
 let lastActivity = Date.now();
 ['mousemove', 'keydown', 'click', 'wheel'].forEach(e => document.addEventListener(e, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
-setInterval(() => { if (!locked && DB && DB.settings.pin && DB.settings.pin.autoLock && Date.now() - lastActivity > 15 * 60 * 1000) lockNow(); }, 30 * 1000);
+setInterval(() => { if (!locked && DB && DB.settings.pin && DB.settings.pin.autoLock && Date.now() - lastActivity > (DB.settings.pin.lockMin || 15) * 60 * 1000) lockNow(); }, 30 * 1000);
 function pinPanel() {
   const p = DB.settings.pin;
   return `<div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🔒 PIN στο άνοιγμα</h2>
     ${p ? `<p style="margin-top:-.3rem">Το HomeFlow ζητάει <b>PIN</b> κάθε φορά που ανοίγει.</p>
-      <label class="check"><input type="checkbox" id="pin-autolock" ${p.autoLock ? 'checked' : ''}> Να κλειδώνει και όταν δεν το χρησιμοποιείτε για 15 λεπτά</label>
+      <div class="field"><div class="flabel">Να κλειδώνει μόνο του όταν δεν το χρησιμοποιείτε για:</div>
+        <div class="chips">${[[5, '5 λεπτά'], [15, '15 λεπτά'], [30, '30 λεπτά'], [60, '1 ώρα'], [0, 'Ποτέ']].map(([m, l]) => `<button class="chip ${(p.autoLock ? (p.lockMin || 15) : 0) === m ? 'sel' : ''}" data-action="pin-lockmin" data-v="${m}">${l}</button>`).join('')}</div></div>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.9rem"><button class="btn" data-action="pin-lock">🔒 Κλείδωμα τώρα</button><button class="btn" data-action="pin-set">Αλλαγή PIN</button><button class="btn danger" data-action="pin-off">Αφαίρεση PIN</button></div>`
     : `<p style="margin-top:-.3rem" class="muted">Αν το βάλετε, το HomeFlow θα ζητάει έναν 4ψήφιο αριθμό κάθε φορά που ανοίγει, ώστε να μη βλέπει κανείς άλλος τα οικονομικά σας.</p>
       <button class="btn primary" data-action="pin-set">🔒 Βάλτε PIN</button>`}
@@ -107,6 +108,7 @@ async function savePinDlg() {
   dlg = { kind: 'pin', step: 'code', code, error: '' }; renderDlg();
 }
 const pinActions = {
+  'pin-lockmin': el => { const m = +el.dataset.v; DB.settings.pin.autoLock = m > 0; if (m) DB.settings.pin.lockMin = m; persist(); render(); toast(m ? `Θα κλειδώνει μετά από ${m >= 60 ? '1 ώρα' : m + ' λεπτά'} χωρίς χρήση.` : 'Δεν θα κλειδώνει μόνο του.'); },
   'pin-set': () => { dlg = { kind: 'pin', step: 'set', old: '', p1: '', p2: '', error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-pold') || $('#d-p1'); if (i) i.focus(); }, 30); },
   'pin-off': () => ask({ title: '🔒 Αφαίρεση PIN', label: 'Για να αφαιρεθεί το PIN, γράψτε το τωρινό PIN', password: true, numeric: true,
     onOk: async p => { if (!(await checkPin(p))) return 'Λάθος PIN.'; delete DB.settings.pin; persist(); render(); toast('Το PIN αφαιρέθηκε.'); } }),
