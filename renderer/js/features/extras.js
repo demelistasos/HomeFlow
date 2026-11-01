@@ -213,3 +213,19 @@ Object.assign(actions, {
     toast(`Προβλέψεις από το ${y}: ${sug.length} κατηγορίες`, () => { for (const [id, b] of before) { const c = catById(id); if (c) c.budget = b; } persist(); render(); });
   }
 });
+
+// Λογαριασμοί με 0 €: κλείνουν όλοι μαζί (δεν σβήνονται· πάνε στους «Κλειστούς» και ανοίγουν ξανά από το ⚙)
+const zeroAccounts = () => DB.accounts.filter(a => !a.archived && Math.abs(((lastBal(a) || {}).balance) || 0) < 0.005);
+function zeroAccNotice() {
+  const z = zeroAccounts();
+  return z.length ? `<div class="notice info no-print">${z.length === 1 ? '1 λογαριασμός έχει' : z.length + ' λογαριασμοί έχουν'} υπόλοιπο 0 €. <button class="btn small" data-action="acc-close-zero">🗄 Κλείσιμο λογαριασμών με 0 €</button></div>` : '';
+}
+Object.assign(actions, {
+  'acc-close-zero': () => {
+    const z = zeroAccounts();
+    if (!z.length || !confirmBox(`Να κλείσουν ${z.length} λογαριασμοί με 0 €;\n\n${z.map(accLabel).join('\n')}\n\nΔεν σβήνονται: πάνε στους «Κλειστούς» και μπορούν να ξανανοίξουν από το ⚙.`)) return;
+    for (const a of z) a.archived = true;
+    persist(); render();
+    toast(`Έκλεισαν ${z.length} λογαριασμοί`, () => { for (const a of z) a.archived = false; persist(); render(); });
+  }
+});
