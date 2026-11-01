@@ -54,6 +54,7 @@ function yearPage() {
       <button class="btn" data-action="year-next">▶</button>
     </div>
     <div class="spacer"></div>
+    <button class="btn primary no-print" data-action="year-review">✨ Η χρονιά σου</button>
     <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
   </div>
   <div class="cards four">

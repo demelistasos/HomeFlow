@@ -131,6 +131,15 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       { const c0 = await page.evaluate(() => accBalanceAt(DB.accounts.find(a => a.id === 'a3')).balance);
         await page.evaluate(() => { dlg = { kind: 'accview', id: 'a1', error: '' }; renderDlg(); }); await page.click('[data-action="acc-atm"]'); await page.fill('#d-amount', '40'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
         check(Math.abs(await page.evaluate(() => accBalanceAt(DB.accounts.find(a => a.id === 'a3')).balance) - (c0 + 40)) < 0.01, 'ATM: τα μετρητά αυξάνονται'); await page.keyboard.press('Escape'); await page.waitForTimeout(50); }
+      // Η χρονιά σου, πορεία λογαριασμού
+      await goto('year'); await page.click('[data-action="year-review"]'); await page.waitForTimeout(80);
+      check(await page.evaluate(() => /Η χρονιά σου/.test(document.querySelector('.modal-head').innerText) && !!document.querySelector('.yr-cards')), '«Η χρονιά σου» ανοίγει');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(50);
+      await page.evaluate(() => { dlg = { kind: 'accview', id: 'a1', error: '' }; renderDlg(); }); await page.waitForTimeout(50);
+      check(!!(await page.$('svg.acc-chart')), 'η καρτέλα λογαριασμού δείχνει γράφημα πορείας');
+      await page.click('.modal [data-action="acc-update"]'); await page.fill('#d-pct', '10'); await page.waitForTimeout(30);
+      check(await page.evaluate(() => { const lb = lastBal(DB.accounts.find(a => a.id === 'a1')).balance; return Math.abs(parseAmount(document.querySelector('#d-amount').value) - Math.round(lb * 110) / 100) < 0.02; }), 'νέο υπόλοιπο με %: βγαίνει το ποσό');
+      await page.keyboard.press('Escape'); await page.waitForTimeout(50);
       // Οφειλές: και οι ενοικιαστές που χρωστάνε
       await goto('people'); await page.waitForTimeout(80);
       check(!!(await page.$('[data-action="tenant-goto"]')), 'στις Οφειλές φαίνονται οι ενοικιαστές που χρωστάνε');

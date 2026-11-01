@@ -187,3 +187,19 @@ table.acc-led tr.acc-snap td{background:var(--paper-2);font-weight:600}
 .pie-item:hover{background:var(--brand-soft)}
 .pie-dot{width:1rem;height:1rem;border-radius:50%}
 .pie-item .muted{text-align:right}
+
+/* Πορεία λογαριασμού / επενδύσεων */
+.acc-invest{display:flex;flex-direction:column;gap:.6rem}
+.acc-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.6rem}
+.acc-kpis>div{background:var(--paper-2);border-radius:14px;padding:.6rem .8rem}
+.acc-kpis .num{font-size:1.25rem;font-weight:700}
+.acc-chart{width:100%;height:10rem}
+/* Η χρονιά σου */
+.yr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.7rem}
+.yr-card{background:var(--paper-2);border-radius:16px;padding:.8rem 1rem}
+.yr-card .num{font-size:1.6rem;font-weight:700}
+.yr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:1.4rem}
+.yr-grid h3,.modal-body>h3{margin:.4rem 0 .5rem;font-size:1.1rem}
+.yr-bar{display:grid;grid-template-columns:1fr auto;gap:.2rem .6rem;margin-bottom:.55rem}
+.yr-bar .track{grid-column:1/-1;height:.55rem;background:var(--paper-2);border-radius:99px;overflow:hidden}
+.yr-bar .fill{height:100%;background:var(--brand);border-radius:99px}

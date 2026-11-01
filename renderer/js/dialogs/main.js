@@ -51,7 +51,8 @@ function balDiffHint(a, amt) {
   if (!lb || amt === null || isNaN(amt)) return '';
   const d = amt - lb.balance;
   if (Math.abs(d) < 0.005) return 'Ίδιο με πριν.';
-  return `${d > 0 ? 'Αύξηση' : 'Μείωση'} <b class="${d > 0 ? 'inc' : 'exp'}">${money(Math.abs(d), a.currency)}</b> από την προηγούμενη φορά.`;
+  const pct = lb.balance ? ` (${d > 0 ? '+' : '−'}${numFmt.format(Math.abs(d / lb.balance * 100))}%)` : '';
+  return `${d > 0 ? 'Αύξηση' : 'Μείωση'} <b class="${d > 0 ? 'inc' : 'exp'}">${money(Math.abs(d), a.currency)}${pct}</b> από την προηγούμενη φορά.`;
 }
 function syncMoney() {
   if (!dlg) return;
@@ -100,7 +101,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderAccDlg(d) || renderNoteDlg(d) || renderDlg2(d);
+  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderAccDlg(d) || renderNoteDlg(d) || renderYearDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -143,6 +144,7 @@ function renderDlg() {
       <div class="field"><label for="d-amount">Πόσα έχει τώρα ο λογαριασμός;</label>
         <div class="amount-wrap"><input id="d-amount" class="amount-input num" inputmode="decimal" autocomplete="off" value="${esc(d.amountStr)}" placeholder="0,00"><span class="amount-eur">${curSym(a.currency)}</span></div>
         <div id="d-baldiff" class="amount-calc" style="margin-top:.4rem">${balDiffHint(a, amt)}</div></div>
+      ${lb ? `<div class="field"><label for="d-pct">…ή γράψτε πόσο % άλλαξε <span class="muted" style="font-weight:500">(π.χ. 3,5 ή −2 για μετοχές)</span></label><div class="amount-wrap"><input id="d-pct" class="num" style="width:8rem" inputmode="decimal" placeholder="0"><span style="font-weight:700">%</span></div></div>` : ''}
       <div class="field"><label for="d-date">Ημερομηνία</label><input id="d-date" type="date" value="${esc(d.date)}"></div>`;
   } else if (d.kind === 'acc') {
     head = 'neutral';
@@ -230,7 +232,7 @@ function renderDlg() {
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
         ${d.kind === 'mclose' ? `<button class="btn" data-action="mclose-pdf">📄 Άνοιγμα PDF</button>${store.native ? '<button class="btn" data-action="mclose-folder">📂 Φάκελος</button>' : ''}` : ''}
-        ${d.kind === 'day' || d.kind === 'help' || d.kind === 'mclose' || d.kind === 'accview' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
+        ${d.kind === 'day' || d.kind === 'help' || d.kind === 'mclose' || d.kind === 'accview' || d.kind === 'yreview' ? '<button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-close">Κλείσιμο</button>' : `<button class="btn" data-action="dlg-close">Ακύρωση</button>
         <button class="btn big primary" style="width:auto;padding:0 2.2rem" data-action="dlg-save">${d.kind === 'pin' && d.step === 'code' ? '✓ Εντάξει' : d.kind === 'upd' ? '⬇️ Ενημέρωση τώρα' : '✓ Αποθήκευση'}</button>`}
       </div>
     </div>
@@ -243,7 +245,7 @@ function saveDlg() {
   if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
   if (dlg.kind === 'accmove') { saveAccMove(); return; }
   if (dlg.kind === 'note') { saveNote(); return; }
-  if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose' || dlg.kind === 'accview') { dlg = null; renderDlg(); return; }
+  if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose' || dlg.kind === 'accview' || dlg.kind === 'yreview') { dlg = null; renderDlg(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();
   if (dlg.kind === 'leave') {

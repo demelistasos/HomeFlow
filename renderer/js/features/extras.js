@@ -100,3 +100,102 @@ Object.assign(actions, {
   'acc-atm': el => { const c = cashAccounts()[0]; dlg = { kind: 'accmove', id: el.dataset.id, k: 'transfer', amountStr: '', date: todayStr(), text: 'ATM', to: c ? c.id : '', error: '' }; renderDlg(); setTimeout(() => { const i = $('#d-amount'); if (i) i.focus(); }, 30); },
   'acc-cash-new': () => { const a = { id: 'a' + uid(), bank: '', name: 'Μετρητά (πορτοφόλι)', owner: '', currency: 'EUR', kind: 'cash', archived: false, order: DB.accounts.length, history: [{ date: todayStr(), balance: 0, at: new Date().toISOString() }], moves: [] }; DB.accounts.push(a); persist(); render(); dlg = { kind: 'accview', id: a.id, error: '' }; renderDlg(); }
 });
+
+// ---------- 5. Πορεία μετοχών / αμοιβαίων (και κάθε λογαριασμού) ----------
+// «Επένδυσα» = πρώτο γραμμένο υπόλοιπο + ό,τι μπήκε/βγήκε με κινήσεις μετά. «Κέρδος» = αξία τώρα − επένδυσα.
+function accInvestStats(a) {
+  const tl = accTimeline(a);
+  const first = tl.find(r => r.snap);
+  if (!first || !tl.length) return null;
+  let put = first.snap.balance;
+  for (const r of tl) if (!r.snap && evKey(r) > evKey(first)) put += r.amount;
+  const now = tl[tl.length - 1].bal;
+  const gain = round2(now - put);
+  return { from: first.date, put: round2(put), now, gain, pct: put ? gain / put * 100 : 0 };
+}
+function accChart(a) {
+  const pts = accTimeline(a).filter(r => r.started).map(r => ({ d: r.date, v: r.bal }));
+  const by = {}; for (const p of pts) by[p.d] = p.v; // μία τιμή τη μέρα (η τελευταία)
+  const ds = Object.keys(by).sort().slice(-40);
+  if (ds.length < 2) return '';
+  const vs = ds.map(d => by[d]), W = 640, H = 170, L = 8, R = 8, T = 10, B = 22;
+  const mn = Math.min(...vs), mx = Math.max(...vs), span = mx - mn || 1;
+  const x = i => L + (W - L - R) * i / (ds.length - 1), y = v => T + (H - T - B) * (1 - (v - mn) / span);
+  const line = vs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const up = vs[vs.length - 1] >= vs[0];
+  return `<svg class="acc-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Πορεία υπολοίπου">
+    <polyline points="${x(0)},${H - B} ${line} ${x(ds.length - 1)},${H - B}" style="fill:${up ? 'var(--inc-soft)' : 'var(--exp-soft)'};stroke:none"/>
+    <polyline points="${line}" style="fill:none;stroke:${up ? 'var(--inc)' : 'var(--exp)'};stroke-width:2.5;vector-effect:non-scaling-stroke"/>
+    ${vs.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3" style="fill:${up ? 'var(--inc)' : 'var(--exp)'}"><title>${shortDate(ds[i])}: ${money(v, a.currency)}</title></circle>`).join('')}
+    <text x="${L}" y="${H - 5}" font-size="12" style="fill:var(--ink-3)">${shortDate(ds[0])}</text><text x="${W - R}" y="${H - 5}" font-size="12" text-anchor="end" style="fill:var(--ink-3)">${shortDate(ds[ds.length - 1])}</text></svg>`;
+}
+function accInvestPanel(a) {
+  const st = accInvestStats(a);
+  const chart = accChart(a);
+  if (!st && !chart) return '';
+  const inv = ['stocks', 'funds'].includes(a.kind);
+  return `<div class="acc-invest">
+    ${inv && st ? `<div class="acc-kpis">
+      <div><div class="label">Επένδυσα (από ${shortDate(st.from)})</div><div class="num">${money(st.put, a.currency)}</div></div>
+      <div><div class="label">Αξία τώρα</div><div class="num">${money(st.now, a.currency)}</div></div>
+      <div><div class="label">${st.gain >= 0 ? 'Κέρδος' : 'Ζημιά'}</div><div class="num ${st.gain >= 0 ? 'inc' : 'exp'}">${st.gain >= 0 ? '+' : '−'}${money(Math.abs(st.gain), a.currency)} <span style="font-size:.85em">(${st.gain >= 0 ? '+' : '−'}${numFmt.format(Math.abs(st.pct))}%)</span></div></div>
+    </div>` : ''}
+    ${chart}</div>`;
+}
+// «Νέο υπόλοιπο» με ποσοστό: γράφεις +3,5 % και βγαίνει το ποσό (και αντίστροφα)
+document.addEventListener('input', ev => {
+  if (ev.target.id !== 'd-pct' || !dlg || dlg.kind !== 'bal') return;
+  const a = DB.accounts.find(x => x.id === dlg.id), lb = lastBal(a), p = parseAmount(ev.target.value);
+  if (!lb || p === null || isNaN(p)) return;
+  const v = round2(lb.balance * (1 + p / 100));
+  const inp = $('#d-amount'); if (inp) { inp.value = numFmt.format(v).replace(/\./g, ''); dlg.amountStr = inp.value; }
+  const bd = $('#d-baldiff'); if (bd) bd.innerHTML = balDiffHint(a, v);
+});
+
+// ---------- 9. «Η χρονιά σου» ----------
+function yearReviewBody(year) {
+  const a = yearAgg(year);
+  const sumA = arr => round2(arr.reduce((x, y) => x + y, 0));
+  const tI = sumA(a.mInc), tE = sumA(a.mExp), bal = round2(tI - tE);
+  const lastY = monthlyExpensesFor(year - 1);
+  // για τη χρονιά που τρέχει, σύγκριση με τους ίδιους μήνες πέρσι
+  const upto = year === now.getFullYear() ? now.getMonth() + 1 : 12;
+  const lastE = lastY ? sumA(lastY.slice(0, upto)) : 0;
+  const months = a.mExp.map((v, i) => ({ i, v })).filter(m => m.v > 0);
+  const maxM = months.slice().sort((x, y) => y.v - x.v)[0], minM = months.slice().sort((x, y) => x.v - y.v)[0];
+  const cats = Object.entries(a.exp).map(([id, arr]) => ({ id, v: sumA(arr) })).filter(c => c.v > 0).sort((x, y) => y.v - x.v);
+  const top = cats.slice(0, 6), topMax = top[0] ? top[0].v : 1;
+  const big = DB.transactions.filter(t => yOf(t) === year && t.type === 'expense' && !t.planned).sort((x, y) => y.amount - x.amount).slice(0, 5);
+  const dr = typeof declRows === 'function' ? declRows(year) : [];
+  const rentC = round2(dr.reduce((s, r) => s + r.ours, 0)), rentX = round2(dr.reduce((s, r) => s + r.extra, 0));
+  const isCur = year === now.getFullYear();
+  const m0 = moneyTotals(`${year}-01-01`).all, m1 = moneyTotals(isCur ? todayStr() : `${year}-12-31`).all;
+  const card = (label, val, sub, cls) => `<div class="yr-card"><div class="label">${label}</div><div class="num ${cls || ''}">${val}</div>${sub ? `<div class="muted">${sub}</div>` : ''}</div>`;
+  return `
+    <div class="yr-cards">
+      ${card('Μπήκαν', eur0(tI), '', 'inc')}
+      ${card('Βγήκαν', eur0(tE), lastE ? `${tE > lastE ? '▲' : '▼'} ${Math.abs(Math.round((tE - lastE) / lastE * 100))}% από ${upto < 12 ? `τους ίδιους μήνες του ${year - 1}` : `το ${year - 1}`}` : '', 'exp')}
+      ${card(bal >= 0 ? 'Έμειναν' : 'Λείπουν', eur0(Math.abs(bal)), tI ? `το ${Math.round(Math.abs(bal) / tI * 100)}% των εσόδων` : '', bal >= 0 ? 'inc' : 'exp')}
+      ${m0 || m1 ? card('Περιουσία', eur0(m1), `${m1 - m0 >= 0 ? '+' : '−'}${eur0(Math.abs(m1 - m0))} από 1/1`, m1 - m0 >= 0 ? 'inc' : 'exp') : ''}
+    </div>
+    ${isCur ? `<div class="hint">Η χρονιά δεν έχει τελειώσει: τα νούμερα είναι ως σήμερα.</div>` : ''}
+    <div class="yr-grid">
+      <div><h3>Πού πήγαν τα περισσότερα</h3>${top.map(c => `<div class="yr-bar"><span>${esc(catIcon(c.id))} ${esc(catName(c.id))}</span><b class="num">${eur0(c.v)}</b><div class="track"><div class="fill" style="width:${Math.max(3, c.v / topMax * 100)}%"></div></div></div>`).join('') || '<p class="muted">—</p>'}</div>
+      <div><h3>Οι μήνες</h3>
+        ${maxM ? `<p>📈 Ο πιο ακριβός μήνας: <b>${MONTHS[maxM.i]}</b> με ${eur0(maxM.v)}.</p>` : ''}
+        ${minM && minM !== maxM ? `<p>📉 Ο πιο οικονομικός: <b>${MONTHS[minM.i]}</b> με ${eur0(minM.v)}.</p>` : ''}
+        ${months.length ? `<p>Κατά μέσο όρο <b>${eur0(tE / months.length)}</b> τον μήνα.</p>` : ''}
+        ${rentC || rentX ? `<h3>Ενοίκια</h3><p>Ενοίκια συμβολαίου (δικό μας): <b>${eur0(rentC)}</b>${rentX ? `<br>Έξτρα για παλιές οφειλές: <b>${eur0(rentX)}</b>` : ''}</p>` : ''}
+      </div>
+    </div>
+    ${big.length ? `<h3>Τα 5 μεγαλύτερα έξοδα</h3><table class="data"><tbody>${big.map(t => `<tr data-action="yr-tx" data-id="${t.id}"><td>${shortDate(t.date)}</td><td>${esc(catIcon(t.categoryId))} ${esc(catName(t.categoryId))}${t.note ? ' – ' + esc(t.note) : ''}</td><td class="r num exp"><b>${eur(t.amount)}</b></td></tr>`).join('')}</tbody></table>` : ''}
+    <h3>Έσοδα και έξοδα ανά μήνα</h3>${monthChart(a.mInc, a.mExp, lastY, year)}`;
+}
+function renderYearDlg(d) {
+  if (d.kind !== 'yreview') return null;
+  return { head: 'neutral', title: `✨ Η χρονιά σου: ${d.year}`, body: yearReviewBody(d.year) };
+}
+Object.assign(actions, {
+  'year-review': () => { dlg = { kind: 'yreview', year: ui.yearView || now.getFullYear(), error: '' }; renderDlg(); },
+  'yr-tx': el => { const t = DB.transactions.find(x => x.id === el.dataset.id); if (!t) return; dlg = null; renderDlg(); openForm(t.type, t); }
+});

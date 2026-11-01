@@ -59,9 +59,10 @@ function renderAccDlg(d) {
           <button class="btn income" data-action="acc-move" data-id="${a.id}" data-k="in">＋ Κατάθεση</button>
           <button class="btn expense" data-action="acc-move" data-id="${a.id}" data-k="out">− Ανάληψη</button>
           <button class="btn" data-action="acc-move" data-id="${a.id}" data-k="transfer">⇄ Μεταφορά</button>
-          ${a.kind !== 'cash' && a.currency === 'EUR' && cashAccounts().length ? `<button class="btn" data-action="acc-atm" data-id="${a.id}" title="Ανάληψη μετρητών: φεύγουν από εδώ και μπαίνουν στο πορτοφόλι">🏧 ATM</button>` : ''}
+          ${a.kind === 'current' && a.currency === 'EUR' && cashAccounts().length ? `<button class="btn" data-action="acc-atm" data-id="${a.id}" title="Ανάληψη μετρητών: φεύγουν από εδώ και μπαίνουν στο πορτοφόλι">🏧 ATM</button>` : ''}
           <button class="btn ghost" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button>
         </div></div>
+      ${typeof accInvestPanel === 'function' ? accInvestPanel(a) : ''}
       ${a.currency !== 'EUR' ? '<div class="hint">Τα έσοδα/έξοδα (σε €) δεν συνδέονται με λογαριασμούς σε δολάρια· εδώ γράφετε μόνο καταθέσεις, αναλήψεις και μεταφορές.</div>' : ''}
       ${rows.length ? `<table class="data acc-led"><thead><tr><th>Ημερομηνία</th><th>Τι</th><th class="r">Ποσό</th><th class="r">Υπόλοιπο</th><th></th></tr></thead><tbody>
         ${shown.map(r => r.snap
