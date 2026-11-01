@@ -199,3 +199,17 @@ Object.assign(actions, {
   'year-review': () => { dlg = { kind: 'yreview', year: ui.yearView || now.getFullYear(), error: '' }; renderDlg(); },
   'yr-tx': el => { const t = DB.transactions.find(x => x.id === el.dataset.id); if (!t) return; dlg = null; renderDlg(); openForm(t.type, t); }
 });
+
+// Πρόταση προβλέψεων: όσα ξοδέψαμε πέρσι σε κάθε κατηγορία, στρογγυλεμένα στα 10 €
+Object.assign(actions, {
+  'budget-suggest': () => {
+    const y = now.getFullYear() - 1;
+    const sug = DB.categories.filter(c => c.type === 'expense' && !c.archived && !c.extra).map(c => ({ c, v: categoryYearTotal(c.id, y) })).filter(x => x.v > 0);
+    if (!sug.length) { toast(`Δεν υπάρχουν έξοδα για το ${y}.`); return; }
+    if (!confirmBox(`Να μπουν ως προβλέψεις τα ποσά του ${y} σε ${sug.length} κατηγορίες; (Αλλάζουν και όσες έχουν ήδη πρόβλεψη. Μπορείτε να το αναιρέσετε.)`)) return;
+    const before = DB.categories.map(c => [c.id, c.budget]);
+    for (const { c, v } of sug) c.budget = Math.round(v / 10) * 10;
+    persist(); render();
+    toast(`Προβλέψεις από το ${y}: ${sug.length} κατηγορίες`, () => { for (const [id, b] of before) { const c = catById(id); if (c) c.budget = b; } persist(); render(); });
+  }
+});

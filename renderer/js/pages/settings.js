@@ -48,6 +48,7 @@ function settingsPage() {
   <div class="panel set-section ${ui._setTab === 'exp' ? '' : 'hidden'}">
     <h2>📂 Κατηγορίες εξόδων</h2>
     <p class="muted" style="margin-top:-.4rem">«Πρόβλεψη» είναι πόσα υπολογίζουμε να ξοδέψουμε τη χρονιά (φαίνεται στη σελίδα «Η χρονιά»). «Έκτακτο» σημαίνει ότι δεν μετράει στα «έξοδα χωρίς έκτακτα». Οι κρυφές κατηγορίες δεν εμφανίζονται στη νέα καταχώρηση.</p>
+    <div class="no-print" style="margin:-.2rem 0 .8rem"><button class="btn" data-action="budget-suggest">💡 Πρόταση προβλέψεων από το ${now.getFullYear() - 1}</button> <span class="muted">βάζει σε κάθε κατηγορία όσα ξοδέψατε πέρσι (στρογγυλεμένα)</span></div>
     ${catTable('expense')}
   </div>
   <div class="panel set-section ${ui._setTab === 'inc' ? '' : 'hidden'}">
