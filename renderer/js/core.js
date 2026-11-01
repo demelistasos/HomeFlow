@@ -173,6 +173,7 @@ function normalize(d) {
   delete d.power;
   for (const p of d.powers) { p.bills = p.bills || []; p.id = p.id || 'pw' + uid(); }
   d.history = d.history || {};
+  d.notes = Array.isArray(d.notes) ? d.notes : [];
   addBillRecurring(d);
   return d;
 }

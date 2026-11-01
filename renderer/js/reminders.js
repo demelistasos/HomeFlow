@@ -77,6 +77,7 @@ function reminders() {
     const days = -daysUntil(lastDate);
     if (days > 60) out.push({ sort: 35, cls: 'wait', icon: '💰', text: 'Ενημερώστε τα υπόλοιπα των λογαριασμών', sub: `η τελευταία ενημέρωση ήταν ${shortDate(lastDate)}`, btn: '<button class="btn small" data-action="goto-page" data-page="money">💰 Χρήματα</button>' });
   }
+  if (typeof noteReminders === 'function') out.push(...noteReminders());
   return out.sort((a, b) => a.sort - b.sort);
 }
 function remindersPanel() {

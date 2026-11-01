@@ -177,3 +177,13 @@ table.acc-led tr.acc-snap td{background:var(--paper-2);font-weight:600}
 .fm-top .acc-pick select{max-width:100%}
 
 .ask-close{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;padding:.8rem 1.2rem;background:var(--exp-soft);border-top:2px solid var(--exp-line,var(--exp));color:var(--ink)}
+
+/* Πίτα περιουσίας */
+.pie-wrap{display:flex;flex-wrap:wrap;gap:1.4rem;align-items:center}
+.pie{width:13rem;height:13rem;flex:none}
+.pie path:hover{opacity:.85}
+.pie-legend{flex:1;min-width:15rem;display:flex;flex-direction:column;gap:.25rem}
+.pie-item{display:grid;grid-template-columns:1rem 1fr auto 3rem;gap:.6rem;align-items:center;background:none;border:0;border-radius:12px;padding:.4rem .5rem;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.pie-item:hover{background:var(--brand-soft)}
+.pie-dot{width:1rem;height:1rem;border-radius:50%}
+.pie-item .muted{text-align:right}

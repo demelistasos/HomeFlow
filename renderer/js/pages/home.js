@@ -76,7 +76,7 @@ function homePage() {
     const [tab, bar] = tabBar('home', items, 'spent');
     let body = '';
     if (tab === 'spent') body = `<div class="panel"><h2>Πού πήγαν τα χρήματα</h2>${bars ? '<div class="h-hint">Πατήστε μια κατηγορία για να δείτε τι περιέχει.</div>' : ''}${bars || '<div class="empty">Δεν υπάρχουν έξοδα αυτόν τον μήνα ακόμα.</div>'}</div>`;
-    else if (tab === 'remind') body = remindersPanel() || '<div class="panel empty">Τίποτα να θυμηθείτε αυτή τη στιγμή ✓</div>';
+    else if (tab === 'remind') body = `<div style="display:flex;justify-content:flex-end;margin-bottom:.6rem"><button class="btn primary no-print" data-action="note-new">+ Δική μου υπενθύμιση</button></div>` + (remindersPanel() || '<div class="panel empty">Τίποτα να θυμηθείτε αυτή τη στιγμή ✓</div>');
     else if (tab === 'rent') body = homeRentPanel(s);
     else if (tab === 'cal') body = calPanel(year, month);
     else if (tab === 'planned') body = plannedTx.length ? `<div class="panel">

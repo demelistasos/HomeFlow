@@ -62,7 +62,8 @@ function yearPage() {
     <div class="card bal"><div class="label">Διαφορά</div><div class="value num" style="color:${totI - totE < 0 ? 'var(--exp)' : 'var(--brand)'}">${eur0(totI - totE)}</div></div>
     <div class="card extra"><div class="label">Έξοδα χωρίς έκτακτα</div><div class="value num">${eur0(totNoExtra)}</div><div class="sub">Έκτακτα: ${eur0(totE - totNoExtra)}</div></div>
   </div>
-  ${(() => { const [t, b] = tabBar('year', [{ k: 'exp', icon: '−', label: 'Έξοδα ανά κατηγορία' }, { k: 'inc', icon: '+', label: 'Έσοδα ανά κατηγορία' }, { k: 'chart', icon: '📊', label: 'Γράφημα μηνών' }, { k: 'bal', icon: '⚖️', label: 'Υπόλοιπο ανά μήνα' }], 'exp'); ui._yearTab = t; return b; })()}
+  ${(() => { const [t, b] = tabBar('year', [{ k: 'exp', icon: '−', label: 'Έξοδα ανά κατηγορία' }, { k: 'inc', icon: '+', label: 'Έσοδα ανά κατηγορία' }, { k: 'chart', icon: '📊', label: 'Γράφημα μηνών' }, { k: 'bal', icon: '⚖️', label: 'Υπόλοιπο ανά μήνα' }, { k: 'people', icon: '👪', label: 'Ανά άτομο' }], 'exp'); ui._yearTab = t; return b; })()}
+  ${ui._yearTab === 'people' ? personYearPanel(year) : ''}
   ${ui._yearTab !== 'chart' ? '' : `<div class="panel">
     <h2>Έσοδα και έξοδα ανά μήνα</h2>
     ${monthChart(a.mInc, a.mExp, lastY, year)}

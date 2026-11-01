@@ -100,7 +100,7 @@ function renderDlg() {
   if (!dlg) { root.innerHTML = ''; return; }
   const d = dlg;
   let title, head, body;
-  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderAccDlg(d) || renderDlg2(d);
+  const r2 = renderUpdDlg(d) || renderPinDlg(d) || renderPolDlg(d) || renderDayDlg(d) || renderHelpDlg(d) || renderCloseDlg(d) || renderAccDlg(d) || renderNoteDlg(d) || renderDlg2(d);
   if (r2) { ({ title, head, body } = r2); }
   else if (d.kind === 'rec') {
     const isExp = d.type === 'expense';
@@ -225,6 +225,7 @@ function renderDlg() {
         ${d.kind === 'person' && d.id ? '<button class="btn danger" data-action="person-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'car' && d.id ? '<button class="btn danger" data-action="car-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pset' && (DB.powers || []).length > 1 ? '<button class="btn danger" data-action="pw-del">🗑 Διαγραφή μοιράσματος</button>' : ''}
+        ${d.kind === 'note' && d.id ? '<button class="btn danger" data-action="note-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pbill' && d.id ? '<button class="btn danger" data-action="pb-delete">🗑 Διαγραφή</button>' : ''}
         ${d.kind === 'pol' && d.id ? '<button class="btn danger" data-action="pol-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
@@ -241,6 +242,7 @@ function saveDlg() {
   if (dlg.kind === 'ask') { saveAsk(); return; }
   if (dlg.kind === 'pol' || dlg.kind === 'polpay') { savePolDlg(); return; }
   if (dlg.kind === 'accmove') { saveAccMove(); return; }
+  if (dlg.kind === 'note') { saveNote(); return; }
   if (dlg.kind === 'day' || dlg.kind === 'help' || dlg.kind === 'mclose' || dlg.kind === 'accview') { dlg = null; renderDlg(); return; }
   if (['taxpay', 'tax', 'person', 'pentry', 'km', 'service', 'car', 'water', 'fieldpay', 'pset', 'pbill'].includes(dlg.kind)) { saveDlg2(); return; }
   if (dlg.kind === 'bal' || dlg.kind === 'acc') return saveMoneyDlg();

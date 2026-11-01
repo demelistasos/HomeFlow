@@ -59,6 +59,7 @@ function renderAccDlg(d) {
           <button class="btn income" data-action="acc-move" data-id="${a.id}" data-k="in">＋ Κατάθεση</button>
           <button class="btn expense" data-action="acc-move" data-id="${a.id}" data-k="out">− Ανάληψη</button>
           <button class="btn" data-action="acc-move" data-id="${a.id}" data-k="transfer">⇄ Μεταφορά</button>
+          ${a.kind !== 'cash' && a.currency === 'EUR' && cashAccounts().length ? `<button class="btn" data-action="acc-atm" data-id="${a.id}" title="Ανάληψη μετρητών: φεύγουν από εδώ και μπαίνουν στο πορτοφόλι">🏧 ATM</button>` : ''}
           <button class="btn ghost" data-action="acc-update" data-id="${a.id}">✎ Νέο υπόλοιπο</button>
         </div></div>
       ${a.currency !== 'EUR' ? '<div class="hint">Τα έσοδα/έξοδα (σε €) δεν συνδέονται με λογαριασμούς σε δολάρια· εδώ γράφετε μόνο καταθέσεις, αναλήψεις και μεταφορές.</div>' : ''}
@@ -141,7 +142,8 @@ function accPicker(type, sel, action, selId) {
   const all = payAccounts();
   if (!all.length) return '';
   const u = accUsage();
-  const top = all.slice().sort((x, y) => (u[y.id] || 0) - (u[x.id] || 0) || (x.order || 0) - (y.order || 0)).filter(a => u[a.id]).slice(0, 5);
+  const cash = all.filter(a => a.kind === 'cash');
+  const top = [...cash.slice(0, 1), ...all.slice().sort((x, y) => (u[y.id] || 0) - (u[x.id] || 0) || (x.order || 0) - (y.order || 0)).filter(a => u[a.id] && a !== cash[0]).slice(0, 5)];
   const cur = accById(sel);
   if (cur && !top.includes(cur)) top.push(cur);
   return `<div class="field acc-pick"><div class="flabel">${type === 'expense' ? '💳 Από ποιον λογαριασμό πληρώθηκε;' : '🏦 Σε ποιον λογαριασμό μπήκαν;'}</div>

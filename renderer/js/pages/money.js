@@ -96,7 +96,7 @@ function moneyPage() {
   </div>
   ${lastUpd ? `<div class="h-hint" style="margin:-.6rem 0 1rem">Τελευταία ενημέρωση υπολοίπου: ${shortDate(lastUpd)}. Πατήστε έναν λογαριασμό για να δείτε τις κινήσεις του ή να γράψετε κατάθεση, ανάληψη ή μεταφορά. Τα έξοδα και έσοδα με «λογαριασμό» αλλάζουν μόνα τους το υπόλοιπο.</div>` : ''}
   ${mbar}
-  ${mtab === 'summary' ? `<div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
+  ${mtab === 'summary' ? `${assetPie()}${cashAccounts().length ? '' : '<div class="notice info no-print">💵 Θέλετε να παρακολουθείτε και τα μετρητά του πορτοφολιού; <button class="btn small primary" data-action="acc-cash-new">+ Λογαριασμός «Μετρητά»</button></div>'}<div class="panel"><h2>Όλα μαζί, μήνα με μήνα (σε €)</h2>${moneyChart()}</div>
   <div class="panel"><h2>Ανά τράπεζα (σε €)</h2>
       <div class="bars">${Object.entries(byBank).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="bar-row" style="cursor:default"><span class="ic">🏦</span><span><span class="nm">${esc(k)}</span><div class="track"><div class="fill" style="width:${Math.max(2, v / Math.max(...Object.values(byBank)) * 100)}%;background:var(--brand)"></div></div></span><span class="amt num">${eur0(v)}</span></div>`).join('')}</div></div>` : ''}
   ${groupHtml[mtab] || ''}

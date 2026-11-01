@@ -222,7 +222,7 @@ const actions = {
     for (const x of DB.transactions) if (x.tenantId === t.id) x.tenantId = '';
     dlg = null; renderDlg(); ui.tenantId = null; persist(); render();
   },
-  'form-method': el => { syncFormInputs(); form.method = el.dataset.v; renderForm(); },
+  'form-method': el => { syncFormInputs(); form.method = el.dataset.v; if (!form.accTouched && /μετρητ/i.test(form.method) && cashAccounts()[0]) form.accountId = cashAccounts()[0].id; renderForm(); },
   'form-save': () => saveForm(),
   'form-delete': () => deleteFromForm(),
   // ρυθμίσεις

@@ -118,6 +118,19 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
         await page.click('[data-action="form-close-yes"]'); await page.waitForTimeout(50);
         check(await page.evaluate(() => !form), 'η φόρμα κλείνει με «Ναι, κλείσιμο»');
       }
+      // Δική μου υπενθύμιση, ανά άτομο, πίτα, ATM
+      await goto('home'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="remind"]').click()); await page.waitForTimeout(60);
+      await page.click('[data-action="note-new"]'); await page.fill('#d-ntext', 'Να πάρω τον λογιστή'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+      check(await page.evaluate(() => /λογιστή/.test(document.querySelector('#page').innerText)), 'η δική μου υπενθύμιση φαίνεται στο «Να θυμηθώ»');
+      await page.click('[data-action="note-done"] >> nth=0'); await page.waitForTimeout(60);
+      check(await page.evaluate(() => DB.notes[0].done), 'η υπενθύμιση γίνεται «Έγινε»');
+      await goto('year'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="people"]').click()); await page.waitForTimeout(60);
+      check(await page.evaluate(() => /Ανά άτομο/.test(document.querySelector('#page').innerText) && /Πατέρας/.test(document.querySelector('#page').innerText)), 'η χρονιά δείχνει έσοδα/έξοδα ανά άτομο');
+      await goto('money'); await page.evaluate(() => document.querySelector('.tabs .tab[data-k="summary"]').click()); await page.waitForTimeout(60);
+      check(!!(await page.$('svg.pie path')), 'η πίτα περιουσίας εμφανίζεται');
+      { const c0 = await page.evaluate(() => accBalanceAt(DB.accounts.find(a => a.id === 'a3')).balance);
+        await page.evaluate(() => { dlg = { kind: 'accview', id: 'a1', error: '' }; renderDlg(); }); await page.click('[data-action="acc-atm"]'); await page.fill('#d-amount', '40'); await page.click('[data-action="dlg-save"]'); await page.waitForTimeout(80);
+        check(Math.abs(await page.evaluate(() => accBalanceAt(DB.accounts.find(a => a.id === 'a3')).balance) - (c0 + 40)) < 0.01, 'ATM: τα μετρητά αυξάνονται'); await page.keyboard.press('Escape'); await page.waitForTimeout(50); }
       // Οφειλές: και οι ενοικιαστές που χρωστάνε
       await goto('people'); await page.waitForTimeout(80);
       check(!!(await page.$('[data-action="tenant-goto"]')), 'στις Οφειλές φαίνονται οι ενοικιαστές που χρωστάνε');

@@ -9,6 +9,7 @@ function calEvents(year, month) {
   const td = todayStr();
   for (const t of DB.transactions.filter(t => t.planned && t.date.slice(0, 7) === s))
     add(t.dayKnown === false ? `${s}-01` : t.date, { icon: catIcon(t.categoryId), text: catName(t.categoryId), amt: t.amount, type: t.type, cls: t.date < td ? 'late' : 'wait', btn: `<button class="btn small primary" data-action="confirm-planned" data-id="${t.id}">✓ Έγινε</button>`, sort: 2 });
+  for (const n of (DB.notes || [])) add(n.date, { icon: '📝', text: n.text, amt: n.amount || 0, type: 'expense', cls: n.done ? 'ok' : n.date < td ? 'late' : 'wait', btn: n.done ? '' : `<button class="btn small primary" data-action="note-done" data-id="${n.id}">✓ Έγινε</button>`, sort: 2 });
   for (const { t, i, k } of taxInst()) add(i.due, { icon: '🏛️', text: `${t.name} – ${t.person} (δόση ${k + 1})`, amt: i.amount, type: 'expense', cls: i.paid ? 'ok' : i.due < td ? 'late' : 'wait', btn: i.paid ? '' : `<button class="btn small primary" data-action="tax-pay" data-id="${t.id}" data-k="${k}">✓ Πλήρωσα</button>`, sort: 1 });
   for (const t of DB.tenants) if (tenantActiveIn(t, s)) {
     const st = tenantMonthStatus(t, s);

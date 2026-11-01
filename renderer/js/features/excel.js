@@ -101,6 +101,16 @@ function buildSummaryBook(year, focus) {
     rows.push([XL.tt('Σύνολο σε €'), null, null, null, null, null, null, XL.mb(tot)]);
     sheets.push({ name: 'Χρήματα', rows, widths: [24, 14, 22, 14, 9, 15, 12, 15], freeze: 4, key: 'money' });
   }
+  // Ανά άτομο
+  {
+    const pr = personYearRows(year);
+    if (pr.length > 1 || (pr[0] && pr[0].who)) {
+      const rows = xlHeadRows(`Ανά άτομο ${year}`, 'Από το «Ποιος;» κάθε κίνησης. Τα προγραμματισμένα δεν μετράνε.');
+      rows.push(['Ποιος', 'Έσοδα', 'Έξοδα', 'Διαφορά', 'Τα περισσότερα έξοδα σε'].map(XL.h));
+      for (const r of pr) rows.push([r.who || 'Κοινά (χωρίς άτομο)', XL.mz(r.inc), XL.mz(r.exp), { v: round2(r.inc - r.exp), s: r.inc - r.exp < 0 ? 'moneyR' : 'moneyG' }, r.top.map(([c, v]) => `${catName(c)} ${eur0(v)}`).join(' · ')]);
+      sheets.push({ name: `Ανά άτομο ${year}`, rows, widths: [26, 15, 15, 15, 60], freeze: 4, key: 'people-year' });
+    }
+  }
   // Κινήσεις λογαριασμών (καταθέσεις, αναλήψεις, μεταφορές και έσοδα/έξοδα με λογαριασμό)
   {
     const accs = DB.accounts.filter(a => (a.moves || []).length || DB.transactions.some(t => t.accountId === a.id && !t.planned));
