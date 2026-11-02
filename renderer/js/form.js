@@ -36,7 +36,7 @@ function renderForm() {
   <div class="modal-back" data-action="modal-back">
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-head ${isExp ? 'expense' : 'income'}">
-        <h2>${f.tenantId && isRentCat ? (f.id ? 'Αλλαγή πληρωμής ενοικίου' : 'Πληρωμή ενοικίου') : f.id ? (isExp ? 'Αλλαγή εξόδου' : 'Αλλαγή εσόδου') : (isExp ? 'Νέο έξοδο' : 'Νέο έσοδο')}</h2>
+        <h2>${f.tenantId && isRentCat ? (f.id ? 'Αλλαγή πληρωμής ενοικίου' : 'Πληρωμή ενοικίου') : f.id ? (isExp ? 'Αλλαγή εξόδου' : 'Αλλαγή εσόδου') : (isExp ? 'Νέο έξοδο' : 'Νέο έσοδο')}${f.batchCount ? ` <span style="font-weight:500;font-size:.8em">· πέρασαν ${f.batchCount}</span>` : ''}</h2>
         ${f.id || f.tenantId ? '' : `<button class="btn small" data-action="form-switch">${isExp ? 'Είναι έσοδο;' : 'Είναι έξοδο;'}</button>`}
         <button class="btn small" data-action="form-close" title="Κλείσιμο (Esc)">✕</button>
       </div>
@@ -103,7 +103,8 @@ function renderForm() {
       <div class="modal-foot">
         ${f.id ? '<button class="btn danger" data-action="form-delete">🗑 Διαγραφή</button>' : ''}
         <div class="spacer"></div>
-        <button class="btn" data-action="form-close">Ακύρωση</button>
+        <button class="btn" data-action="form-close">${f.batchCount ? 'Τέλος' : 'Ακύρωση'}</button>
+        ${f.id || f.tenantId ? '' : `<button class="btn" data-action="form-save-next" title="Αποθηκεύει και ανοίγει αμέσως νέα φόρμα με την ίδια ημερομηνία και λογαριασμό">✓ Αποθήκευση και επόμενο</button>`}
         <button class="btn big ${isExp ? 'expense' : 'income'}" style="width:auto;padding:0 2.2rem" data-action="form-save">✓ Αποθήκευση</button>
       </div>
     </div>
@@ -130,7 +131,7 @@ function syncFormInputs() {
   const p = $('#fm-planned'); if (p) form.planned = p.checked;
   const r = $('#fm-recurring'); if (r) form.makeRecurring = r.checked;
 }
-function saveForm() {
+function saveForm(next) {
   syncFormInputs();
   const f = form;
   const amt = parseAmount(f.amountStr);
@@ -169,8 +170,11 @@ function saveForm() {
     rec.recurringId = newRec.id;
     generateRecurring();
   }
+  const batch = (f.batchCount || 0) + 1;
   form = null; renderForm(); persist(); render();
-  toast(`Αποθηκεύτηκε: ${eur(amt)} – ${catName(rec.categoryId)}${newRec ? ' (και έγινε πάγιο)' : ''}`, () => {
+  // «Αποθήκευση και επόμενο»: η φόρμα ξανανοίγει με την ίδια ημερομηνία, λογαριασμό, άτομο και τρόπο
+  if (next) { openForm(rec.type, null, { date: rec.date, dayKnown: rec.dayKnown, accountId: f.accountId || '', accTouched: !!f.accTouched, person: rec.person, method: rec.method }); form.batchCount = batch; renderForm(); }
+  toast(`${next || batch > 1 ? `${batch}η κίνηση · ` : ''}Αποθηκεύτηκε: ${eur(amt)} – ${catName(rec.categoryId)}${newRec ? ' (και έγινε πάγιο)' : ''}`, () => {
     DB.transactions = DB.transactions.filter(t => t.id !== rec.id && !(newRec && t.recurringId === newRec.id));
     if (newRec) DB.recurring = DB.recurring.filter(r => r.id !== newRec.id);
     persist(); render();

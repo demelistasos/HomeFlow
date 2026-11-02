@@ -148,6 +148,13 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
         check(ks.length >= 2, 'πληρωμή πάνω από ένα ενοίκιο: ρωτάει για ποιους μήνες');
         await page.click(`[data-action="form-covers"][data-v="${ks[1]}"]`); await page.click('[data-action="form-save"]'); await page.waitForTimeout(100);
         check(await page.evaluate(k => { const m = k.split(','); const al = tenantAlloc(tenantById('ten_a')); return m.every(s => (al[s] || {}).paid >= 500 - 0.01); }, ks[1]), 'η πληρωμή μοιράζεται στους δύο μήνες'); }
+      // Πολλές αποδείξεις στη σειρά
+      { const n0 = await page.evaluate(() => DB.transactions.length);
+        await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80);
+        await page.fill('#fm-amount', '7'); await page.click('.cat-btn >> nth=0'); await page.fill('#fm-date', '2026-03-03'); await page.click('[data-action="form-save-next"]'); await page.waitForTimeout(80);
+        check(await page.evaluate(() => !!form && form.date === '2026-03-03' && form.batchCount === 1), '«Αποθήκευση και επόμενο»: η φόρμα μένει ανοιχτή με την ίδια ημερομηνία');
+        await page.fill('#fm-amount', '8'); await page.click('.cat-btn >> nth=0'); await page.click('[data-action="form-save"]'); await page.waitForTimeout(80);
+        check(await page.evaluate(n => DB.transactions.length === n + 2 && !form, n0), 'πέρασαν και οι δύο κινήσεις'); }
       // Οφειλές: και οι ενοικιαστές που χρωστάνε
       await goto('people'); await page.waitForTimeout(80);
       check(!!(await page.$('[data-action="tenant-goto"]')), 'στις Οφειλές φαίνονται οι ενοικιαστές που χρωστάνε');

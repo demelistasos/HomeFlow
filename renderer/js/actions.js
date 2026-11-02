@@ -225,6 +225,7 @@ const actions = {
   },
   'form-method': el => { syncFormInputs(); form.method = el.dataset.v; if (!form.accTouched && /μετρητ/i.test(form.method) && cashAccounts()[0]) form.accountId = cashAccounts()[0].id; renderForm(); },
   'form-save': () => saveForm(),
+  'form-save-next': () => saveForm(true),
   'form-delete': () => deleteFromForm(),
   // ρυθμίσεις
   font: el => { DB.settings.fontScale = +el.dataset.v; applyFont(); persist(); render(); },
