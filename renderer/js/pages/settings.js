@@ -28,7 +28,7 @@ function settingsPage() {
 
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">
     <h2>🎨 Εμφάνιση</h2>
-    <div class="theme-pick">${[['light', '☀️ Φωτεινή', ['#EEF4F7', '#ffffff', '#0B7A8A']], ['dark', '🌙 Σκούρα', ['#0E1A29', '#162537', '#3CC3D2']], ['auto', '🖥️ Αυτόματα', ['#EEF4F7', '#0E1A29', '#0B7A8A']]].map(([k, l, c]) => `<button class="${themePref() === k ? 'sel' : ''}" data-action="theme" data-v="${k}"><span class="sw" style="background:${c[0]}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>${l}</button>`).join('')}</div>
+    <div class="theme-pick">${[['light', '☀️ Φωτεινή', ['#F3EEE4', '#1A2130', '#E0A11B']], ['dark', '🌙 Σκούρα', ['#12161F', '#0B0E14', '#F2BA4C']], ['auto', '🖥️ Αυτόματα', ['#EEF4F7', '#0E1A29', '#0B7A8A']]].map(([k, l, c]) => `<button class="${themePref() === k ? 'sel' : ''}" data-action="theme" data-v="${k}"><span class="sw" style="background:${c[0]}"><i style="background:${c[1]}"></i><i style="background:${c[2]}"></i></span>${l}</button>`).join('')}</div>
     <div class="hint muted" style="margin-top:.6rem">«Αυτόματα»: φωτεινή τη μέρα και σκούρα όταν ο υπολογιστής είναι σε σκούρα λειτουργία.</div>
   </div>
   <div class="panel set-section ${ui._setTab === 'general' ? '' : 'hidden'}">

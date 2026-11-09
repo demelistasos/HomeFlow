@@ -1,0 +1,236 @@
+/* HomeFlow · «Τεφτέρι»
+   Ζεστό χαρτί, μελάνι και μαίανδρος. Σκούρα πλαϊνή στήλη σαν δερμάτινο εξώφυλλο,
+   η ενεργή σελίδα «κολλάει» πάνω στο χαρτί σαν σελιδοδείκτης, μεγάλα νούμερα με
+   πεταχτά πατήματα (Commissioner με «VOLM»/«FLAR»), και μια μπάντα μαίανδρου
+   στη ζυγαριά του μήνα. Φορτώνεται τελευταίο και αλλάζει μόνο εμφάνιση. */
+
+:root {
+  --bg: #F3EEE4;
+  --paper: #FFFDF8;
+  --paper-2: #F8F4EC;
+  --ink: #1A2130;
+  --ink-2: #474E5F;
+  --ink-3: #696E7C;
+  --line: #E7E0D3;
+  --line-2: #D2C9B8;
+  --btn: #F3EEE5;
+  --btn-hover: #ECE5D8;
+  --brand: #2C43B5;
+  --brand-2: #22369A;
+  --brand-soft: #E8EBF9;
+  --brand-line: #BBC4EE;
+  --on-color: #ffffff;
+  --gold: #E0A11B;
+  --inc: #2C7A3C;
+  --inc-soft: #E3F0E1;
+  --exp: #BD3F26;
+  --exp-soft: #F9E5DE;
+  --exp-line: #EDBBAA;
+  --warn: #8A5A00;
+  --warn-soft: #FBF0D2;
+  --warn-line: #EED494;
+  --soft: #F0EADF;
+  --track: #EDE6D9;
+  --hover: #F7F2E9;
+  --shadow: 0 1px 0 rgba(26, 33, 48, .05), 0 14px 32px -20px rgba(26, 33, 48, .28);
+  --r: 20px;
+  --r-sm: 14px;
+  /* η «ντουλάπα» της πλαϊνής στήλης και της ζυγαριάς */
+  --cover: #1A2130;
+  --cover-2: #232C40;
+  --cover-ink: #F3EEE4;
+  --cover-inc: #8EDB9B;
+  --cover-exp: #FF9E87;
+  --display: "FLAR" 100, "VOLM" 100;
+}
+:root[data-theme="dark"] {
+  --bg: #12161F;
+  --paper: #1A202B;
+  --paper-2: #1F2633;
+  --ink: #F1EADC;
+  --ink-2: #C7C1B4;
+  --ink-3: #9C978C;
+  --line: #2A3141;
+  --line-2: #3B4457;
+  --btn: #222937;
+  --btn-hover: #2A3242;
+  --brand: #93A5FF;
+  --brand-2: #AEBBFF;
+  --brand-soft: #232B4A;
+  --brand-line: #3B4A86;
+  --on-color: #0F1428;
+  --gold: #F2BA4C;
+  --inc: #73D088;
+  --inc-soft: #17321F;
+  --exp: #FF8C72;
+  --exp-soft: #3D211B;
+  --exp-line: #6B3226;
+  --warn: #F6C766;
+  --warn-soft: #382C12;
+  --warn-line: #66511F;
+  --soft: #232A37;
+  --track: #262E3C;
+  --hover: #1E2531;
+  --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 14px 32px -18px rgba(0, 0, 0, .55);
+  --cover: #0B0E14;
+  --cover-2: #161B26;
+  --cover-ink: #F1EADC;
+}
+
+/* λεπτός κόκκος χαρτιού στο φόντο */
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(rgba(26, 33, 48, .035) 1px, transparent 1.2px);
+  background-size: 6px 6px;
+}
+:root[data-theme="dark"] body { background-image: radial-gradient(rgba(255, 255, 255, .025) 1px, transparent 1.2px); }
+
+/* ---------- πλαϊνή στήλη: σκούρο εξώφυλλο ---------- */
+.sidebar {
+  --ink: var(--cover-ink);
+  --ink-2: #C9CCD6;
+  --ink-3: #9EA4B3;
+  --line: rgba(255, 255, 255, .09);
+  --line-2: rgba(255, 255, 255, .18);
+  --btn: rgba(255, 255, 255, .06);
+  --btn-hover: rgba(255, 255, 255, .12);
+  --hover: rgba(255, 255, 255, .07);
+  --paper: var(--cover-2);
+  --brand: var(--gold);
+  background:
+    radial-gradient(120% 40% at 0% 0%, rgba(120, 140, 255, .16), transparent 70%),
+    radial-gradient(90% 30% at 100% 100%, rgba(224, 161, 27, .10), transparent 70%),
+    var(--cover);
+  border-right: 0;
+  color: var(--ink);
+  padding-right: 0;
+  overflow-x: hidden;
+}
+.sidebar > *:not(.nav) { margin-right: .9rem; }
+.brand-logo { box-shadow: 0 0 0 2px rgba(255, 255, 255, .12); }
+.brand-name { font-variation-settings: var(--display); font-weight: 700; letter-spacing: -.01em; }
+.sidebar .search-btn, .sidebar .help-btn { border-width: 1.5px; }
+.sidebar kbd { background: transparent; }
+
+/* σελιδοδείκτης: η ενεργή σελίδα βγαίνει πάνω στο χαρτί */
+.nav button { border-radius: 999px 0 0 999px; border: 0; padding: .6rem 1rem; position: relative; }
+.nav button:hover { background: var(--hover); color: var(--ink); }
+.nav button.active {
+  background: var(--bg); color: #1A2130; border: 0;
+  box-shadow: none; font-weight: 700;
+}
+:root[data-theme="dark"] .nav button.active { color: var(--cover-ink); }
+.nav button.active::before, .nav button.active::after {
+  content: ""; position: absolute; right: 0; width: 22px; height: 22px; pointer-events: none;
+}
+.nav button.active::before { top: -22px; background: radial-gradient(circle at 0 0, transparent 21px, var(--bg) 22px); }
+.nav button.active::after { bottom: -22px; background: radial-gradient(circle at 0 100%, transparent 21px, var(--bg) 22px); }
+.nav button.active .ni { color: var(--exp); }
+.save-state { color: var(--ink-3); }
+
+/* ---------- τυπογραφία: μεγάλα νούμερα με χαρακτήρα ---------- */
+.hero h1, .page-head h1, .month-title, .scale .v, .card .value, .panel h2, .tenant-name, .modal-head h2, .tenant-bal {
+  font-variation-settings: var(--display);
+}
+.hero h1 { font-weight: 500; letter-spacing: -.045em; }
+.hero h1 .yr { color: var(--gold); opacity: 1; font-weight: 300; }
+.page-head h1 { font-weight: 500; letter-spacing: -.035em; }
+.panel h2 { font-weight: 700; letter-spacing: -.015em; }
+.greet { font-size: 1.15rem; }
+
+/* ---------- η ζυγαριά του μήνα: σκούρα πλάκα με μαίανδρο ---------- */
+.scale {
+  --ink: var(--cover-ink);
+  --ink-2: #CBCED8;
+  --ink-3: #A3A8B6;
+  --inc: var(--cover-inc);
+  --exp: var(--cover-exp);
+  --track: rgba(255, 255, 255, .12);
+  --line: rgba(255, 255, 255, .12);
+  position: relative; overflow: hidden;
+  color: var(--ink);
+  background:
+    radial-gradient(70% 120% at 100% 0%, rgba(120, 140, 255, .22), transparent 60%),
+    radial-gradient(50% 90% at 0% 100%, rgba(224, 161, 27, .16), transparent 60%),
+    var(--cover);
+  border: 0;
+  padding-top: 2.2rem;
+  box-shadow: 0 24px 50px -28px rgba(26, 33, 48, .55);
+}
+.scale::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 14px;
+  background: var(--gold);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='14'%3E%3Cpath d='M0 12.5H28M19 12.5V1.5H3.5V9H13V5H8.5' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") repeat-x left top / 28px 14px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='14'%3E%3Cpath d='M0 12.5H28M19 12.5V1.5H3.5V9H13V5H8.5' fill='none' stroke='black' stroke-width='2'/%3E%3C/svg%3E") repeat-x left top / 28px 14px;
+  opacity: .85;
+}
+.scale .k { color: var(--ink-2); text-transform: uppercase; letter-spacing: .08em; font-size: .85rem; }
+.scale .v { font-size: 2.9rem; font-weight: 600; letter-spacing: -.035em; }
+.scale .s b, .scale .s strong { color: var(--ink); }
+.scale > div + div { border-left: 1px dashed var(--line); padding-left: 1.2rem; }
+.scale > div[style*="grid-column"], .scale .meter, .scale > div:last-child { border-left: 0; padding-left: 0; }
+.scale .meter { height: .8rem; gap: 6px; }
+.scale .meter i.e { background: var(--track); }
+
+/* ---------- κάρτες και πίνακες: χαρτί με λεπτή γραμμή ---------- */
+.card, .panel { border: 1px solid var(--line); }
+.card { position: relative; overflow: hidden; }
+.card .value { font-weight: 600; letter-spacing: -.03em; }
+.card.inc, .card.exp, .card.bal, .card.extra { border-top-width: 4px; }
+.card.inc { border-top-color: var(--inc); }
+.card.exp { border-top-color: var(--exp); }
+.card.bal { border-top-color: var(--brand); }
+.card.extra { border-top-color: var(--gold); }
+.card.inc .label::before, .card.exp .label::before, .card.bal .label::before, .card.extra .label::before { display: none; }
+.panel h2 { padding-bottom: .55rem; border-bottom: 1px dashed var(--line-2); }
+
+/* ---------- κουμπιά και καρτέλες ---------- */
+.btn { border-width: 1.5px; box-shadow: 0 1px 0 rgba(26, 33, 48, .08), inset 0 1px 0 rgba(255, 255, 255, .5); }
+:root[data-theme="dark"] .btn { box-shadow: none; }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn.primary { box-shadow: 0 6px 16px -8px var(--brand); }
+.btn.expense { box-shadow: 0 8px 18px -10px var(--exp); }
+.btn.income { box-shadow: 0 8px 18px -10px var(--inc); }
+.btn.big { letter-spacing: .01em; }
+.tab { border-width: 1.5px; }
+.tab.sel { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.tab.sel .tab-count { background: rgba(255, 255, 255, .2); color: inherit; }
+:root[data-theme="dark"] .tab.sel .tab-count { background: rgba(0, 0, 0, .2); }
+.chip.sel { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.bar-row .ic, .tx .ic { background: var(--paper-2); border: 1px solid var(--line); }
+.bar-row .fill { background-image: linear-gradient(90deg, rgba(255, 255, 255, .0), rgba(255, 255, 255, .18)); }
+
+/* ---------- παράθυρα ---------- */
+.modal { border: 1px solid var(--line); }
+.modal-head { position: relative; padding-bottom: 1.35rem; }
+.modal-head::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 10px;
+  background: rgba(255, 255, 255, .45);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpath d='M0 9H20M13.5 9V1H2.5V6.5H9.5V3.5H6' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x left top / 20px 10px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='10'%3E%3Cpath d='M0 9H20M13.5 9V1H2.5V6.5H9.5V3.5H6' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") repeat-x left top / 20px 10px;
+}
+.modal-head.neutral { background: var(--cover); color: var(--cover-ink); }
+.modal-head.neutral .btn { color: var(--cover-ink); }
+.amount-input { font-variation-settings: var(--display); }
+
+/* ---------- κίνηση: ήπια είσοδος σελίδας ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  #page > * { animation: hf-rise .38s cubic-bezier(.2, .7, .2, 1) both; }
+  #page > *:nth-child(2) { animation-delay: .04s; }
+  #page > *:nth-child(3) { animation-delay: .08s; }
+  #page > *:nth-child(n+4) { animation-delay: .12s; }
+  .btn, .nav button, .tab, .chip { transition: background-color .15s, border-color .15s, color .15s, transform .15s; }
+}
+@keyframes hf-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---------- στενές οθόνες ---------- */
+html.w-s .sidebar > *:not(.nav) { margin-right: .4rem; }
+html.w-s .nav button { border-radius: 16px 0 0 16px; }
+html.w-s .scale > div + div { border-left: 0; padding-left: 0; }
+html.w-s .scale .v { font-size: 2.2rem; }
+@media print {
+  body { background: #fff; }
+  .scale { background: #fff; color: #000; box-shadow: none; }
+  .scale::before, .modal-head::after { display: none; }
+}
