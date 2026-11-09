@@ -32,19 +32,11 @@ function moneyChart() {
   const end = curYM();
   for (let g = 0; s <= end && g < 240; s = addMonths(s, 1), g++) pts.push({ s, v: moneyTotals(`${s}-${pad(lastDay(s))}`).all });
   const show = pts.slice(-12);
-  const W = 1000, H = 260, L = 70, B = 34, T = 14;
-  const max = Math.max(1, ...show.map(p => p.v));
-  const step = niceStep(max / 4), top = Math.ceil(max / step) * step;
-  const y = v => T + (H - T - B) * (1 - v / top);
-  const gw = (W - L - 10) / show.length;
-  let svg = '';
-  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
-  show.forEach((p, k) => {
-    const x = L + k * gw + gw * 0.18, bw = gw * 0.64;
-    svg += `<rect x="${x}" y="${y(p.v)}" width="${bw}" height="${y(0) - y(p.v)}" rx="4" style="fill:var(--brand)"><title>${ymLabel(p.s)}: ${eur0(p.v)}</title></rect>`;
-    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="14" style="fill:var(--ink-2)">${MONTHS_SHORT[+p.s.slice(5) - 1]}${p.s.slice(5) === '01' ? " '" + p.s.slice(2, 4) : ''}</text>`;
+  if (show.length < 2) return '';
+  return areaChart({
+    labels: show.map(p => MONTHS_SHORT[+p.s.slice(5) - 1] + (p.s.slice(5) === '01' ? " '" + p.s.slice(2, 4) : '')),
+    tips: show.map(p => ymLabel(p.s)), values: show.map(p => p.v), color: 'var(--brand)', fromZero: false
   });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>`;
 }
 function moneyPage() {
   const t = moneyTotals();

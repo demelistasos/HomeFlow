@@ -346,3 +346,54 @@ html.w-xs .b-v { font-size: 2.3rem; }
   width: 1.4rem; height: 1.4rem; min-height: 0; padding: 0; margin: 0; flex: none; accent-color: var(--brand); box-shadow: none;
 }
 .check { align-items: center; }
+
+/* ---------- διαγράμματα ---------- */
+.ch { position: relative; }
+.ch-svg { overflow: visible; }
+.ch-grid { stroke: var(--line); stroke-dasharray: 3 6; }
+.ch-grid.base { stroke: var(--line-2); stroke-dasharray: none; }
+.ch-ax { font-size: 13px; fill: var(--ink-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ch-lab { font-size: 14px; fill: var(--ink-2); font-weight: 600; }
+.ch-hit { fill: transparent; }
+.ch-hit:hover { fill: var(--hover); }
+.ch-bar { pointer-events: none; transform-box: fill-box; transform-origin: bottom; }
+.ch-line { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.ch-line.dashed { stroke-width: 2.5; stroke-dasharray: 2 7; }
+.ch-dot { fill: var(--paper); stroke-width: 3; pointer-events: none; }
+.ch-area { pointer-events: none; }
+.ch-halo { opacity: .18; pointer-events: none; }
+.ch-pt .ch-cross { stroke: var(--line-2); stroke-dasharray: 3 4; opacity: 0; pointer-events: none; }
+.ch-pt .ch-dot { opacity: 0; transition: opacity .12s; }
+.ch-pt:hover .ch-cross, .ch-pt:hover .ch-dot { opacity: 1; }
+.ch-pt .ch-hit:hover { fill: transparent; }
+.legend { gap: 1.4rem; flex-wrap: wrap; font-weight: 600; margin-top: .8rem; }
+.legend i { width: .8rem; height: .8rem; border-radius: 4px; }
+.legend i.dash { height: 3px; width: 1.2rem; border-radius: 2px; vertical-align: 3px; }
+.ch-donut { width: 14rem; height: 14rem; flex: none; overflow: visible; }
+.ch-seg { fill: none; cursor: pointer; transition: stroke-width .15s, opacity .15s; }
+.ch-donut:hover .ch-seg { opacity: .55; }
+.ch-donut .ch-seg:hover { opacity: 1; stroke-width: 34px; }
+.ch-dsub { font-size: 13px; fill: var(--ink-3); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.ch-dtot { font-size: 22px; fill: var(--ink); font-weight: 800; letter-spacing: -.03em; }
+.pie-item { border-radius: 12px; padding: .45rem .6rem; }
+.pie-dot { border-radius: 5px; width: .9rem; height: .9rem; }
+.acc-chart { height: auto; }
+.ch-tip {
+  position: fixed; left: 0; top: 0; z-index: 300; pointer-events: none; opacity: 0;
+  background: #11142A; color: #F4F5FA; border-radius: 12px; padding: .5rem .75rem; font-size: .92rem; line-height: 1.45;
+  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .45); transition: opacity .1s; white-space: nowrap;
+}
+.ch-tip.on { opacity: 1; }
+.ch-tip b { display: block; font-size: .85rem; color: #A5A0FF; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .1rem; }
+:root[data-theme="dark"] .ch-tip { background: #F2F3F8; color: #0F1222; }
+:root[data-theme="dark"] .ch-tip b { color: #4F46E5; }
+@media (prefers-reduced-motion: no-preference) {
+  .ch-bar { animation: ch-grow .55s cubic-bezier(.2, .8, .2, 1) both; }
+  .ch-line { stroke-dasharray: 3000; stroke-dashoffset: 3000; animation: ch-draw 1s .1s cubic-bezier(.3, .7, .2, 1) forwards; }
+  .ch-line.dashed { stroke-dasharray: 2 7; stroke-dashoffset: 0; animation: none; }
+  .ch-area { animation: ch-fade .8s .2s both; }
+  .ch-seg { animation: ch-fade .6s both; }
+}
+@keyframes ch-grow { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes ch-draw { to { stroke-dashoffset: 0; } }
+@keyframes ch-fade { from { opacity: 0; } }

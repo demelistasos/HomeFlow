@@ -3,7 +3,7 @@
 // (Τα αρχεία φορτώνονται με τη σειρά του index.html· μοιράζονται τις ίδιες μεταβλητές.)
 
 // ---------- Πίτα περιουσίας (Χρήματα › Σύνοψη) ----------
-const PIE_COLORS = ['#0e7c86', '#2563eb', '#7c3aed', '#16a34a', '#ca8a04', '#db2777', '#64748b'];
+const PIE_COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EC4899', '#0EA5E9', '#8B5CF6', '#94A3B8'];
 function assetPie() {
   const parts = KINDS.map(([k, label, icon], i) => {
     let v = 0;
@@ -13,19 +13,9 @@ function assetPie() {
   const usd = DB.accounts.filter(a => !a.archived && a.currency === 'USD').reduce((s, a) => s + Math.max(0, toEur((lastBal(a) || {}).balance || 0, 'USD')), 0);
   const tot = parts.reduce((s, p) => s + p.v, 0);
   if (!tot) return '';
-  const R = 80, r = 48, C = 100;
-  let ang = -Math.PI / 2, svg = '';
-  for (const p of parts) {
-    const a2 = ang + 2 * Math.PI * (p.v / tot), large = a2 - ang > Math.PI ? 1 : 0;
-    const pt = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
-    const d = parts.length === 1 ? `M ${C} ${C - R} A ${R} ${R} 0 1 1 ${C - 0.01} ${C - R} L ${C - 0.01} ${C - r} A ${r} ${r} 0 1 0 ${C} ${C - r} Z`
-      : `M ${pt(R, ang)} A ${R} ${R} 0 ${large} 1 ${pt(R, a2)} L ${pt(r, a2)} A ${r} ${r} 0 ${large} 0 ${pt(r, ang)} Z`;
-    svg += `<path d="${d}" fill="${p.color}" data-action="tab" data-page="money" data-k="${p.k}" style="cursor:pointer"><title>${p.label}: ${eur0(p.v)} (${Math.round(p.v / tot * 100)}%)</title></path>`;
-    ang = a2;
-  }
-  svg += `<text x="${C}" y="${C - 4}" text-anchor="middle" font-size="13" style="fill:var(--ink-3)">Σύνολο</text><text x="${C}" y="${C + 16}" text-anchor="middle" font-size="17" font-weight="700" style="fill:var(--ink)">${eur0(tot)}</text>`;
+  const svg = donutChart(parts.map(p => ({ label: p.label, v: p.v, color: p.color, attrs: `data-action="tab" data-page="money" data-k="${p.k}"` })), { fmt: eur0 }).replace('class="ch-donut"', 'class="ch-donut pie"');
   return `<div class="panel"><h2>Πού είναι τα χρήματα</h2><div class="h-hint">Σε ευρώ. Πατήστε ένα κομμάτι για να δείτε τους λογαριασμούς του.</div>
-    <div class="pie-wrap"><svg class="pie" viewBox="0 0 200 200" role="img" aria-label="Κατανομή περιουσίας">${svg}</svg>
+    <div class="pie-wrap">${svg}
     <div class="pie-legend">${parts.sort((x, y) => y.v - x.v).map(p => `<button class="pie-item" data-action="tab" data-page="money" data-k="${p.k}"><span class="pie-dot" style="background:${p.color}"></span><span class="pie-nm">${p.icon} ${esc(p.label)}</span><b class="num">${eur0(p.v)}</b><span class="muted num">${Math.round(p.v / tot * 100)}%</span></button>`).join('')}
       ${usd > 0.5 ? `<div class="muted" style="margin-top:.4rem">Από αυτά σε δολάρια: <b>${eur0(usd)}</b> (${Math.round(usd / tot * 100)}%)</div>` : ''}</div></div></div>`;
 }
@@ -118,16 +108,8 @@ function accChart(a) {
   const by = {}; for (const p of pts) by[p.d] = p.v; // μία τιμή τη μέρα (η τελευταία)
   const ds = Object.keys(by).sort().slice(-40);
   if (ds.length < 2) return '';
-  const vs = ds.map(d => by[d]), W = 640, H = 170, L = 8, R = 8, T = 10, B = 22;
-  const mn = Math.min(...vs), mx = Math.max(...vs), span = mx - mn || 1;
-  const x = i => L + (W - L - R) * i / (ds.length - 1), y = v => T + (H - T - B) * (1 - (v - mn) / span);
-  const line = vs.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const up = vs[vs.length - 1] >= vs[0];
-  return `<svg class="acc-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Πορεία υπολοίπου">
-    <polyline points="${x(0)},${H - B} ${line} ${x(ds.length - 1)},${H - B}" style="fill:${up ? 'var(--inc-soft)' : 'var(--exp-soft)'};stroke:none"/>
-    <polyline points="${line}" style="fill:none;stroke:${up ? 'var(--inc)' : 'var(--exp)'};stroke-width:2.5;vector-effect:non-scaling-stroke"/>
-    ${vs.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="3" style="fill:${up ? 'var(--inc)' : 'var(--exp)'}"><title>${shortDate(ds[i])}: ${money(v, a.currency)}</title></circle>`).join('')}
-    <text x="${L}" y="${H - 5}" font-size="12" style="fill:var(--ink-3)">${shortDate(ds[0])}</text><text x="${W - R}" y="${H - 5}" font-size="12" text-anchor="end" style="fill:var(--ink-3)">${shortDate(ds[ds.length - 1])}</text></svg>`;
+  const vs = ds.map(d => by[d]), up = vs[vs.length - 1] >= vs[0];
+  return areaChart({ labels: ds.map(shortDate), values: vs, color: up ? 'var(--inc)' : 'var(--exp)', H: 230, fromZero: false, fmt: v => money(v, a.currency) }).replace('class="chart ch-svg"', 'class="chart ch-svg acc-chart"');
 }
 function accInvestPanel(a) {
   const st = accInvestStats(a);

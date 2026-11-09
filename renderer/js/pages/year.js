@@ -88,28 +88,11 @@ function yearPage() {
 }
 
 function monthChart(inc, exp, lastExp, year) {
-  const W = 1000, H = 300, L = 60, B = 34, T = 14;
-  const max = Math.max(1, ...inc, ...exp, ...(lastExp || [0]));
-  const step = niceStep(max / 4);
-  const top = Math.ceil(max / step) * step;
-  const y = v => T + (H - T - B) * (1 - v / top);
-  const gw = (W - L - 10) / 12;
-  let g = '';
-  for (let v = 0; v <= top + 1e-6; v += step) g += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
-  let bars = '';
-  for (let m = 0; m < 12; m++) {
-    const x = L + m * gw + gw * 0.14, bw = gw * 0.34;
-    bars += `<rect x="${x}" y="${y(inc[m])}" width="${bw}" height="${y(0) - y(inc[m])}" rx="4" style="fill:var(--inc)"><title>Έσοδα ${MONTHS[m]}: ${eur(inc[m])}</title></rect>`;
-    bars += `<rect x="${x + bw + 3}" y="${y(exp[m])}" width="${bw}" height="${y(0) - y(exp[m])}" rx="4" style="fill:var(--exp)"><title>Έξοδα ${MONTHS[m]}: ${eur(exp[m])}</title></rect>`;
-    bars += `<text x="${L + m * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="15" style="fill:var(--ink-2)">${MONTHS_SHORT[m]}</text>`;
-  }
-  let line = '';
-  if (lastExp) {
-    const pts = lastExp.map((v, m) => `${L + m * gw + gw / 2},${y(v)}`).join(' ');
-    line = `<polyline points="${pts}" fill="none" style="stroke:var(--ink-3)" stroke-width="2.5" stroke-dasharray="6 5"/>` + lastExp.map((v, m) => `<circle cx="${L + m * gw + gw / 2}" cy="${y(v)}" r="4" style="fill:var(--ink-3)"><title>Έξοδα ${MONTHS[m]} ${year - 1}: ${eur(v)}</title></circle>`).join('');
-  }
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Έσοδα και έξοδα ανά μήνα">${g}${bars}${line}</svg>
-    <div class="legend"><span><i style="background:var(--inc)"></i>Έσοδα</span><span><i style="background:var(--exp)"></i>Έξοδα</span>${lastExp ? `<span><i style="background:var(--ink-3)"></i>Έξοδα ${year - 1}</span>` : ''}</div>`;
+  return barChart({
+    labels: MONTHS_SHORT, tipHead: (l, i) => `${MONTHS[i]} ${year}`,
+    series: [{ name: 'Έσοδα', values: inc, color: 'var(--inc)' }, { name: 'Έξοδα', values: exp, color: 'var(--exp)' }],
+    line: lastExp ? { name: `Έξοδα ${year - 1}`, values: lastExp, color: 'var(--ink-3)' } : null
+  });
 }
 function niceStep(raw) { const p = Math.pow(10, Math.floor(Math.log10(raw || 1))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
 function kfmt(v) { return v >= 1000 ? int0.format(v / 1000) + 'χ' : int0.format(v); }

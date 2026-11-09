@@ -16,26 +16,17 @@ function historyRows() {
 }
 function historyPage() {
   const rows = historyRows();
-  const max = Math.max(1, ...rows.map(r => Math.max(r.e || 0, r.i || 0)));
-  const W = 1000, H = 300, L = 60, B = 34, T = 14;
-  const step = niceStep(max / 4), top = Math.ceil(max / step) * step;
-  const y = v => T + (H - T - B) * (1 - v / top);
-  const gw = (W - L - 10) / Math.max(rows.length, 1);
-  let svg = '';
-  for (let v = 0; v <= top + 1e-6; v += step) svg += `<line x1="${L}" x2="${W - 5}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--line)"/><text x="${L - 8}" y="${y(v) + 5}" text-anchor="end" font-size="14" style="fill:var(--ink-3)">${kfmt(v)}</text>`;
-  rows.forEach((r, k) => {
-    const x = L + k * gw + gw * 0.1, bw = gw * 0.38;
-    if (r.i != null) svg += `<rect x="${x}" y="${y(r.i)}" width="${bw}" height="${y(0) - y(r.i)}" rx="3" style="fill:var(--inc)"><title>Έσοδα ${r.y}: ${eur(r.i)}</title></rect>`;
-    if (r.e != null) svg += `<rect x="${x + bw + 2}" y="${y(r.e)}" width="${bw}" height="${y(0) - y(r.e)}" rx="3" style="fill:var(--exp)"><title>Έξοδα ${r.y}: ${eur(r.e)}</title></rect>`;
-    svg += `<text x="${L + k * gw + gw / 2}" y="${H - 10}" text-anchor="middle" font-size="${rows.length > 16 ? 12 : 14}" style="fill:var(--ink-2)">${rows.length > 16 ? "'" + String(r.y).slice(2) : r.y}</text>`;
+  const chart = barChart({
+    labels: rows.map(r => rows.length > 16 ? "'" + String(r.y).slice(2) : String(r.y)), tipHead: (l, i) => String(rows[i].y), fmt: eur0,
+    series: [{ name: 'Έσοδα', values: rows.map(r => r.i), color: 'var(--inc)' }, { name: 'Έξοδα', values: rows.map(r => r.e), color: 'var(--exp)' }],
+    action: i => `data-action="goto-year" data-year="${rows[i].y}" style="cursor:pointer"`
   });
   return `
   <div class="page-head"><h1>Ιστορικό χρόνων</h1><div class="spacer"></div><button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button></div>
   ${(() => { const [t, b] = tabBar('history', [{ k: 'table', icon: '📋', label: 'Πίνακας' }, { k: 'chart', icon: '📊', label: 'Γράφημα' }], 'table'); ui._histTab = t; return b; })()}
   <div class="panel ${ui._histTab === 'chart' ? '' : 'hidden'}">
     <h2>Έσοδα και έξοδα ανά χρονιά</h2>
-    <svg class="chart" viewBox="0 0 ${W} ${H}">${svg}</svg>
-    <div class="legend"><span><i style="background:var(--inc)"></i>Έσοδα</span><span><i style="background:var(--exp)"></i>Έξοδα</span></div>
+    ${chart}
   </div>
   <div class="sheet-wrap ${ui._histTab === 'table' ? '' : 'hidden'}"><table class="data">
     <thead><tr><th>Χρονιά</th><th class="r">Έσοδα</th><th class="r">Έξοδα</th><th class="r">Διαφορά</th><th>Πηγή</th></tr></thead>
