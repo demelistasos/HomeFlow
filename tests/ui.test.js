@@ -97,7 +97,7 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       { const bal = id => page.evaluate(id => accBalanceAt(DB.accounts.find(a => a.id === id)).balance, id);
         const b0 = await bal('a1'), c0 = await bal('a3');
         await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80);
-        await page.fill('#fm-amount', '100'); await page.click('.cat-btn >> nth=0'); await page.selectOption('#fm-acc', 'a1'); await page.waitForTimeout(50);
+        await page.fill('#fm-amount', '100'); await page.click('.cat-btn >> nth=0'); await page.click('[data-action="form-more"]'); await page.selectOption('#fm-acc', 'a1'); await page.waitForTimeout(50);
         await page.click('[data-action="form-save"]'); await page.waitForTimeout(100);
         check(Math.abs(await bal('a1') - (b0 - 100)) < 0.01, 'έξοδο από λογαριασμό: το υπόλοιπο μειώνεται');
         check(await page.evaluate(() => DB.transactions[DB.transactions.length - 1].accountId === 'a1'), 'το έξοδο θυμάται τον λογαριασμό');
@@ -151,7 +151,7 @@ function check(ok, name) { if (ok) passed++; else { failed++; fails.push(name); 
       // Πολλές αποδείξεις στη σειρά
       { const n0 = await page.evaluate(() => DB.transactions.length);
         await page.keyboard.press('Control+KeyE'); await page.waitForTimeout(80);
-        await page.fill('#fm-amount', '7'); await page.click('.cat-btn >> nth=0'); await page.fill('#fm-date', '2026-03-03'); await page.click('[data-action="form-save-next"]'); await page.waitForTimeout(80);
+        await page.fill('#fm-amount', '7'); await page.click('.cat-btn >> nth=0'); await page.click('[data-action="form-more"]'); await page.fill('#fm-date', '2026-03-03'); await page.click('[data-action="form-save-next"]'); await page.waitForTimeout(80);
         check(await page.evaluate(() => !!form && form.date === '2026-03-03' && form.batchCount === 1), '«Αποθήκευση και επόμενο»: η φόρμα μένει ανοιχτή με την ίδια ημερομηνία');
         await page.fill('#fm-amount', '8'); await page.click('.cat-btn >> nth=0'); await page.click('[data-action="form-save"]'); await page.waitForTimeout(80);
         check(await page.evaluate(n => DB.transactions.length === n + 2 && !form, n0), 'πέρασαν και οι δύο κινήσεις'); }

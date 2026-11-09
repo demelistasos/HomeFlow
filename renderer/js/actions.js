@@ -5,6 +5,7 @@
 // ======================= ενέργειες =======================
 const actions = {
   'search-open': () => openSearch(),
+  'form-more': () => { if (!form) return; syncFormInputs(); form.more = !form.more; renderForm(); const d = $('.fm2-details'); if (d) d.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); },
   'form-allcats': () => { if (!form) return; syncFormInputs(); form.allCats = !form.allCats; renderForm(); },
   'pal-close': (el, ev) => { if (ev && ev.target !== el) return; pal = null; renderPal(); },
   'pal-go': el => { const r = pal && pal.res && pal.res[+el.dataset.i]; if (r) r.run(); },

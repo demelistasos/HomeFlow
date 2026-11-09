@@ -234,3 +234,48 @@ html.w-s .scale .v { font-size: 2.2rem; }
   .scale { background: #fff; color: #000; box-shadow: none; }
   .scale::before, .modal-head::after { display: none; }
 }
+
+/* ---------- φόρμα εσόδου/εξόδου: λίγα πράγματα μπροστά ---------- */
+.fm2 { max-width: 46rem; }
+.fm2 .modal-body { gap: 1.25rem; }
+.fm2-amount { display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .4rem 0 .2rem; text-align: center; }
+.fm2-amount > label { font-weight: 700; color: var(--ink-2); text-transform: uppercase; letter-spacing: .1em; font-size: .85rem; }
+.fm2-amount .amount-wrap { justify-content: center; }
+.fm2 .amount-input {
+  width: auto; field-sizing: content; min-width: 2.5ch; max-width: 100%; text-align: center; font-size: 3.6rem; font-weight: 600; letter-spacing: -.03em;
+  border: 0 !important; border-bottom: 3px dashed var(--line-2) !important; border-radius: 0 !important;
+  background: transparent !important; padding: .1rem .2rem; box-shadow: none !important;
+}
+.fm2.is-exp .amount-input { color: var(--exp); }
+.fm2.is-inc .amount-input { color: var(--inc); }
+.fm2 .amount-input:focus { border-bottom-color: var(--ink) !important; }
+.fm2 .amount-eur { font-size: 2.6rem; font-variation-settings: var(--display); color: var(--ink-3); }
+.fm2 #fm-calc:empty, .fm2 #fm-share:empty { display: none; }
+.fm2 .cat-grid { grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .6rem; }
+.fm2 .cat-btn { flex-direction: column; justify-content: center; text-align: center; gap: .3rem; min-height: 5.6rem; padding: .7rem .5rem; border-radius: 18px; font-weight: 600; line-height: 1.2; }
+.fm2 .cat-btn .ic { font-size: 1.9rem; }
+.fm2 .cat-btn.more { border-style: dashed; background: transparent; color: var(--ink-2); }
+.fm2 .cat-btn.more .ic { font-size: 1.6rem; color: var(--ink-3); }
+.fm2 .cat-btn small { color: var(--ink-3); font-weight: 500; }
+.fm2 .cat-btn.sel { background: var(--ink); border-color: var(--ink); color: var(--bg); box-shadow: 0 10px 22px -14px var(--ink); }
+.fm2.is-exp .cat-btn.sel { background: var(--exp); border-color: var(--exp); color: #fff; }
+.fm2.is-inc .cat-btn.sel { background: var(--inc); border-color: var(--inc); color: #fff; }
+:root[data-theme="dark"] .fm2 .cat-btn.sel { color: #11151E; }
+.linkish { background: none; border: 0; color: var(--ink-2); font-weight: 600; text-decoration: underline; margin-top: .5rem; padding: .2rem 0; }
+.fm2-note { display: flex; flex-direction: column; gap: .5rem; }
+.fm2-note input { width: 100%; }
+.chip.small { min-height: 2.1rem; padding: .15rem .8rem; font-size: .92rem; }
+.fm2-sum {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; width: 100%; text-align: left;
+  background: var(--paper-2); border: 1.5px dashed var(--line-2); border-radius: 16px; padding: .65rem .8rem; color: var(--ink);
+}
+.fm2-sum:hover, .fm2-sum.open { border-color: var(--ink-3); border-style: solid; }
+.fm2-sum .pill { display: inline-flex; align-items: center; gap: .35rem; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: .2rem .7rem; font-weight: 600; font-size: .95rem; }
+.fm2-more { margin-left: auto; font-weight: 700; color: var(--ink-2); padding-left: .5rem; }
+.fm2-details { display: flex; flex-direction: column; gap: 1.1rem; padding: 1rem 1.1rem; border-radius: 16px; background: var(--paper-2); border: 1px solid var(--line); }
+.fm2-details .acc-pick { min-width: 0; }
+.pill-input { border: 2px solid var(--line-2); border-radius: 99px; padding: .3rem .9rem; min-height: 2.6rem; background: var(--paper); }
+.fm2 .modal-foot .btn.big { min-height: 3.3rem; }
+@media (prefers-reduced-motion: no-preference) { .fm2-details { animation: hf-rise .25s cubic-bezier(.2, .7, .2, 1) both; } }
+html.w-s .fm2 .amount-input { font-size: 2.6rem; }
+html.w-s .fm2 .cat-grid { grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); }

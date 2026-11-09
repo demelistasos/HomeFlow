@@ -32,80 +32,91 @@ function renderForm() {
   const methods = DB.settings.methods || [];
   const isRentCat = f.type === 'income' && f.categoryId && DB.tenants.length && f.categoryId === rentCatId();
   const tenantsHere = isRentCat ? DB.tenants.filter(t => !t.end || t.end >= f.date.slice(0, 7) || t.id === f.tenantId) : [];
+  const LIM = 6, few = !f.allCats && cats.length > LIM + 1;
+  let shown = few ? cats.slice(0, LIM) : cats;
+  if (few && f.categoryId && !shown.some(c => c.id === f.categoryId)) shown = [...shown.slice(0, LIM - 1), catById(f.categoryId)];
+  const acc = f.accountId ? accById(f.accountId) : null;
+  const dLbl = f.dayKnown === false ? MONTHS[+f.date.slice(5, 7) - 1] : f.date === today ? 'Σήμερα' : f.date === yest ? 'Χθες' : shortDate(f.date);
+  const nAtt = (f.attachments || []).length;
+  const pills = [
+    ['📅', dLbl],
+    ...(payAccounts().length ? [[f.type === 'expense' ? '💳' : '🏦', acc ? accLabel(acc) : 'Χωρίς λογαριασμό']] : []),
+    ...(persons.length ? [['👤', f.person || 'Όλοι']] : []),
+    ...(f.method ? [['🪙', f.method]] : []),
+    ...(nAtt ? [['📎', String(nAtt)]] : []),
+    ...(f.planned ? [['⏳', 'Δεν έγινε ακόμα']] : []),
+    ...(f.makeRecurring ? [['🔁', 'Κάθε μήνα']] : [])
+  ];
   $('#modal-root').innerHTML = `
   <div class="modal-back" data-action="modal-back">
-    <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal fm2 ${isExp ? 'is-exp' : 'is-inc'}" role="dialog" aria-modal="true">
       <div class="modal-head ${isExp ? 'expense' : 'income'}">
         <h2>${f.tenantId && isRentCat ? (f.id ? 'Αλλαγή πληρωμής ενοικίου' : 'Πληρωμή ενοικίου') : f.id ? (isExp ? 'Αλλαγή εξόδου' : 'Αλλαγή εσόδου') : (isExp ? 'Νέο έξοδο' : 'Νέο έσοδο')}${f.batchCount ? ` <span style="font-weight:500;font-size:.8em">· πέρασαν ${f.batchCount}</span>` : ''}</h2>
         ${f.id || f.tenantId ? '' : `<button class="btn small" data-action="form-switch">${isExp ? 'Είναι έσοδο;' : 'Είναι έξοδο;'}</button>`}
         <button class="btn small" data-action="form-close" title="Κλείσιμο (Esc)">✕</button>
       </div>
       <div class="modal-body">
-        <div class="row fm-top">
-        <div class="field">
-          <label for="fm-amount">1. Πόσα χρήματα;</label>
+        <div class="fm2-amount">
+          <label for="fm-amount">Πόσα;</label>
           <div class="amount-wrap">
-            <input id="fm-amount" class="amount-input num" inputmode="decimal" autocomplete="off" value="${esc(f.amountStr)}" placeholder="0,00">
+            <input id="fm-amount" class="amount-input num" inputmode="decimal" autocomplete="off" value="${esc(f.amountStr)}" placeholder="0" title="Μπορείτε να γράψετε και πρόσθεση, όπως στο Excel: 50+39+12,5">
             <span class="amount-eur">€</span>
-            <span id="fm-calc" class="amount-calc">${calcHint(f.amountStr, amt)}</span>
           </div>
-          <div id="fm-share" class="amount-calc" style="margin-top:.35rem">${shareHint(f, amt)}</div>
-          <div class="hint">Μπορείτε να γράψετε και πρόσθεση, όπως στο Excel: <b>50+39+12,5</b></div>
-        </div>
-        ${accPicker(f.type, f.accountId, 'form-acc', 'fm-acc')}
+          <span id="fm-calc" class="amount-calc">${calcHint(f.amountStr, amt)}</span>
+          <div id="fm-share" class="amount-calc">${shareHint(f, amt)}</div>
         </div>
         <div class="field">
-          <div class="flabel">2. Για τι;</div>
-          ${(() => { const LIM = 10; const few = !f.allCats && cats.length > LIM + 2; let shown = few ? cats.slice(0, LIM) : cats; if (few && f.categoryId && !shown.some(c => c.id === f.categoryId)) shown = [...shown, catById(f.categoryId)];
-            return `<div class="cat-grid">${shown.map(c => `<button class="cat-btn ${c.id === f.categoryId ? 'sel' : ''}" data-action="form-cat" data-id="${esc(c.id)}"><span class="ic">${esc(c.icon)}</span><span>${esc(c.name)}</span></button>`).join('')}</div>
-            ${few ? `<button class="btn" style="margin-top:.55rem" data-action="form-allcats">▾ Όλες οι κατηγορίες (${cats.length})</button>` : (cats.length > LIM + 2 ? '<button class="btn small" style="margin-top:.55rem" data-action="form-allcats">▴ Μόνο οι συχνές</button>' : '')}`; })()}
+          <div class="flabel">Για τι;</div>
+          <div class="cat-grid">${shown.map(c => `<button class="cat-btn ${c.id === f.categoryId ? 'sel' : ''}" data-action="form-cat" data-id="${esc(c.id)}"><span class="ic">${esc(c.icon)}</span><span>${esc(c.name)}</span></button>`).join('')}${few ? `<button class="cat-btn more" data-action="form-allcats"><span class="ic">＋</span><span>Άλλο… <small>(${cats.length - shown.length})</small></span></button>` : ''}</div>
+          ${!few && cats.length > LIM + 1 ? '<button class="linkish" data-action="form-allcats">▴ Μόνο οι συχνές</button>' : ''}
         </div>
         ${tenantsHere.length ? `<div class="field">
           <div class="flabel">Ποιος ενοικιαστής πλήρωσε;</div>
           <div class="chips">${tenantsHere.map(t => `<button class="chip ${f.tenantId === t.id ? 'sel' : ''}" data-action="form-tenant" data-v="${esc(t.id)}">🏠 ${esc(t.name)}${t.property ? ` <span style="font-weight:500">(${esc(t.property)})</span>` : ''}</button>`).join('')}</div>
         </div>` : ''}
         <div id="fm-covers">${coversField(f, amt)}</div>
-        <div class="field">
-          <label for="fm-note">Σημείωση <span class="muted" style="font-weight:500">(προαιρετικά)</span></label>
-          ${notes.length ? `<div class="chips" style="margin-bottom:.5rem">${notes.map(n => `<button class="chip ${n === f.note ? 'sel' : ''}" data-action="form-note" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
-          <input id="fm-note" type="text" style="width:100%" value="${esc(f.note)}" placeholder="π.χ. λαϊκή, βενζίνη, φαρμακείο">
-          ${attBlock('form', null, f.attachments)}
+        <div class="field fm2-note">
+          <input id="fm-note" type="text" value="${esc(f.note)}" placeholder="✏️ Σημείωση (αν θέλετε) – π.χ. λαϊκή, φαρμακείο" aria-label="Σημείωση">
+          ${notes.length ? `<div class="chips">${notes.slice(0, 4).map(n => `<button class="chip small ${n === f.note ? 'sel' : ''}" data-action="form-note" data-v="${esc(n)}">${esc(n)}</button>`).join('')}</div>` : ''}
         </div>
-        <div class="row">
+        <button class="fm2-sum ${f.more ? 'open' : ''}" data-action="form-more" aria-expanded="${f.more ? 'true' : 'false'}">
+          ${pills.map(([i, t]) => `<span class="pill"><span>${i}</span>${esc(t)}</span>`).join('')}
+          <span class="fm2-more">${f.more ? 'Λιγότερα ▴' : 'Αλλαγή ▾'}</span>
+        </button>
+        ${f.more ? `<div class="fm2-details">
           <div class="field">
-            <div class="flabel">Πότε;</div>
+            <div class="flabel">📅 Πότε;</div>
             <div class="chips">
               <button class="chip ${f.dayKnown && f.date === today ? 'sel' : ''}" data-action="form-date" data-v="${today}">Σήμερα</button>
               <button class="chip ${f.dayKnown && f.date === yest ? 'sel' : ''}" data-action="form-date" data-v="${yest}">Χθες</button>
-              <input id="fm-date" type="date" value="${esc(f.date)}" style="border:2px solid var(--line-2);border-radius:99px;padding:.3rem .9rem;min-height:2.6rem;background:var(--paper)">
+              <input id="fm-date" type="date" value="${esc(f.date)}" class="pill-input">
             </div>
             ${f.dayKnown === false ? `<div class="hint">Από το Excel: ξέρουμε μόνο τον μήνα (${MONTHS[+f.date.slice(5, 7) - 1]}).</div>` : ''}
           </div>
+          ${accPicker(f.type, f.accountId, 'form-acc', 'fm-acc')}
           ${persons.length ? `<div class="field">
-            <div class="flabel">Ποιος;</div>
+            <div class="flabel">👤 Ποιος;</div>
             <div class="chips">${['', ...persons].map(p => `<button class="chip ${f.person === p ? 'sel' : ''}" data-action="form-person" data-v="${esc(p)}">${p ? esc(p) : 'Όλοι / —'}</button>`).join('')}</div>
           </div>` : ''}
-        </div>
-        <div class="row">
-          <div class="field">
-            <div class="flabel">Πώς;</div>
+          ${methods.length ? `<div class="field">
+            <div class="flabel">🪙 Πώς πληρώθηκε;</div>
             <div class="chips">${['', ...methods].map(m => `<button class="chip ${f.method === m ? 'sel' : ''}" data-action="form-method" data-v="${esc(m)}">${m ? esc(m) : '—'}</button>`).join('')}</div>
+          </div>` : ''}
+          <div class="field">${attBlock('form', null, f.attachments)}</div>
+          <div class="field" style="display:flex;flex-direction:column;gap:.6rem">
+            <label class="check"><input type="checkbox" id="fm-planned" ${f.planned ? 'checked' : ''}> ⏳ Δεν έχει γίνει ακόμα (προγραμματισμένο)</label>
+            ${f.id || f.recurringId || f.tenantId ? '' : `<label class="check"><input type="checkbox" id="fm-recurring" ${f.makeRecurring ? 'checked' : ''}> 🔁 Να γίνεται κάθε μήνα (πάγιο)</label>`}
           </div>
-          <div class="field" style="display:flex;flex-direction:column;gap:.6rem;justify-content:flex-end">
-            <label class="check"><input type="checkbox" id="fm-planned" ${f.planned ? 'checked' : ''}> Δεν έχει γίνει ακόμα (προγραμματισμένο)</label>
-            ${f.id || f.recurringId || f.tenantId ? '' : `<label class="check"><input type="checkbox" id="fm-recurring" ${f.makeRecurring ? 'checked' : ''}> 🔁 Να γίνει πάγιο (κάθε μήνα)</label>`}
-          </div>
-        </div>
+        </div>` : ''}
         ${f.error ? `<div class="notice" style="margin:0;border-color:var(--exp-line);background:var(--exp-soft);color:var(--exp)"><b>${esc(f.error)}</b></div>` : ''}
       </div>
       ${f.askClose ? `<div class="ask-close"><b>Να κλείσει χωρίς αποθήκευση;</b> Ό,τι γράψατε θα χαθεί.<div class="spacer"></div>
         <button class="btn" data-action="form-close-no">Όχι, συνεχίζω</button><button class="btn danger" data-action="form-close-yes">Ναι, κλείσιμο</button></div>` : ''}
       <div class="modal-foot">
-        ${f.id ? '<button class="btn danger" data-action="form-delete">🗑 Διαγραφή</button>' : ''}
+        ${f.id ? '<button class="btn danger" data-action="form-delete">🗑 Διαγραφή</button>' : `<button class="btn ghost" data-action="form-close">${f.batchCount ? 'Τέλος' : 'Ακύρωση'}</button>`}
         <div class="spacer"></div>
-        <button class="btn" data-action="form-close">${f.batchCount ? 'Τέλος' : 'Ακύρωση'}</button>
-        ${f.id || f.tenantId ? '' : `<button class="btn" data-action="form-save-next" title="Αποθηκεύει και ανοίγει αμέσως νέα φόρμα με την ίδια ημερομηνία και λογαριασμό">✓ Αποθήκευση και επόμενο</button>`}
-        <button class="btn big ${isExp ? 'expense' : 'income'}" style="width:auto;padding:0 2.2rem" data-action="form-save">✓ Αποθήκευση</button>
+        ${f.id || f.tenantId ? '' : `<button class="btn" data-action="form-save-next" title="Αποθηκεύει και ανοίγει αμέσως νέα, με την ίδια ημερομηνία και λογαριασμό">＋ Και άλλο</button>`}
+        <button class="btn big ${isExp ? 'expense' : 'income'}" style="width:auto;padding:0 2.4rem" data-action="form-save">✓ Αποθήκευση</button>
       </div>
     </div>
   </div>`;
@@ -136,8 +147,8 @@ function saveForm(next) {
   const f = form;
   const amt = parseAmount(f.amountStr);
   if (amt === null || isNaN(amt) || amt <= 0) { f.error = 'Γράψτε ένα ποσό μεγαλύτερο από 0.'; renderForm(); $('#fm-amount').focus(); return; }
-  if (!f.categoryId) { f.error = 'Διαλέξτε για τι είναι («2. Για τι;»).'; renderForm(); return; }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) { f.error = 'Η ημερομηνία δεν είναι σωστή.'; renderForm(); return; }
+  if (!f.categoryId) { f.error = 'Διαλέξτε «Για τι;».'; renderForm(); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) { f.more = true; f.error = 'Η ημερομηνία δεν είναι σωστή.'; renderForm(); return; }
   const isRent = f.type === 'income' && DB.tenants.length && f.categoryId === rentCatId();
   const ten = isRent && f.tenantId ? tenantById(f.tenantId) : null;
   const sh = ten ? shareOf(ten) : 100;
