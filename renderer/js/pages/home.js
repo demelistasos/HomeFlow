@@ -36,26 +36,52 @@ function homePage() {
   const msg = !tI && !tE ? (isCurrent ? 'Δεν έχει γραφτεί τίποτα αυτόν τον μήνα ακόμα.' : 'Δεν υπάρχουν κινήσεις αυτόν τον μήνα.')
     : bal < 0 ? `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} βγήκαν περισσότερα απ’ όσα μπήκαν.` : `${isCurrent ? 'Αυτόν τον μήνα' : 'Εκείνο τον μήνα'} έμειναν ${eur(bal)}.`;
   const tot = Math.max(tI, tE) || 1;
+  const s0 = ymOf(year, month);
+  const remAll = isCurrent ? reminders() : [];
+  const rentOpenTs = DB.tenants.filter(t => tenantActiveIn(t, s0) && tenantRent(t, s0) && tenantMonthStatus(t, s0).cls !== 'ok');
+  const attn = [
+    ...remAll.filter(r => r.cls === 'late'), ...remAll.filter(r => r.cls !== 'late')
+  ].slice(0, 3);
+  const goTab = k => `data-action="tab" data-page="home" data-k="${k}"`;
+  const mName = MONTHS[month - 1];
   return `
   <div class="hero">
-    <h1>${MONTHS[month - 1]} <span class="yr">${year}</span></h1>
+    <div class="hero-t">
+      <div class="eyebrow">${isCurrent ? `${hello}${voc ? ', ' + esc(voc) : ''}` : 'Προηγούμενος μήνας'}</div>
+      <div class="hero-row">
+        <button class="nav-arrow no-print" data-action="month-prev" title="Προηγούμενος μήνας" aria-label="Προηγούμενος μήνας">‹</button>
+        <h1>${mName} <span class="yr">${year}</span></h1>
+        <button class="nav-arrow no-print" data-action="month-next" title="Επόμενος μήνας" aria-label="Επόμενος μήνας">›</button>
+      </div>
+    </div>
     <div class="spacer"></div>
-    ${isCurrent ? '' : '<button class="btn no-print" data-action="month-today">Σήμερα</button>'}
-    <button class="btn no-print" data-action="month-pdf" title="Μία σελίδα με τη σύνοψη του μήνα, για αρχείο ή για τον λογιστή">📄 PDF μήνα</button>
-    <button class="btn no-print" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
-    <div class="month-nav no-print">
-      <button class="btn" data-action="month-prev" title="Προηγούμενος μήνας">‹</button>
-      <button class="btn" data-action="month-next" title="Επόμενος μήνας">›</button>
+    <div class="hero-tools no-print">
+      ${isCurrent ? '' : '<button class="btn small primary" data-action="month-today">↩ Σήμερα</button>'}
+      <button class="btn small ghost" data-action="month-pdf" title="Μία σελίδα με τη σύνοψη του μήνα, για αρχείο ή για τον λογιστή">📄 PDF μήνα</button>
+      <button class="btn small ghost" data-action="print" title="Συγκεντρωτικό Excel">📊 Excel</button>
     </div>
   </div>
-  <div class="greet">${isCurrent ? `${hello}${voc ? ', ' + esc(voc) : ''}. ` : ''}${msg}</div>
 
-  <div class="scale">
-    <div><div class="k">Μπήκαν</div><div class="v inc num">${eur(tI)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI)}</b></div></div>
-    <div><div class="k">Βγήκαν</div><div class="v exp num">${eur(tE)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdE)}</b></div></div>
-    <div><div class="k">Έμειναν</div><div class="v num" style="color:${bal < 0 ? 'var(--exp)' : 'var(--ink)'}">${bal < 0 ? '−' + eur(-bal) : eur(bal)}</div><div class="s">από αρχή χρονιάς <b class="num">${eur(ytdI - ytdE)}</b></div></div>
-    ${compareLine(year, month, tE, ytdE)}
-    ${tI || tE ? `<div class="meter" title="Πράσινο: μπήκαν · Κόκκινο: βγήκαν"><i style="flex:${tI / tot};background:var(--inc)"></i><i style="flex:${tE / tot};background:var(--exp)"></i></div>` : ''}
+  <div class="bento">
+    <section class="b-bal ${bal < 0 ? 'neg' : 'pos'}">
+      <div class="b-k">Έμειναν ${isCurrent ? 'αυτόν τον μήνα' : 'τον ' + mName.replace(/ς$/, '')}</div>
+      <div class="b-v num">${bal < 0 ? '−' + eur(-bal) : eur(bal)}</div>
+      <div class="b-msg">${msg}</div>
+      <div class="b-flow">
+        <div class="b-in"><span class="dot"></span><div><div class="b-k2">Μπήκαν</div><div class="b-v2 num">${eur(tI)}</div><div class="b-s">φέτος <b class="num">${eur0(ytdI)}</b></div></div></div>
+        <div class="b-out"><span class="dot"></span><div><div class="b-k2">Βγήκαν</div><div class="b-v2 num">${eur(tE)}</div><div class="b-s">φέτος <b class="num">${eur0(ytdE)}</b></div></div></div>
+      </div>
+      ${tI || tE ? `<div class="meter" title="Πράσινο: μπήκαν · Κόκκινο: βγήκαν"><i class="mi" style="flex:${tI / tot}"></i><i class="mo" style="flex:${tE / tot}"></i></div>` : ''}
+      ${compareLine(year, month, tE, ytdE)}
+    </section>
+    <section class="b-attn">
+      <div class="b-h">${attn.length || rentOpenTs.length ? 'Θέλουν προσοχή' : 'Όλα εντάξει'}</div>
+      ${rentOpenTs.length ? `<button class="attn-row" ${goTab('rent')}><span class="a-ic">🔑</span><span class="a-t"><b>${rentOpenTs.length === 1 ? '1 ενοίκιο' : rentOpenTs.length + ' ενοίκια'}</b> δεν πληρώθηκε${rentOpenTs.length === 1 ? '' : 'καν'} ακόμα<small>${rentOpenTs.map(t => esc(t.name)).join(', ')}</small></span><span class="a-go">›</span></button>` : ''}
+      ${attn.map(r => `<button class="attn-row ${r.cls === 'late' ? 'late' : ''}" ${goTab('remind')}><span class="a-ic">${r.icon}</span><span class="a-t">${r.text}<small>${r.sub}</small></span><span class="a-go">›</span></button>`).join('')}
+      ${!attn.length && !rentOpenTs.length ? `<div class="attn-ok"><span>✓</span>${isCurrent ? 'Δεν υπάρχει κάτι να θυμηθείτε τώρα.' : 'Τίποτα ανοιχτό για αυτόν τον μήνα.'}</div>` : ''}
+      ${remAll.length > attn.length ? `<button class="linkish" ${goTab('remind')}>Όλες οι υπενθυμίσεις (${remAll.length}) →</button>` : ''}
+      ${plannedTx.length ? `<button class="attn-row soft" ${goTab('planned')}><span class="a-ic">📌</span><span class="a-t"><b>${plannedTx.length}</b> προγραμματισμέν${plannedTx.length === 1 ? 'ο' : 'α'} για τον μήνα</span><span class="a-go">›</span></button>` : ''}
+    </section>
   </div>
 
   ${homeTabs()}`;

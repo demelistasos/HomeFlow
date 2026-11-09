@@ -86,7 +86,7 @@ const EMOJI_RE = new RegExp('(' + Object.keys(EMOJI_IC).sort((a, b) => b.length 
 const IC_SKIP = '.cat-btn, .emoji-grid, .ic-btn, input, textarea, select, [data-noicon]';
 // Στις «θέσεις εικονιδίου» μιας γραμμής (π.χ. υπενθυμίσεις, αναζήτηση) μπορεί να εμφανίζεται και
 // το emoji μιας κατηγορίας. Αυτό μένει emoji, για να ταιριάζει παντού με την κατηγορία του.
-const IC_SLOT = '.ic, .p-ic, .pal-ic, .cal-e';
+const IC_SLOT = '.ic, .p-ic, .pal-ic, .cal-e, .a-ic';
 function catEmojis() {
   try { return new Set((DB && DB.categories || []).map(c => String(c.icon || '').replace(/️/g, ''))); } catch { return new Set(); }
 }
