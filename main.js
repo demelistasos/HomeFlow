@@ -565,7 +565,8 @@ function fixShortcuts(force) {
   const exe = process.execPath, opts = { target: exe, cwd: path.dirname(exe), icon: exe, iconIndex: 0, description: 'HomeFlow – έσοδα & έξοδα σπιτιού', appUserModelId: AUMID };
   const done = [];
   const isOurs = lnk => {
-    try { const t = shell.readShortcutLink(lnk).target || ''; return /homeflow[^\\/]*\.exe$/i.test(path.basename(t)) || /HomeFlow/i.test(path.basename(lnk, '.lnk')) && /homeflow/i.test(t); } catch { return false; }
+    // ό,τι ανοίγει το HomeFlow.exe, ή δείχνει στον (σβησμένο) φάκελο «… .παλιό» μιας παλιάς ενημέρωσης
+    try { const t = shell.readShortcutLink(lnk).target || ''; return /homeflow[^\\/]*\.exe$/i.test(path.basename(t)) || /homeflow/i.test(t) && (/\.παλιό/i.test(t) || /HomeFlow/i.test(path.basename(lnk, '.lnk'))); } catch { return false; }
   };
   const refresh = lnk => { try { if (shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'replace' : 'create', opts)) done.push(lnk); } catch (e) { updLog('συντόμευση: ' + lnk + ': ' + e.message); } };
   try {

@@ -60,11 +60,13 @@ async function t(name, fn) {
     fs.mkdirSync(path.join(app, 'resources'), { recursive: true }); fs.writeFileSync(path.join(app, 'HomeFlow.exe'), 'old'); fs.writeFileSync(path.join(app, 'resources', 'app.asar'), 'old');
     fs.mkdirSync(path.join(nw, 'resources'), { recursive: true }); fs.writeFileSync(path.join(nw, 'HomeFlow.exe'), 'new'); fs.writeFileSync(path.join(nw, 'resources', 'app.asar'), 'new');
     let alive = 3, launched = null; const logs = [];
+    const ino = fs.statSync(app).ino;
     const r = await upd.finishUpdate({ pid: 1, appPath: app, newPath: nw, exeName: 'HomeFlow.exe' }, { isAlive: () => alive-- > 0, launch: p => { launched = p; }, log: m => logs.push(m), wait: 5 });
     assert.ok(r.ok, logs.join('\n'));
     assert.strictEqual(fs.readFileSync(path.join(app, 'resources', 'app.asar'), 'utf8'), 'new');
     assert.strictEqual(launched, path.join(app, 'HomeFlow.exe'));
     assert.ok(!fs.existsSync(app + '.παλιό'), 'η παλιά σβήστηκε');
+    assert.strictEqual(fs.statSync(app).ino, ino, 'ο φάκελος του προγράμματος δεν μετονομάστηκε (για να μη χαλάνε οι συντομεύσεις)');
   });
   await t('finishUpdate: αν αποτύχει, μένει η παλιά έκδοση', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-'));

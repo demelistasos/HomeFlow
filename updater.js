@@ -162,12 +162,17 @@ async function finishUpdate(o, { log = () => {}, isAlive, launch, wait = 500 } =
   log('ολοκλήρωση: αναμονή να κλείσει η παλιά έκδοση');
   for (let i = 0; i < 120 && alive(o.pid); i++) await sleep(wait);
   await sleep(Math.min(800, wait * 2));
-  let moved = false;
+  // Ο φάκελος του προγράμματος ΔΕΝ μετονομάζεται ποτέ: τα Windows «ακολουθούν» τις μετονομασίες
+  // και θα άλλαζαν τις συντομεύσεις/καρφιτσώματα να δείχνουν στο «.παλιό», που μετά σβήνεται.
+  // Γι' αυτό: αντίγραφο της παλιάς έκδοσης δίπλα, άδειασμα του φακέλου, αντιγραφή της νέας μέσα.
+  const empty = dir => { for (const n of fs.readdirSync(dir)) fs.rmSync(path.join(dir, n), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); };
+  let touched = false;
   try {
     if (fs.existsSync(old)) await tryMany('σβήσιμο παλιού', () => fs.rmSync(old, { recursive: true, force: true }), 10);
-    await tryMany('μετακίνηση παλιάς έκδοσης', () => fs.renameSync(o.appPath, old));
-    moved = true;
-    await tryMany('αντιγραφή νέας έκδοσης', () => { fs.rmSync(o.appPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); fs.cpSync(o.newPath, o.appPath, { recursive: true }); }, 10);
+    await tryMany('αντίγραφο παλιάς έκδοσης', () => { fs.rmSync(old, { recursive: true, force: true }); fs.cpSync(o.appPath, old, { recursive: true }); }, 10);
+    touched = true;
+    await tryMany('άδειασμα φακέλου', () => empty(o.appPath));
+    await tryMany('αντιγραφή νέας έκδοσης', () => fs.cpSync(o.newPath, o.appPath, { recursive: true, force: true }), 10);
     if (!fs.existsSync(path.join(o.appPath, o.exeName))) throw new Error('η νέα έκδοση δεν αντιγράφηκε σωστά');
     log('η νέα έκδοση μπήκε');
     launch(path.join(o.appPath, o.exeName));
@@ -175,9 +180,12 @@ async function finishUpdate(o, { log = () => {}, isAlive, launch, wait = 500 } =
     return { ok: true };
   } catch (e) {
     log('ΣΦΑΛΜΑ στην ολοκλήρωση: ' + e.message);
-    if (moved) {
-      try { fs.rmSync(o.appPath, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch (e3) { log('δεν σβήστηκε η μισή αντιγραφή: ' + (e3.code || e3.message)); }
-      try { await tryMany('επαναφορά', () => fs.renameSync(old, o.appPath), 20); log('επαναφορά παλιάς έκδοσης'); } catch (e2) { log('ΔΕΝ έγινε επαναφορά: ' + (e2.code || e2.message) + ' — η παλιά έκδοση είναι στο ' + old); launch(path.join(old, o.exeName)); return { ok: false }; }
+    if (touched) {
+      try {
+        await tryMany('επαναφορά', () => { empty(o.appPath); fs.cpSync(old, o.appPath, { recursive: true, force: true }); }, 20);
+        log('επαναφορά παλιάς έκδοσης');
+        try { fs.rmSync(old, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch { /* τίποτα */ }
+      } catch (e2) { log('ΔΕΝ έγινε επαναφορά: ' + (e2.code || e2.message) + ' — η παλιά έκδοση είναι στο ' + old); launch(path.join(old, o.exeName)); return { ok: false }; }
     }
     launch(path.join(o.appPath, o.exeName));
     return { ok: false, error: e.message };
