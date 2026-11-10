@@ -553,6 +553,38 @@ ipcMain.handle('update:check', async () => {
   return { status: 'checking' };
 });
 
+// ---------- συντομεύσεις των Windows ----------
+// Μετά από κάθε νέα έκδοση: φτιάχνει/ανανεώνει το «HomeFlow» στο μενού Έναρξη, ανανεώνει όσες
+// συντομεύσεις (επιφάνεια εργασίας, Έναρξη, γραμμή εργασιών) δείχνουν στο HomeFlow.exe, ώστε να
+// ανοίγουν σωστά και να παίρνουν το νέο εικονίδιο, και λέει στα Windows να ξαναδιαβάσουν τα εικονίδια.
+const AUMID = 'gr.homeflow.app';
+function fixShortcuts(force) {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  const cfg = readConfig();
+  if (!force && cfg.shortcutsVersion === app.getVersion()) return;
+  const exe = process.execPath, opts = { target: exe, cwd: path.dirname(exe), icon: exe, iconIndex: 0, description: 'HomeFlow – έσοδα & έξοδα σπιτιού', appUserModelId: AUMID };
+  const done = [];
+  const isOurs = lnk => {
+    try { const t = shell.readShortcutLink(lnk).target || ''; return /homeflow[^\\/]*\.exe$/i.test(path.basename(t)) || /HomeFlow/i.test(path.basename(lnk, '.lnk')) && /homeflow/i.test(t); } catch { return false; }
+  };
+  const refresh = lnk => { try { if (shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'replace' : 'create', opts)) done.push(lnk); } catch (e) { updLog('συντόμευση: ' + lnk + ': ' + e.message); } };
+  try {
+    const appData = app.getPath('appData');
+    const startDir = path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    refresh(path.join(startDir, 'HomeFlow.lnk'));
+    const dirs = [app.getPath('desktop'), startDir, path.join(appData, 'Microsoft', 'Internet Explorer', 'Quick Launch', 'User Pinned', 'TaskBar'), path.join(appData, 'Microsoft', 'Internet Explorer', 'Quick Launch', 'User Pinned', 'StartMenu')];
+    for (const d of dirs) {
+      let names = []; try { names = fs.readdirSync(d); } catch { continue; }
+      for (const n of names) { const f = path.join(d, n); if (/\.lnk$/i.test(n) && !done.includes(f) && isOurs(f)) refresh(f); }
+    }
+    try { require('child_process').spawn('ie4uinit.exe', ['-show'], { detached: true, stdio: 'ignore', windowsHide: true }).unref(); } catch { /* τίποτα */ }
+    writeConfig({ ...readConfig(), shortcutsVersion: app.getVersion() });
+    updLog(`συντομεύσεις: ανανεώθηκαν ${done.length} (${done.map(f => path.basename(path.dirname(f)) + '\\' + path.basename(f)).join(', ')})`);
+  } catch (e) { updLog('συντομεύσεις: ' + e.message); }
+  return done.length;
+}
+ipcMain.handle('app:fixShortcuts', () => ({ ok: true, count: fixShortcuts(true) || 0 }));
+
 // ---------- εκκίνηση ----------
 if (FINISH) {
   // Λειτουργία «ολοκλήρωση ενημέρωσης»: χωρίς παράθυρο, κάνει την αλλαγή και κλείνει.
@@ -565,9 +597,11 @@ if (FINISH) {
   app.on('second-instance', () => {
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
+  if (process.platform === 'win32') app.setAppUserModelId(AUMID);
   app.whenReady().then(() => {
     createWindow();
     setupUpdates();
+    setTimeout(() => fixShortcuts(false), 3000);
   });
   app.on('window-all-closed', () => app.quit());
 }

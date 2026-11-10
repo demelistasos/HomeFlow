@@ -48,6 +48,7 @@ function showUpdate(s) {
 }
 if (window.homeflow) window.homeflow.onUpdate(showUpdate);
 const updActions = {
+  'fix-shortcuts': async () => { const r = window.homeflow.fixShortcuts && await window.homeflow.fixShortcuts(); toast(r && r.ok ? `Έτοιμο: το «HomeFlow» είναι στην Έναρξη${r.count > 1 ? ` και ανανεώθηκαν ${r.count - 1} ακόμα συντομεύσεις` : ''}. Αν δείχνει ακόμα παλιό εικονίδιο, κάντε επανεκκίνηση.` : 'Δεν έγινε η διόρθωση.'); },
   'update-log': async () => { const r = await window.homeflow.openUpdateLog(); if (r && r.error) toast(r.error); },
   'update-later': () => { updLater = true; updBanner(''); },
   'update-now': () => {
