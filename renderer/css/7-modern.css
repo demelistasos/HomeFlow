@@ -96,7 +96,7 @@ body { background: var(--bg); letter-spacing: -.005em; }
   border-radius: 26px;
   box-shadow: var(--shadow-lg);
 }
-.brand-logo { border-radius: 12px; }
+.brand-logo { border-radius: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 6px 16px -6px rgba(99,91,255,.6); }
 .brand-name { font-weight: 800; letter-spacing: -.03em; }
 .sidebar .search-btn, .sidebar .help-btn { border: 1px solid var(--line-2); }
 .sidebar kbd { background: transparent; }
